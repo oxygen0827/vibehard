@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project overview
 
-This is **DevHard AI**，一个面向智能硬件研发的 Agent 工具平台前端项目。第一阶段目标是复刻 `https://www.hellozhi.com/` 的落地页视觉与结构，后续会逐步接入提示词模板库、原理图识别、硬件方案生成、芯片资料解析以及 MCP Server/嵌入式工具链能力。
+This is **VibeHard AI**，一个面向智能硬件研发的 Agent 工具平台前端项目。第一阶段目标是复刻 `https://www.hellozhi.com/` 的落地页视觉与结构，后续会逐步接入提示词模板库、原理图识别、硬件方案生成、芯片资料解析以及 MCP Server/嵌入式工具链能力。
 
 - **框架**：Next.js 16 + App Router + React 19 + TypeScript
 - **样式**：Tailwind CSS 4
@@ -46,7 +46,7 @@ pnpm test:watch
 app/
   layout.tsx          # 根布局，注入 ThemeProvider、Geist 字体、全局 metadata
   page.tsx            # 首页，组装 Hero/Stats/Workflow/CTA/Footer
-  globals.css         # Tailwind 入口 + shadcn CSS 变量 + DevHard 背景装饰
+  globals.css         # Tailwind 入口 + shadcn CSS 变量 + VibeHard 背景装饰
   login/page.tsx      # 登录页（演示账号 demo@vibehard.ai / demo1234）
   register/page.tsx   # 邀请码注册页（演示邀请码 VIBE2026）
   app/                # 工作台（受 proxy.ts 会话守卫保护）
@@ -80,6 +80,9 @@ lib/
 proxy.ts              # Next.js Proxy（原 middleware）：/app 未登录重定向到 /login
 public/
   vibehard-icon.svg   # Logo
+skills/               # Agent 技能包（供原理图自动化等能力使用）
+  easyeda-api-skill/            # 嘉立创 EDA 专业版 API 参考（format/references/guide）
+  easyeda-enhanced-schematic-skill/  # 增强原理图生成技能
 __tests__/            # 测试文件
   theme-toggle.test.tsx
   auth.test.ts
@@ -96,7 +99,7 @@ vitest-env.d.ts       # Vitest 类型声明
 - **主题系统**：`layout.tsx` 通过 `ThemeProvider` 注入，`html` 带 `suppressHydrationWarning`。切换逻辑在 `theme-toggle.tsx`，通过 `useSyncExternalStore` 避免挂载闪烁。
 - **样式约定**：颜色全部通过 CSS 变量（`--primary`、`--background`、`--card` 等）驱动，`globals.css` 中同时定义了深色/亮色两套变量。毛玻璃卡片、顶部辉光、网格背景也在 `globals.css` 中统一维护。
 - **组件按钮**：shadcn 生成的 `Button` 基于 `@base-ui/react/button`，**不支持 `asChild`**。需要同时作为链接和按钮样式时，直接用 Next.js `Link` 并复刻按钮的 Tailwind class，不要包在 `Button` 里。
-- **图标 Logo**：`public/devhard-icon.svg` 是填充 `currentColor` 的 SVG，通过 `text-primary` 控制颜色；使用 Next.js `Image` 渲染并设置 `unoptimized`。
+- **图标 Logo**：`public/vibehard-icon.svg` 是填充 `currentColor` 的 SVG，通过 `text-primary` 控制颜色；使用 Next.js `Image` 渲染并设置 `unoptimized`。
 
 ## Adding new pages
 
