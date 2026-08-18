@@ -5,6 +5,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { AUTH_CHANGED_EVENT, AUTH_COOKIE } from "@/lib/auth";
+import { assetPath } from "@/lib/utils";
 
 function subscribe(onStoreChange: () => void) {
   window.addEventListener(AUTH_CHANGED_EVENT, onStoreChange);
@@ -30,7 +31,7 @@ export function HomeNav() {
     <nav className="sticky top-0 z-30 flex items-center justify-between border-b border-border/70 bg-background/80 px-5 py-4 backdrop-blur-xl lg:px-12">
       <div className="flex items-center gap-2.5">
         <Image
-          src="/vibehard-icon.svg"
+          src={assetPath("/vibehard-icon.svg")}
           alt=""
           width={32}
           height={32}

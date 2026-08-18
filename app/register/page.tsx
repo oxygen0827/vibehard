@@ -8,6 +8,7 @@ import { Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { register } from "@/lib/auth";
+import { assetPath } from "@/lib/utils";
 
 export default function RegisterPage() {
   const router = useRouter();
@@ -41,7 +42,7 @@ export default function RegisterPage() {
       <div className="animate-fade-up relative z-10 w-full max-w-sm rounded-2xl border border-border/80 bg-card/95 p-8 shadow-[0_18px_48px_rgba(15,23,42,0.09)] dark:shadow-[0_22px_58px_rgba(0,0,0,0.24)]">
         <div className="mb-6 flex items-center justify-center gap-2">
           <Image
-            src="/vibehard-icon.svg"
+            src={assetPath("/vibehard-icon.svg")}
             alt=""
             width={32}
             height={32}

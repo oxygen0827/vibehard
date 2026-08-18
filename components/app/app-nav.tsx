@@ -7,6 +7,7 @@ import { ThemeToggle } from "@/components/theme-toggle";
 import { Button } from "@/components/ui/button";
 import { LogOut, Bell, Settings, Loader2 } from "lucide-react";
 import { logout } from "@/lib/auth";
+import { assetPath } from "@/lib/utils";
 
 export function AppNav() {
   const router = useRouter();
@@ -23,7 +24,7 @@ export function AppNav() {
     <nav className="sticky top-0 z-40 flex items-center justify-between border-b border-border/70 bg-background/80 px-5 py-4 backdrop-blur-xl lg:px-12">
       <div className="flex items-center gap-2.5">
         <Image
-          src="/vibehard-icon.svg"
+          src={assetPath("/vibehard-icon.svg")}
           alt=""
           width={32}
           height={32}

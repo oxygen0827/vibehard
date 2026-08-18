@@ -6,7 +6,9 @@ export function proxy(request: NextRequest) {
 
   // 未登录访问工作台 → 重定向到登录页
   if (!hasSession) {
-    const loginUrl = new URL("/login", request.url);
+    // new URL 不会自动带 basePath，子路径部署（如 /vibehard）时需手动补前缀
+    const basePath = process.env.NEXT_PUBLIC_BASE_PATH ?? "";
+    const loginUrl = new URL(`${basePath}/login`, request.url);
     return NextResponse.redirect(loginUrl);
   }
 
