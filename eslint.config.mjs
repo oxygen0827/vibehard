@@ -12,6 +12,8 @@ const eslintConfig = defineConfig([
     "out/**",
     "build/**",
     "next-env.d.ts",
+    // 第三方静态镜像资源（zutils 工具集），无需 lint:
+    "public/zutils/**",
   ]),
 ]);
 
