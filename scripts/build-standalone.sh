@@ -19,4 +19,11 @@ rm -rf .next/standalone/.next/static
 cp -r .next/static .next/standalone/.next/static
 rm -rf .next/standalone/public
 cp -r public .next/standalone/public
+
+# standalone 会 trace 进 sharp 的平台原生二进制（.node），跨平台部署（如 mac 构建 → linux 运行）会炸。
+# 全站图片均为 unoptimized，运行期不会加载 sharp，直接剔除即可跨平台运行。
+rm -rf .next/standalone/node_modules/.pnpm/@img+sharp* \
+       .next/standalone/node_modules/.pnpm/sharp@* \
+       .next/standalone/node_modules/.pnpm/node_modules/sharp
+echo "[build-standalone] 已剔除 sharp 原生二进制（图片全站 unoptimized，无需优化器）"
 echo "[build-standalone] standalone 产物就绪：.next/standalone（node server.js 启动）"

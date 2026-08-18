@@ -122,4 +122,12 @@ pnpm dlx shadcn@latest add <component-name>
 
 ## Deployment notes
 
-项目使用 Next.js 默认静态导出配置（`next.config.ts` 未启用 `output: 'export'`）。若需部署到静态托管，请在 `next.config.ts` 中设置 `output: 'export'` 并确认所有路由都能被预渲染。
+生产环境部署在 ldcx.tech 服务器（`root@47.102.197.71`）的子路径 **https://ldcx.tech/vibehard**：
+
+- **运行方式**：Next.js standalone（`next.config.ts` 中 `output: "standalone"` + 条件 `basePath`，由 `NEXT_PUBLIC_BASE_PATH` 环境变量控制；本地开发不设置即为根路径）。服务器上以 systemd 服务 `vibehard.service` 运行，监听 `0.0.0.0:3210`；产物在 `/opt/vibehard/standalone`，源码副本在 `/opt/vibehard/src`。
+- **反代**：nginx 运行在 docker 容器中，配置文件是宿主机 `/home/lincaigui/nginx/nginx.conf`（该配置还承载 Gitea 等其它服务，**只追加、不要改动其它 location**）。`/vibehard/` 反代到 `host.docker.internal:3210`；`/zutils/` 重写到 `/vibehard/zutils/`（工具镜像挂域名根路径，避免 basePath 破坏其内部绝对路径）。改配置后：`docker exec nginx nginx -t && docker exec nginx nginx -s reload`。
+- **更新流程**（服务器在国内，构建期的 `next/font/google` 需要访问 Google Fonts，因此**在本地构建**再上传产物）：
+  1. `NEXT_PUBLIC_BASE_PATH=/vibehard bash scripts/build-standalone.sh`（自动补齐 pnpm 布局下漏拷的 `@swc/helpers/esm`、剔除 sharp 原生二进制）
+  2. `tar czf - -C .next/standalone . | ssh root@47.102.197.71 "tar xzf - -C /opt/vibehard/standalone"`（服务器未装 rsync，用 tar 管道）
+  3. `ssh root@47.102.197.71 systemctl restart vibehard`
+- 常用运维：`systemctl status vibehard` / `journalctl -u vibehard -f` 查看服务与日志。
