@@ -1,27 +1,32 @@
 "use client";
 
-import { useSyncExternalStore } from "react";
+import { useEffect, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { ThemeToggle } from "@/components/theme-toggle";
-import { AUTH_CHANGED_EVENT, AUTH_COOKIE } from "@/lib/auth";
-import { assetPath } from "@/lib/utils";
-
-function subscribe(onStoreChange: () => void) {
-  window.addEventListener(AUTH_CHANGED_EVENT, onStoreChange);
-  window.addEventListener("focus", onStoreChange);
-  return () => {
-    window.removeEventListener(AUTH_CHANGED_EVENT, onStoreChange);
-    window.removeEventListener("focus", onStoreChange);
-  };
-}
+import { AUTH_CHANGED_EVENT } from "@/lib/auth";
+import { apiPath, assetPath } from "@/lib/utils";
 
 function useIsLoggedIn() {
-  return useSyncExternalStore(
-    subscribe,
-    () => document.cookie.includes(`${AUTH_COOKIE}=`),
-    () => false
-  );
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
+  useEffect(() => {
+    let active = true;
+    const refresh = () => {
+      void fetch(apiPath("/api/auth/session"), { cache: "no-store" })
+        .then((response) => response.ok ? response.json() as Promise<{ authenticated: boolean }> : { authenticated: false })
+        .then((session) => { if (active) setIsLoggedIn(session.authenticated); })
+        .catch(() => { if (active) setIsLoggedIn(false); });
+    };
+    refresh();
+    window.addEventListener(AUTH_CHANGED_EVENT, refresh);
+    window.addEventListener("focus", refresh);
+    return () => {
+      active = false;
+      window.removeEventListener(AUTH_CHANGED_EVENT, refresh);
+      window.removeEventListener("focus", refresh);
+    };
+  }, []);
+  return isLoggedIn;
 }
 
 export function HomeNav() {

@@ -6,7 +6,7 @@ VibeHard 是面向嵌入式与智能硬件研发的项目工作台。平台把�
 
 ## 当前状态
 
-基础版 P0 已在 2026-08-30 部署到 [https://ldcx.tech/vibehard/](https://ldcx.tech/vibehard/)。
+基础版 P0 已在 2026-08-30 部署到 [https://ldcx.tech/vibehard/](https://ldcx.tech/vibehard/)。仓库当前分支在该基线上增加了协议校验、Runner journal、并发状态机和安全修复；上线此版本前必须先应用 `drizzle/0002_lucky_daimon_hellstrom.sql`。
 
 - 现有 WebHUD/VibeBoard 继续占用 `/` 和 `/api`，VibeHard 部署没有修改它的 UI、服务或数据。
 - Next.js 平台运行在服务器 `47.102.197.71:3210`，由 `vibehard.service` 管理。
@@ -61,27 +61,29 @@ Runner 是 Agent 执行器，不是模型。它在能访问工程和硬件的机
 - 启动和管理 `codex app-server` 子进程。
 - 执行 `initialize`、`thread/start`、`thread/resume`、`turn/start` 和 `turn/interrupt`。
 - 把回复、推理、工具调用、命令输出、文件变更、审批请求和错误转换为平台 `AgentEvent`。
-- 在断线后重新连接 Gateway，并重发内存中尚未送达的事件。
+- 在断线后重新连接 Gateway，并从本地 journal 重发尚未 ACK 的事件。
 
 ### Workspace isolation
 
 `RUNNER_WORKSPACE_ROOT` 位于 Runner 所在机器，不在 Web 平台服务器中自动生成。每个项目使用服务端生成的子目录，Runner 会拒绝逃逸根目录的路径。
 
-当前 P0 是“目录边界 + Codex `read-only` 沙盒”，不是虚拟机级强隔离。正式承载不可信项目或硬件操作前，还需要独立 Linux 用户、容器或更强沙盒、资源配额、网络白名单和设备授权。
+macOS Runner 会用 `sandbox-exec` 阻止 Codex 访问其他 Runner 项目目录；Linux 生产 Runner 默认拒绝弱隔离，必须配置 `RUNNER_CODEX_WRAPPER`（例如容器或 bubblewrap wrapper）。Codex turn 仍默认 `read-only` 且关闭网络。
+
+这些边界不是虚拟机级隔离。正式承载不可信项目或硬件操作前，仍需要独立 Linux 用户、容器、资源配额、网络白名单和设备授权。
 
 ## 已实现功能
 
 | 模块 | 当前能力 |
 | --- | --- |
-| 认证 | 邀请码注册、登录、退出、密码哈希、签名会话 Cookie |
+| 认证 | 邀请码注册、登录、退出、密码哈希、HttpOnly 签名会话、用户状态复核和登录限流 |
 | 租户隔离 | API 从会话获取用户身份，项目、thread、turn 和审批按用户校验 |
 | 项目 | 创建和列出项目，服务端生成工作区标识，绑定默认模型与 Runner |
-| Agent 会话 | 创建/恢复 thread，创建 turn，中断任务，保存 Codex thread ID |
-| 事件 | SSE 流式输出、事件入库、幂等 event ID、刷新后恢复历史 |
-| 审批 | 命令/文件修改审批请求、批准/拒绝接口和状态记录 |
-| Runner | 注册换取密钥、鉴权 WebSocket、心跳、命令队列、断线重连 |
-| Codex | stdio JSONL、只读沙盒、thread start/resume、turn start/interrupt |
-| 模型 | 官方 Codex profile 与自研 Responses API provider 占位 |
+| Agent 会话 | 创建/恢复 thread、单会话单活跃 turn、幂等中断、Codex thread ID 映射 |
+| 事件 | SSE 流式输出、事件入库、幂等 event ID、ACK、断线续传和刷新恢复 |
+| 审批 | 结构化命令/路径详情、批准/拒绝、并发决策保护和审计 |
+| Runner | 注册换取并持久化密钥、实例 ID、心跳/离线、命令队列、磁盘 journal 和重连重发 |
+| Codex | stdio JSONL、环境白名单与脱敏、read-only、thread start/resume、真实 turn ID 中断 |
+| 模型 | 默认官方 Codex profile；自研 Responses API profile 需在数据库和 Runner Codex 配置中显式启用 |
 | 审计 | 项目创建、任务、审批等关键动作入库 |
 | 部署 | Next.js standalone、独立服务 bundle、systemd 与 nginx 模板 |
 
@@ -169,6 +171,7 @@ pnpm build:services
 
 - `pnpm test` 只扫描仓库测试，不扫描 `.claude/worktrees` 或模型训练目录。
 - Gateway 测试会临时监听 `127.0.0.1` 随机端口。
+- `__tests__/store-postgres.test.ts` 只在提供 `DATABASE_URL` 时运行，用独立测试数据库验证事务锁、审批并发、事件续传和 Runner 撤销。
 - Next.js 生产构建使用 webpack 和 `output: "standalone"`。
 - `pnpm build:services` 生成独立的 `gateway.cjs`、`runner.cjs` 和 `migrate.cjs`，生产机不需要 `tsx` 或完整开发依赖。
 
@@ -185,6 +188,7 @@ pnpm build:services
 - 工作区写入和命令执行通过 Codex 审批协议返回平台。
 - 平台 API 不接受客户端传入 `userId` 或任意绝对工作区路径。
 - Runner 注册令牌、shared secret、数据库密码和 provider key 不写入仓库或业务日志。
+- Runner 只把显式列入 `CODEX_PROVIDER_ENV_ALLOWLIST` 的 provider 环境变量传给 Codex，平台密钥和数据库连接不会进入子进程。
 - Gateway 裸端口不直接暴露公网，公网入口由 nginx TLS 终止。
 - PostgreSQL、活跃工作区、Codex session 和运行代码必须放块存储，不放 OSS 挂载盘。
 
@@ -211,7 +215,7 @@ pnpm runner:test
 ## 下一步
 
 1. 将生产 Runner 从开发 Mac 迁移到已安装并认证 Codex 的长期在线服务器。
-2. 持久化和轮换 Runner 凭据，增加离线检测与任务超时。
+2. 增加 Runner 凭据撤销/轮换管理界面、任务超时和排队策略。
 3. 把方案生成、原理图识别、资料解析和调试页面统一接入 Agent Task API。
 4. 补齐产物下载、审批超时、重试、监控和告警。
-5. 增加容器级工作区隔离，以及串口、J-Link、OpenOCD、ESP-IDF 等设备授权和锁。
+5. 完善 Linux 容器 wrapper，以及串口、J-Link、OpenOCD、ESP-IDF 等设备授权和锁。

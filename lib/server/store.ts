@@ -1,5 +1,5 @@
 import { randomBytes, randomUUID } from "node:crypto";
-import { and, asc, desc, eq, gt, inArray, max, sql } from "drizzle-orm";
+import { and, asc, desc, eq, gt, inArray, lt, max, ne, sql } from "drizzle-orm";
 import { db } from "@/lib/db";
 import {
   agentEvents,
@@ -47,6 +47,11 @@ globalThis.__vibehardMemoryStore = memory;
 
 const now = () => new Date();
 const timestampFields = () => ({ createdAt: now(), updatedAt: now() });
+const ACTIVE_TURN_STATUSES = ["queued", "running", "waiting_approval"] as const;
+
+export class ThreadBusyError extends Error {
+  constructor() { super("当前会话已有任务正在运行，请等待完成或先中断"); }
+}
 
 export async function findUserByEmail(email: string) {
   const normalized = email.trim().toLowerCase();
@@ -136,11 +141,15 @@ export async function createTurn(userId: string, threadId: string, input: string
     input, model, modelProvider: providerId,
   };
   if (!db) {
+    if (memory.turns.some((turn) => turn.threadId === threadId && ACTIVE_TURN_STATUSES.includes(turn.status as typeof ACTIVE_TURN_STATUSES[number]))) throw new ThreadBusyError();
     memory.turns.push(record);
     memory.events.push({ id: randomUUID(), turnId: record.id, eventId: randomUUID(), type: "task.queued", payload: { input, note: "未配置 DATABASE_URL，任务仅保存在本地预览中" }, sequence: 0, ...timestampFields() });
     return record;
   }
   await db.transaction(async (tx) => {
+    await tx.execute(sql`select pg_advisory_xact_lock(hashtext(${threadId}))`);
+    const active = (await tx.select({ id: agentTurns.id }).from(agentTurns).where(and(eq(agentTurns.threadId, threadId), inArray(agentTurns.status, [...ACTIVE_TURN_STATUSES]))).limit(1))[0];
+    if (active) throw new ThreadBusyError();
     await tx.insert(agentTurns).values(record);
     await tx.insert(runnerCommands).values({ taskId: record.id, runnerKey: owned.project.runnerKey ?? process.env.DEFAULT_RUNNER_KEY ?? "local-runner", type: startMessage.type, payload: startMessage as unknown as Record<string, unknown> });
     await tx.insert(auditLogs).values({ userId, projectId: owned.project.id, action: "turn.queued", metadata: { turnId: record.id, model } });
@@ -151,18 +160,22 @@ export async function createTurn(userId: string, threadId: string, input: string
 export async function interruptLatestTurn(userId: string, threadId: string) {
   const owned = await ownedThread(userId, threadId);
   if (!owned) return null;
-  const activeStatuses = ["queued", "running", "waiting_approval"] as const;
   if (!db) {
-    const turn = [...memory.turns].reverse().find((item) => item.threadId === threadId && activeStatuses.includes(item.status as typeof activeStatuses[number]));
+    const turn = [...memory.turns].reverse().find((item) => item.threadId === threadId && ACTIVE_TURN_STATUSES.includes(item.status as typeof ACTIVE_TURN_STATUSES[number]));
     if (!turn) return false;
     turn.status = "interrupted"; turn.completedAt = now(); turn.updatedAt = now();
     return true;
   }
-  const turn = (await db.select().from(agentTurns).where(and(eq(agentTurns.threadId, threadId), inArray(agentTurns.status, [...activeStatuses]))).orderBy(desc(agentTurns.createdAt)).limit(1))[0];
-  if (!turn) return false;
-  const message: PlatformToRunnerMessage = { ...envelope(), type: "task.interrupt", taskId: turn.id, threadId };
-  await db.insert(runnerCommands).values({ taskId: turn.id, runnerKey: owned.project.runnerKey ?? "local-runner", type: message.type, payload: message as unknown as Record<string, unknown> });
-  return true;
+  return db.transaction(async (tx) => {
+    await tx.execute(sql`select pg_advisory_xact_lock(hashtext(${threadId}))`);
+    const turn = (await tx.select().from(agentTurns).where(and(eq(agentTurns.threadId, threadId), inArray(agentTurns.status, [...ACTIVE_TURN_STATUSES]))).orderBy(desc(agentTurns.createdAt)).limit(1))[0];
+    if (!turn) return false;
+    const existing = (await tx.select({ id: runnerCommands.id }).from(runnerCommands).where(and(eq(runnerCommands.taskId, turn.id), eq(runnerCommands.type, "task.interrupt"), inArray(runnerCommands.status, ["queued", "sent"]))).limit(1))[0];
+    if (existing) return true;
+    const message: PlatformToRunnerMessage = { ...envelope(), type: "task.interrupt", taskId: turn.id, threadId };
+    await tx.insert(runnerCommands).values({ taskId: turn.id, runnerKey: owned.project.runnerKey ?? "local-runner", type: message.type, payload: message as unknown as Record<string, unknown> });
+    return true;
+  });
 }
 
 export async function listEvents(userId: string, threadId: string, afterSequence = -1) {
@@ -177,20 +190,25 @@ export async function listEvents(userId: string, threadId: string, afterSequence
 export async function decideApproval(userId: string, approvalId: string, decision: ApprovalDecision) {
   if (!db) {
     const approval = memory.approvals.find((item) => item.id === approvalId && item.status === "pending");
-    if (!approval) return null;
+    const turn = approval ? memory.turns.find((item) => item.id === approval.turnId) : null;
+    const thread = turn ? memory.threads.find((item) => item.id === turn.threadId) : null;
+    const project = thread ? memory.projects.find((item) => item.id === thread.projectId && item.userId === userId) : null;
+    if (!approval || !turn || !project) return null;
     approval.status = decision === "approve" ? "approved" : "rejected"; approval.decisionBy = userId; approval.decidedAt = now(); approval.updatedAt = now();
     return approval;
   }
-  const owned = (await db.select({ approval: approvals, turn: agentTurns, thread: agentThreads, project: projects }).from(approvals).innerJoin(agentTurns, eq(agentTurns.id, approvals.turnId)).innerJoin(agentThreads, eq(agentThreads.id, agentTurns.threadId)).innerJoin(projects, eq(projects.id, agentThreads.projectId)).where(and(eq(approvals.id, approvalId), eq(projects.userId, userId), eq(approvals.status, "pending"))).limit(1))[0];
-  if (!owned) return null;
-  const message: PlatformToRunnerMessage = { ...envelope(), type: "approval.resolve", taskId: owned.turn.id, approvalId, decision };
-  await db.transaction(async (tx) => {
-    await tx.update(approvals).set({ status: decision === "approve" ? "approved" : "rejected", decisionBy: userId, decidedAt: now(), updatedAt: now() }).where(eq(approvals.id, approvalId));
-    await tx.update(agentTurns).set({ status: "running", updatedAt: now() }).where(eq(agentTurns.id, owned.turn.id));
+  return db.transaction(async (tx) => {
+    await tx.execute(sql`select pg_advisory_xact_lock(hashtext(${approvalId}))`);
+    const owned = (await tx.select({ approval: approvals, turn: agentTurns, thread: agentThreads, project: projects }).from(approvals).innerJoin(agentTurns, eq(agentTurns.id, approvals.turnId)).innerJoin(agentThreads, eq(agentThreads.id, agentTurns.threadId)).innerJoin(projects, eq(projects.id, agentThreads.projectId)).where(and(eq(approvals.id, approvalId), eq(projects.userId, userId), eq(approvals.status, "pending"))).limit(1))[0];
+    if (!owned) return null;
+    const updated = await tx.update(approvals).set({ status: decision === "approve" ? "approved" : "rejected", decisionBy: userId, decidedAt: now(), updatedAt: now() }).where(and(eq(approvals.id, approvalId), eq(approvals.status, "pending"))).returning();
+    if (!updated[0]) return null;
+    const message: PlatformToRunnerMessage = { ...envelope(), type: "approval.resolve", taskId: owned.turn.id, threadId: owned.thread.id, approvalId, decision };
+    await tx.update(agentTurns).set({ status: "running", updatedAt: now() }).where(and(eq(agentTurns.id, owned.turn.id), eq(agentTurns.status, "waiting_approval")));
     await tx.insert(runnerCommands).values({ taskId: owned.turn.id, runnerKey: owned.project.runnerKey ?? "local-runner", type: message.type, payload: message as unknown as Record<string, unknown> });
     await tx.insert(auditLogs).values({ userId, projectId: owned.project.id, action: `approval.${decision}`, metadata: { approvalId, turnId: owned.turn.id } });
+    return updated[0];
   });
-  return { ...owned.approval, status: decision === "approve" ? "approved" : "rejected" };
 }
 
 export async function listModels() {
@@ -210,7 +228,7 @@ export async function registerRunner(input: { runnerKey: string; name: string; c
   if (!db) {
     const existing = memory.runners.find((runner) => runner.runnerKey === input.runnerKey);
     if (existing) Object.assign(existing, { name: input.name, capabilities: input.capabilities, secretHash, status: "online", lastHeartbeatAt: now(), updatedAt: now() });
-    else memory.runners.push({ id: randomUUID(), runnerKey: input.runnerKey, name: input.name, capabilities: input.capabilities, secretHash, status: "online", lastHeartbeatAt: now(), ...timestampFields() });
+    else memory.runners.push({ id: randomUUID(), runnerKey: input.runnerKey, name: input.name, capabilities: input.capabilities, instanceId: null, secretHash, status: "online", lastHeartbeatAt: now(), ...timestampFields() });
     return { runnerKey: input.runnerKey, secret };
   }
   await db.insert(runnerNodes).values({ runnerKey: input.runnerKey, name: input.name, capabilities: input.capabilities, secretHash, status: "online", lastHeartbeatAt: now() }).onConflictDoUpdate({ target: runnerNodes.runnerKey, set: { name: input.name, capabilities: input.capabilities, secretHash, status: "online", lastHeartbeatAt: now(), updatedAt: now() } });
@@ -220,14 +238,25 @@ export async function registerRunner(input: { runnerKey: string; name: string; c
 export async function authenticateRunner(runnerKey: string, secret: string) {
   const hash = hashRunnerSecret(secret);
   if (!db) return memory.runners.some((runner) => runner.runnerKey === runnerKey && runner.secretHash === hash && runner.status !== "revoked");
-  return Boolean((await db.select({ id: runnerNodes.id }).from(runnerNodes).where(and(eq(runnerNodes.runnerKey, runnerKey), eq(runnerNodes.secretHash, hash))).limit(1))[0]);
+  return Boolean((await db.select({ id: runnerNodes.id }).from(runnerNodes).where(and(eq(runnerNodes.runnerKey, runnerKey), eq(runnerNodes.secretHash, hash), ne(runnerNodes.status, "revoked"))).limit(1))[0]);
 }
 
-export async function heartbeatRunner(runnerKey: string, secret: string, capabilities?: string[]) {
+export async function heartbeatRunner(runnerKey: string, secret: string, capabilities?: string[], instanceId?: string) {
   if (!(await authenticateRunner(runnerKey, secret))) return false;
-  if (!db) { const runner = memory.runners.find((item) => item.runnerKey === runnerKey)!; runner.lastHeartbeatAt = now(); runner.status = "online"; if (capabilities) runner.capabilities = capabilities; return true; }
-  await db.update(runnerNodes).set({ status: "online", lastHeartbeatAt: now(), updatedAt: now(), ...(capabilities ? { capabilities } : {}) }).where(eq(runnerNodes.runnerKey, runnerKey));
+  if (!db) { const runner = memory.runners.find((item) => item.runnerKey === runnerKey)!; runner.lastHeartbeatAt = now(); runner.status = "online"; if (capabilities) runner.capabilities = capabilities; if (instanceId) runner.instanceId = instanceId; return true; }
+  await db.update(runnerNodes).set({ status: "online", lastHeartbeatAt: now(), updatedAt: now(), ...(capabilities ? { capabilities } : {}), ...(instanceId ? { instanceId } : {}) }).where(and(eq(runnerNodes.runnerKey, runnerKey), ne(runnerNodes.status, "revoked")));
   return true;
+}
+
+export async function markRunnerOffline(runnerKey: string) {
+  if (!db) { const runner = memory.runners.find((item) => item.runnerKey === runnerKey); if (runner && runner.status !== "revoked") runner.status = "offline"; return; }
+  await db.update(runnerNodes).set({ status: "offline", updatedAt: now() }).where(and(eq(runnerNodes.runnerKey, runnerKey), ne(runnerNodes.status, "revoked")));
+}
+
+export async function markStaleRunnersOffline() {
+  const staleBefore = new Date(Date.now() - 45_000);
+  if (!db) { for (const runner of memory.runners) if (runner.status !== "revoked" && runner.status !== "offline" && (!runner.lastHeartbeatAt || runner.lastHeartbeatAt < staleBefore)) runner.status = "offline"; return; }
+  await db.update(runnerNodes).set({ status: "offline", updatedAt: now() }).where(and(ne(runnerNodes.status, "revoked"), ne(runnerNodes.status, "offline"), lt(runnerNodes.lastHeartbeatAt, staleBefore)));
 }
 
 export async function getQueuedRunnerCommands(runnerKey: string) {
@@ -237,7 +266,7 @@ export async function getQueuedRunnerCommands(runnerKey: string) {
 
 export async function markRunnerCommand(id: string, status: "sent" | "failed", runnerKey: string) {
   if (!db) return;
-  await db.update(runnerCommands).set({ status: status === "failed" ? "queued" : "sent", updatedAt: now() }).where(and(eq(runnerCommands.id, id), eq(runnerCommands.runnerKey, runnerKey)));
+  await db.update(runnerCommands).set({ status: status === "failed" ? "queued" : "sent", attempts: sql`${runnerCommands.attempts} + 1`, updatedAt: now() }).where(and(eq(runnerCommands.id, id), eq(runnerCommands.runnerKey, runnerKey)));
 }
 
 export async function ingestRunnerEvent(message: RunnerEvent) {
@@ -258,17 +287,30 @@ export async function ingestRunnerEvent(message: RunnerEvent) {
     const currentSequence = (await tx.select({ value: max(agentEvents.sequence) }).from(agentEvents).where(inArray(agentEvents.turnId, threadTurnIds)))[0]?.value ?? -1;
     await tx.insert(agentEvents).values({ turnId: message.taskId, eventId: event.eventId, type: event.type, payload: event.data, sequence: currentSequence + 1 });
     if (message.codexThreadId) await tx.update(agentThreads).set({ codexThreadId: message.codexThreadId, updatedAt: now() }).where(eq(agentThreads.id, currentTurn.threadId));
-    if (event.type === "task.started") await tx.update(agentTurns).set({ status: "running", startedAt: now(), updatedAt: now() }).where(eq(agentTurns.id, message.taskId));
-    if (event.type === "task.completed") await tx.update(agentTurns).set({ status: "completed", completedAt: now(), updatedAt: now() }).where(eq(agentTurns.id, message.taskId));
-    if (event.type === "task.interrupted") await tx.update(agentTurns).set({ status: "interrupted", completedAt: now(), updatedAt: now() }).where(eq(agentTurns.id, message.taskId));
-    if (event.type === "task.failed") await tx.update(agentTurns).set({ status: "failed", error: String(event.data.message ?? "Runner task failed"), completedAt: now(), updatedAt: now() }).where(eq(agentTurns.id, message.taskId));
+    if (event.type === "task.started") await tx.update(agentTurns).set({ status: "running", startedAt: now(), updatedAt: now() }).where(and(eq(agentTurns.id, message.taskId), eq(agentTurns.status, "queued")));
+    if (event.type === "task.completed") await tx.update(agentTurns).set({ status: "completed", completedAt: now(), updatedAt: now() }).where(and(eq(agentTurns.id, message.taskId), inArray(agentTurns.status, [...ACTIVE_TURN_STATUSES])));
+    if (event.type === "task.interrupted") await tx.update(agentTurns).set({ status: "interrupted", completedAt: now(), updatedAt: now() }).where(and(eq(agentTurns.id, message.taskId), inArray(agentTurns.status, [...ACTIVE_TURN_STATUSES])));
+    if (event.type === "task.failed") await tx.update(agentTurns).set({ status: "failed", error: String(event.data.message ?? "Runner task failed"), completedAt: now(), updatedAt: now() }).where(and(eq(agentTurns.id, message.taskId), inArray(agentTurns.status, [...ACTIVE_TURN_STATUSES])));
     if (event.type === "approval.requested") {
       const approvalId = typeof event.data.approvalId === "string" ? event.data.approvalId : randomUUID();
-      await tx.insert(approvals).values({ id: approvalId, turnId: message.taskId, tool: String(event.data.tool ?? "unknown"), risk: String(event.data.risk ?? "write"), description: String(event.data.description ?? "Agent 请求执行受限操作") }).onConflictDoNothing();
-      await tx.update(agentTurns).set({ status: "waiting_approval", updatedAt: now() }).where(eq(agentTurns.id, message.taskId));
+      const waiting = await tx.update(agentTurns).set({ status: "waiting_approval", updatedAt: now() }).where(and(eq(agentTurns.id, message.taskId), inArray(agentTurns.status, [...ACTIVE_TURN_STATUSES]))).returning({ id: agentTurns.id });
+      if (waiting[0]) await tx.insert(approvals).values({ id: approvalId, turnId: message.taskId, tool: String(event.data.tool ?? "unknown"), risk: String(event.data.risk ?? "write"), description: String(event.data.description ?? "Agent 请求执行受限操作"), details: event.data }).onConflictDoNothing();
     }
     if (event.type === "artifact.created") await tx.insert(artifacts).values({ projectId: currentTurn.projectId, turnId: message.taskId, name: String(event.data.name ?? "Agent artifact"), kind: String(event.data.kind ?? "file"), path: String(event.data.path ?? "") });
+    if (["task.started", "task.completed", "task.failed", "task.interrupted"].includes(event.type)) {
+      const activeRunnerTurn = (await tx.select({ id: agentTurns.id }).from(agentTurns)
+        .innerJoin(agentThreads, eq(agentThreads.id, agentTurns.threadId))
+        .innerJoin(projects, eq(projects.id, agentThreads.projectId))
+        .where(and(eq(projects.runnerKey, message.runnerKey), inArray(agentTurns.status, [...ACTIVE_TURN_STATUSES])))
+        .limit(1))[0];
+      await tx.update(runnerNodes).set({ status: activeRunnerTurn ? "busy" : "online", updatedAt: now() }).where(and(eq(runnerNodes.runnerKey, message.runnerKey), ne(runnerNodes.status, "revoked")));
+    }
   });
+}
+
+export async function writeAuditLog(input: { userId?: string; projectId?: string; action: string; metadata?: Record<string, unknown> }) {
+  if (!db) return;
+  await db.insert(auditLogs).values({ userId: input.userId, projectId: input.projectId, action: input.action, metadata: input.metadata ?? {} });
 }
 
 export function serializeEvent(event: typeof agentEvents.$inferSelect): AgentEvent {

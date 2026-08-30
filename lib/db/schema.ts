@@ -8,6 +8,7 @@ import {
   pgTable,
   text,
   timestamp,
+  uniqueIndex,
   uuid,
 } from "drizzle-orm/pg-core";
 
@@ -46,6 +47,7 @@ export const runnerNodes = pgTable("runner_nodes", {
   name: text("name").notNull(),
   status: runnerStatus("status").notNull().default("offline"),
   capabilities: jsonb("capabilities").$type<string[]>().notNull().default([]),
+  instanceId: uuid("instance_id"),
   lastHeartbeatAt: timestamp("last_heartbeat_at", { withTimezone: true }),
   secretHash: text("secret_hash"),
   ...timestamps,
@@ -89,6 +91,7 @@ export const approvals = pgTable("approvals", {
   tool: text("tool").notNull(),
   risk: text("risk").notNull(),
   description: text("description").notNull(),
+  details: jsonb("details").$type<Record<string, unknown>>().notNull().default({}),
   status: approvalStatus("status").notNull().default("pending"),
   decisionBy: uuid("decision_by").references(() => users.id),
   decidedAt: timestamp("decided_at", { withTimezone: true }),
@@ -115,7 +118,7 @@ export const modelProfiles = pgTable("model_profiles", {
   capabilities: jsonb("capabilities").$type<string[]>().notNull().default([]),
   enabled: boolean("enabled").notNull().default(true),
   ...timestamps,
-});
+}, (table) => [uniqueIndex("model_profiles_provider_model_uidx").on(table.providerId, table.model)]);
 
 export const auditLogs = pgTable("audit_logs", {
   id: uuid("id").defaultRandom().primaryKey(),
@@ -128,7 +131,7 @@ export const auditLogs = pgTable("audit_logs", {
 
 export const runnerCommands = pgTable("runner_commands", {
   id: uuid("id").defaultRandom().primaryKey(),
-  taskId: uuid("task_id").notNull(),
+  taskId: uuid("task_id").notNull().references(() => agentTurns.id, { onDelete: "cascade" }),
   runnerKey: text("runner_key").notNull(),
   type: text("type").notNull(),
   payload: jsonb("payload").$type<Record<string, unknown>>().notNull(),

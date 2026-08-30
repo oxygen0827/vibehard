@@ -16,12 +16,4 @@ export const DEFAULT_MODELS: ModelProfile[] = [
     kind: "codex",
     capabilities: ["tools", "reasoning", "vision"],
   },
-  {
-    id: "vibehard:embedded-agent",
-    providerId: "vibehard",
-    model: "embedded-agent",
-    displayName: "VibeHard Embedded Agent",
-    kind: "custom",
-    capabilities: ["tools", "hardware"],
-  },
 ];

@@ -7,13 +7,13 @@ import { badRequest, requestUser, serverError, unauthorized } from "@/lib/server
 const schema = z.object({ name: z.string().trim().min(2).max(80), workspaceKey: z.string().trim().regex(/^[a-zA-Z0-9][a-zA-Z0-9._-]{0,79}$/), model: z.string().optional() });
 
 export async function GET(request: NextRequest) {
-  const user = requestUser(request);
+  const user = await requestUser(request);
   if (!user) return unauthorized();
   try { return NextResponse.json({ projects: await listProjects(user.id) }); } catch (error) { return serverError(error); }
 }
 
 export async function POST(request: NextRequest) {
-  const user = requestUser(request);
+  const user = await requestUser(request);
   if (!user) return unauthorized();
   try {
     const parsed = schema.safeParse(await request.json());

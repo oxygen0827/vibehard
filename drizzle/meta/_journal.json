@@ -15,6 +15,13 @@
       "when": 1788079766005,
       "tag": "0001_productive_king_bedlam",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1788091384698,
+      "tag": "0002_lucky_daimon_hellstrom",
+      "breakpoints": true
     }
   ]
 }

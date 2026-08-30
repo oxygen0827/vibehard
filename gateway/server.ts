@@ -1,8 +1,8 @@
 import { createServer, type Server } from "node:http";
 import { WebSocketServer, WebSocket } from "ws";
 import {
-  assertProtocolVersion,
   envelope,
+  parseRunnerToPlatformMessage,
   type RunnerToPlatformMessage,
 } from "@/lib/agent/protocol";
 
@@ -13,7 +13,9 @@ export interface GatewayCommand {
 
 export interface GatewayStore {
   authenticateRunner(runnerKey: string, secret: string): Promise<boolean>;
-  heartbeatRunner(runnerKey: string, secret: string, capabilities?: string[]): Promise<boolean>;
+  heartbeatRunner(runnerKey: string, secret: string, capabilities?: string[], instanceId?: string): Promise<boolean>;
+  markRunnerOffline(runnerKey: string): Promise<void>;
+  markStaleRunnersOffline(): Promise<void>;
   getQueuedRunnerCommands(runnerKey: string): Promise<GatewayCommand[]>;
   markRunnerCommand(id: string, status: "sent" | "failed", runnerKey: string): Promise<void>;
   ingestRunnerEvent(message: Extract<RunnerToPlatformMessage, { type: "event" }>): Promise<void>;
@@ -30,7 +32,7 @@ export function createRunnerGateway(store: GatewayStore, pollIntervalMs = 500): 
     response.writeHead(200, { "content-type": "application/json" });
     response.end(JSON.stringify({ ok: true, service: "vibehard-runner-gateway" }));
   });
-  const wss = new WebSocketServer({ server, path: "/runner" });
+  const wss = new WebSocketServer({ server, path: "/runner", maxPayload: 1024 * 1024 });
   const connected = new Map<string, WebSocket>();
   const inflight = new Map<string, Set<string>>();
 
@@ -42,17 +44,23 @@ export function createRunnerGateway(store: GatewayStore, pollIntervalMs = 500): 
     socket.on("message", (raw) => {
       messageQueue = messageQueue.then(async () => {
         try {
-          const message = JSON.parse(raw.toString()) as RunnerToPlatformMessage;
-          assertProtocolVersion(message.protocolVersion);
+          const message: RunnerToPlatformMessage = parseRunnerToPlatformMessage(JSON.parse(raw.toString()));
 
           if (message.type === "runner.hello") {
+            if (runnerKey) {
+              socket.close(1008, "runner hello already completed");
+              return;
+            }
             if (!message.secret || !(await store.authenticateRunner(message.runnerKey, message.secret))) {
               socket.close(1008, "invalid runner credentials");
               return;
             }
             runnerKey = message.runnerKey;
             runnerSecret = message.secret;
-            await store.heartbeatRunner(runnerKey, runnerSecret, message.capabilities);
+            if (!(await store.heartbeatRunner(runnerKey, runnerSecret, message.capabilities, message.instanceId))) {
+              socket.close(1008, "runner credentials revoked");
+              return;
+            }
             connected.get(runnerKey)?.close(1000, "runner reconnected");
             connected.set(runnerKey, socket);
             inflight.set(runnerKey, new Set());
@@ -77,7 +85,10 @@ export function createRunnerGateway(store: GatewayStore, pollIntervalMs = 500): 
             inflight.get(runnerKey)?.delete(message.commandId);
             return;
           }
-          if (message.type === "event") await store.ingestRunnerEvent(message);
+          if (message.type === "event") {
+            await store.ingestRunnerEvent(message);
+            socket.send(JSON.stringify({ ...envelope(), type: "event.ack", runnerKey, eventId: message.event.eventId }));
+          }
         } catch (error) {
           console.error("runner gateway message error", error);
           socket.close(1003, "invalid runner message");
@@ -89,12 +100,17 @@ export function createRunnerGateway(store: GatewayStore, pollIntervalMs = 500): 
       if (runnerKey && connected.get(runnerKey) === socket) {
         connected.delete(runnerKey);
         inflight.delete(runnerKey);
+        void store.markRunnerOffline(runnerKey).catch((error) => console.error("runner offline update error", error));
       }
     });
   });
 
+  let polling = false;
   const poller = setInterval(() => {
+    if (polling) return;
+    polling = true;
     void (async () => {
+      await store.markStaleRunnersOffline();
       for (const [runnerKey, socket] of connected) {
         if (socket.readyState !== WebSocket.OPEN) continue;
         for (const command of await store.getQueuedRunnerCommands(runnerKey)) {
@@ -108,7 +124,7 @@ export function createRunnerGateway(store: GatewayStore, pollIntervalMs = 500): 
           }
         }
       }
-    })().catch((error) => console.error("runner gateway poll error", error));
+    })().catch((error) => console.error("runner gateway poll error", error)).finally(() => { polling = false; });
   }, pollIntervalMs);
   poller.unref();
 

@@ -1,13 +1,14 @@
 import type { NextRequest } from "next/server";
 import { NextResponse } from "next/server";
 import { listEvents, serializeEvent } from "@/lib/server/store";
-import { forbidden, requestUser, serverError, unauthorized } from "@/lib/server/http";
+import { badRequest, forbidden, isResourceId, requestUser, serverError, unauthorized } from "@/lib/server/http";
 
 const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
 export async function GET(request: NextRequest, context: { params: Promise<{ id: string }> }) {
-  const user = requestUser(request); if (!user) return unauthorized();
+  const user = await requestUser(request); if (!user) return unauthorized();
   const { id } = await context.params;
+  if (!isResourceId(id)) return badRequest("会话 ID 无效");
   const queryAfter = Number(new URL(request.url).searchParams.get("after") ?? "-1");
   const headerAfter = Number(request.headers.get("last-event-id") ?? "-1");
   const after = Math.max(Number.isFinite(queryAfter) ? queryAfter : -1, Number.isFinite(headerAfter) ? headerAfter : -1);

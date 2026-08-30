@@ -10,8 +10,19 @@ lines.on("line", (line) => {
   if (message.method === "turn/start") {
     send({ id: message.id, result: { turn: { id: "turn_fake" } } });
     if (mode === "approval") send({ id: "approval_fake", method: "item/commandExecution/requestApproval", params: { command: "git status", reason: "Inspect repository" } });
+    else if (mode === "events") {
+      send({ method: "item/commandExecution/outputDelta", params: { delta: "command output", itemId: "command_1" } });
+      send({ method: "item/reasoning/summaryTextDelta", params: { delta: "reasoning summary", itemId: "reasoning_1" } });
+      send({ method: "turn/diff/updated", params: { diff: "diff --git a/a.txt b/a.txt" } });
+      send({ method: "item/completed", params: { item: { id: "message_1", type: "agentMessage", text: "complete response" } } });
+      send({ method: "item/completed", params: { item: { id: "change_1", type: "fileChange", changes: [{ path: "report.md", kind: "add" }] } } });
+      send({ method: "turn/completed", params: { turn: { id: "turn_fake", status: "completed" } } });
+    }
     else if (mode !== "interrupt") { send({ method: "item/agentMessage/delta", params: { delta: "fake response" } }); send({ method: "turn/completed", params: { turn: { id: "turn_fake", status: "completed" } } }); }
   }
   if (message.id === "approval_fake" && message.result?.decision) send({ method: "turn/completed", params: { turn: { id: "turn_fake", status: message.result.decision === "accept" ? "completed" : "failed" } } });
-  if (message.method === "turn/interrupt") { send({ id: message.id, result: {} }); send({ method: "turn/completed", params: { turn: { id: "turn_fake", status: "interrupted" } } }); }
+  if (message.method === "turn/interrupt") {
+    if (message.params?.threadId !== "thread_fake" || message.params?.turnId !== "turn_fake") send({ id: message.id, error: { message: "missing threadId or turnId" } });
+    else { send({ id: message.id, result: {} }); send({ method: "turn/completed", params: { turn: { id: "turn_fake", status: "interrupted" } } }); }
+  }
 });

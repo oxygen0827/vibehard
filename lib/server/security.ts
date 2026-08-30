@@ -8,6 +8,7 @@ function sessionSecret() {
   return "vibehard-development-session-secret";
 }
 export const AUTH_COOKIE = "vibehard_session";
+export function sessionCookiePath() { return process.env.NEXT_PUBLIC_BASE_PATH || "/"; }
 export interface SessionUser { id: string; email: string; name: string; role: string; }
 export async function hashPassword(password: string) { const salt = randomBytes(16).toString("hex"); const derived = (await scrypt(password, salt, 64)) as Buffer; return `scrypt:${salt}:${derived.toString("hex")}`; }
 export async function verifyPassword(password: string, encoded: string) { const [algorithm, salt, digest] = encoded.split(":"); if (algorithm !== "scrypt" || !salt || !digest) return false; const expected = Buffer.from(digest, "hex"); const actual = (await scrypt(password, salt, expected.length)) as Buffer; return expected.length === actual.length && timingSafeEqual(expected, actual); }
