@@ -1,5 +1,6 @@
 import Image from "next/image";
 import Link from "next/link";
+import { assetPath } from "@/lib/utils";
 
 export function Footer() {
   return (
@@ -8,7 +9,7 @@ export function Footer() {
         <div className="flex flex-col items-center gap-2 sm:flex-row sm:gap-3">
           <div className="flex items-center gap-2.5">
             <Image
-              src="/vibehard-icon.svg"
+              src={assetPath("/vibehard-icon.svg")}
               alt=""
               width={28}
               height={28}

@@ -1,0 +1,2564 @@
+<!doctype html>
+<!--
+  ============================================================
+  VibeHard工具 · 仪器仪表仿真实验台
+  Copyright (c) 2026 VibeHard工具 (xiaozhi-tools). All rights reserved.
+  本页面及其中的仿真逻辑、界面设计为原创作品，受著作权法保护。
+  未经授权，禁止复制、镜像、二次分发或用于商业用途。
+  ============================================================
+-->
+
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>示波器仿真实验台</title>
+</head>
+<body>
+<div id="oscilloscope-learning-lab">
+  <style>
+    :root {
+      color-scheme: dark;
+      --bg: #161816;
+      --bench: #242820;
+      --bench-2: #303429;
+      --metal: #3b3f42;
+      --metal-dark: #23272a;
+      --metal-light: #555b5e;
+      --screen: #07100b;
+      --grid: rgba(122, 191, 133, .24);
+      --trace: #ffd43a;
+      --trace2: #35b7ff;
+      --orange: #ff9f1a;
+      --green: #35d07f;
+      --red: #ff6159;
+      --blue: #40a9ff;
+      --text: #eef2e8;
+      --muted: #aeb8a7;
+      --line: rgba(255, 255, 255, .18);
+      --shadow: rgba(0, 0, 0, .35);
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      background: radial-gradient(circle at 12% 8%, rgba(72, 91, 67, .36), transparent 34%), linear-gradient(135deg, #151817, #28261f 54%, #181d1e);
+      color: var(--text);
+      font-family: "Microsoft YaHei", "Segoe UI", Arial, sans-serif;
+      overflow-x: hidden;
+    }
+
+    #oscilloscope-learning-lab {
+      min-height: 100vh;
+      padding: 10px;
+    }
+
+    @media (min-width: 981px) {
+      #oscilloscope-learning-lab {
+        height: 100vh;
+        min-height: 640px;
+        display: grid;
+        grid-template-rows: auto minmax(0, 1fr);
+        gap: 8px;
+        overflow: hidden;
+      }
+
+      .topbar {
+        width: 100%;
+        margin: 0 auto;
+      }
+
+      .bench {
+        width: 100%;
+        height: auto;
+        min-height: 0;
+      }
+    }
+
+    .topbar {
+      display: grid;
+      grid-template-columns: minmax(260px, 1.1fr) minmax(260px, .9fr);
+      gap: 10px;
+      align-items: stretch;
+      max-width: 1680px;
+      margin: 0 auto 8px;
+    }
+
+    .mission, .readout-strip {
+      background: rgba(16, 18, 17, .72);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      box-shadow: 0 16px 42px var(--shadow);
+      padding: 8px 10px;
+    }
+
+    .mission h1 {
+      font-size: 17px;
+      font-weight: 500;
+      margin: 0 0 5px;
+      letter-spacing: 0;
+    }
+
+    .mission-row {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+
+    .mission-text {
+      color: var(--muted);
+      line-height: 1.35;
+      flex: 1 1 420px;
+      font-size: 14px;
+    }
+
+    .mission select, .readout-strip select {
+      background: #232722;
+      color: var(--text);
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      padding: 6px 8px;
+      min-width: 190px;
+    }
+
+    .readout-strip {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(110px, 1fr));
+      gap: 8px;
+      align-content: center;
+    }
+
+    .metric {
+      min-width: 0;
+      border-left: 3px solid rgba(255, 212, 58, .78);
+      padding-left: 10px;
+    }
+
+    .metric span {
+      display: block;
+      color: var(--muted);
+      font-size: 11px;
+      white-space: nowrap;
+    }
+
+    .metric strong {
+      display: block;
+      font-size: 14px;
+      font-weight: 500;
+      margin-top: 3px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    #measureReadout {
+      font-size: 11px;
+      line-height: 1.15;
+      white-space: normal;
+    }
+
+    .bench {
+      max-width: 1680px;
+      margin: 0 auto;
+      display: grid;
+      grid-template-columns: minmax(430px, .96fr) minmax(620px, 1.04fr);
+      gap: 16px;
+      align-items: stretch;
+      position: relative;
+      height: calc(100vh - 104px);
+      min-height: 640px;
+    }
+
+    .bench-cable-layer {
+      position: absolute;
+      inset: 0;
+      z-index: 6;
+      width: 100%;
+      height: 100%;
+      pointer-events: none;
+      overflow: visible;
+    }
+
+    .board-area, .scope-area {
+      position: relative;
+      min-height: 0;
+      height: 100%;
+      background: linear-gradient(160deg, rgba(54, 58, 47, .82), rgba(22, 25, 24, .92));
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      box-shadow: 0 26px 70px var(--shadow);
+      overflow: hidden;
+    }
+
+    .board-area {
+      overflow: visible;
+      z-index: 5;
+    }
+
+    .scope-area {
+      min-height: 0;
+      z-index: 3;
+    }
+
+    .board-header, .scope-header {
+      position: absolute;
+      inset: 12px 12px auto;
+      z-index: 6;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      pointer-events: none;
+    }
+
+    .board-select {
+      pointer-events: auto;
+      max-width: 190px;
+      border: 0;
+      outline: 0;
+      background: transparent;
+      color: var(--text);
+      font: inherit;
+      cursor: pointer;
+    }
+
+    .board-select option {
+      background: #202521;
+      color: var(--text);
+    }
+
+    .tag {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 6px 9px;
+      border-radius: 6px;
+      background: rgba(0, 0, 0, .42);
+      border: 1px solid rgba(255, 255, 255, .14);
+      color: var(--text);
+      font-size: 13px;
+      backdrop-filter: blur(8px);
+    }
+
+    .lamp {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--green);
+      box-shadow: 0 0 14px var(--green);
+    }
+
+    .board-wrap {
+      position: absolute;
+      left: 5%;
+      right: 5%;
+      top: 78px;
+      aspect-ratio: 3 / 2;
+      max-height: calc(100% - 155px);
+      border-radius: 8px;
+      transform: perspective(1100px) rotateX(2deg) rotateZ(-1deg);
+      filter: drop-shadow(0 32px 34px rgba(0, 0, 0, .5));
+    }
+
+    .board-wrap.dense-board {
+      left: 2.5%;
+      right: 2.5%;
+      top: 70px;
+      aspect-ratio: 4 / 3;
+      transform: none;
+      filter: drop-shadow(0 22px 28px rgba(0,0,0,.42));
+    }
+
+    .hotspot-layer,
+    .hotspot-hit-layer {
+      position: absolute;
+      left: 5%;
+      right: 5%;
+      top: 78px;
+      aspect-ratio: 3 / 2;
+      z-index: 20;
+      transform: perspective(1100px) rotateX(2deg) rotateZ(-1deg);
+      pointer-events: none;
+    }
+
+    .hotspot-layer.dense-board,
+    .hotspot-hit-layer.dense-board {
+      left: 2.5%;
+      right: 2.5%;
+      top: 70px;
+      aspect-ratio: 4 / 3;
+      transform: none;
+    }
+
+    .hotspot-hit-layer { z-index: 42; }
+
+    .hotspot-hit {
+      position: absolute;
+      width: 38px;
+      height: 38px;
+      margin: -19px 0 0 -19px;
+      padding: 0;
+      border: 0;
+      border-radius: 50%;
+      background: transparent;
+      cursor: crosshair;
+      pointer-events: auto;
+    }
+
+    .dense-board .hotspot-hit,
+    .compact-hotspots .hotspot-hit {
+      width: 16px;
+      height: 16px;
+      margin: -8px 0 0 -8px;
+    }
+
+    .board-photo {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      object-fit: contain;
+      border-radius: 10px;
+      user-select: none;
+      pointer-events: none;
+    }
+
+    .pcb-real {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      border-radius: 16px;
+      border: 1px solid rgba(181, 255, 168, .28);
+      background:
+        radial-gradient(circle at 20% 18%, rgba(255,255,255,.08), transparent 5%),
+        radial-gradient(circle at 80% 80%, rgba(255,255,255,.07), transparent 6%),
+        linear-gradient(135deg, rgba(37, 123, 82, .95), rgba(11, 83, 62, .98) 56%, rgba(9, 61, 55, 1));
+      box-shadow:
+        inset 0 0 0 8px rgba(5, 49, 39, .55),
+        inset 0 0 0 9px rgba(255,255,255,.08),
+        inset 0 22px 38px rgba(255,255,255,.08),
+        inset 0 -28px 42px rgba(0,0,0,.2);
+      user-select: none;
+      pointer-events: none;
+    }
+
+    .pcb-real::before {
+      content: "";
+      position: absolute;
+      inset: 18px;
+      border-radius: 10px;
+      background-image:
+        linear-gradient(rgba(255,255,255,.035) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(255,255,255,.035) 1px, transparent 1px);
+      background-size: 34px 34px;
+      opacity: .65;
+    }
+
+    .silk {
+      position: absolute;
+      color: rgba(238, 255, 226, .92);
+      font-size: 12px;
+      font-weight: 500;
+      letter-spacing: 0;
+      text-shadow: 0 1px 1px rgba(0,0,0,.45);
+      white-space: nowrap;
+    }
+
+    .copper {
+      position: absolute;
+      height: 5px;
+      border-radius: 999px;
+      background: linear-gradient(90deg, rgba(214, 172, 73, .9), rgba(255, 221, 118, .92), rgba(168, 118, 36, .9));
+      box-shadow: 0 0 8px rgba(255, 205, 93, .28);
+      transform-origin: left center;
+    }
+
+    .pad, .via {
+      position: absolute;
+      border-radius: 50%;
+      background: radial-gradient(circle, #2d2d2d 0 22%, #e0c16a 24% 58%, #7a5a1c 60% 100%);
+      box-shadow: inset 0 1px 1px rgba(255,255,255,.42), 0 0 7px rgba(255, 218, 107, .35);
+    }
+
+    .pad {
+      width: 32px;
+      height: 32px;
+      margin: -16px 0 0 -16px;
+    }
+
+    .pad.square { border-radius: 7px; }
+    .via { width: 14px; height: 14px; margin: -7px 0 0 -7px; }
+
+    .chip {
+      position: absolute;
+      background: linear-gradient(145deg, #25292c, #0b0e10 70%);
+      border: 1px solid rgba(255,255,255,.16);
+      border-radius: 5px;
+      box-shadow: inset 0 1px 0 rgba(255,255,255,.08), 0 12px 18px rgba(0,0,0,.34);
+    }
+
+    .chip::before, .chip::after {
+      content: "";
+      position: absolute;
+      top: 8px;
+      bottom: 8px;
+      width: 10px;
+      background: repeating-linear-gradient(to bottom, #c6c1aa 0 5px, transparent 5px 10px);
+    }
+
+    .chip::before { left: -10px; }
+    .chip::after { right: -10px; }
+
+    .chip-label {
+      position: absolute;
+      inset: 0;
+      display: grid;
+      place-items: center;
+      color: rgba(255,255,255,.78);
+      font-size: 11px;
+      text-align: center;
+      line-height: 1.25;
+    }
+
+    .usb {
+      position: absolute;
+      width: 88px;
+      height: 54px;
+      border-radius: 8px;
+      background: linear-gradient(145deg, #d7dce0, #6f767b);
+      border: 1px solid rgba(255,255,255,.45);
+      box-shadow: inset 0 4px 8px rgba(255,255,255,.35), 0 12px 18px rgba(0,0,0,.32);
+    }
+
+    .usb::after {
+      content: "";
+      position: absolute;
+      left: 17px;
+      right: 17px;
+      top: 18px;
+      height: 18px;
+      border-radius: 5px;
+      background: #22282c;
+      box-shadow: inset 0 1px 4px rgba(0,0,0,.8);
+    }
+
+    .part {
+      position: absolute;
+      border-radius: 3px;
+      background: linear-gradient(90deg, #bbb7a5, #f2edd6 18%, #585548 20% 80%, #f2edd6 82%, #aaa58e);
+      box-shadow: 0 5px 8px rgba(0,0,0,.25);
+    }
+
+    .cap { background: linear-gradient(90deg, #bcb8a0, #e9e2c6 18%, #7a694d 20% 80%, #e9e2c6 82%, #aaa58e); }
+    .res { background: linear-gradient(90deg, #c9c2a8, #eee6c8 18%, #2d2b28 20% 80%, #eee6c8 82%, #aaa58e); }
+
+    .crystal {
+      position: absolute;
+      width: 70px;
+      height: 30px;
+      border-radius: 14px;
+      background: linear-gradient(145deg, #d7d9d8, #868d8d);
+      border: 1px solid rgba(255,255,255,.4);
+      box-shadow: inset 0 2px 4px rgba(255,255,255,.5), 0 8px 12px rgba(0,0,0,.28);
+    }
+
+    .button-real {
+      position: absolute;
+      width: 62px;
+      height: 48px;
+      border-radius: 8px;
+      background: linear-gradient(145deg, #e7e2d3, #7a756a);
+      box-shadow: inset 0 2px 3px rgba(255,255,255,.45), 0 8px 12px rgba(0,0,0,.3);
+    }
+
+    .button-real::after {
+      content: "";
+      position: absolute;
+      left: 16px;
+      top: 9px;
+      width: 30px;
+      height: 30px;
+      border-radius: 50%;
+      background: linear-gradient(145deg, #3c4040, #111);
+    }
+
+    .header-pins {
+      position: absolute;
+      display: grid;
+      gap: 5px;
+      grid-template-columns: repeat(var(--cols, 1), 12px);
+    }
+
+    .header-pins span {
+      width: 12px;
+      height: 12px;
+      border-radius: 2px;
+      background: radial-gradient(circle, #161616 0 28%, #d6b765 31% 66%, #6d5019 70%);
+    }
+
+    .led {
+      position: absolute;
+      width: 20px;
+      height: 20px;
+      border-radius: 50%;
+      background: radial-gradient(circle at 35% 30%, #d7ffd3, #38e46f 45%, #117a34);
+      box-shadow: 0 0 16px rgba(55, 228, 111, .75);
+    }
+
+    .hotspot {
+      position: absolute;
+      width: 38px;
+      height: 38px;
+      margin: -19px 0 0 -19px;
+      border: 2px solid rgba(255, 242, 168, .82);
+      border-radius: 50%;
+      background: radial-gradient(circle, rgba(255, 212, 58, .08) 0 40%, rgba(255, 159, 26, .14) 42% 100%);
+      box-shadow: 0 0 0 5px rgba(255, 159, 26, .1), 0 0 16px rgba(255, 159, 26, .62);
+      cursor: crosshair;
+      z-index: 4;
+      transition: transform .16s ease, border-color .16s ease, background .16s ease;
+    }
+
+    .hotspot:hover, .hotspot.active {
+      transform: scale(1.22);
+      border-color: var(--trace);
+      background: rgba(255, 212, 58, .28);
+    }
+
+    .hotspot.active-ch2 {
+      transform: scale(1.22);
+      border-color: var(--trace2);
+      background: rgba(53, 183, 255, .25);
+      box-shadow: 0 0 0 5px rgba(53, 183, 255, .12), 0 0 16px rgba(53, 183, 255, .72);
+    }
+
+    .hotspot.active-both {
+      transform: scale(1.22);
+      border-color: #f5f7f8;
+      background: conic-gradient(var(--trace) 0 50%, var(--trace2) 50% 100%);
+      box-shadow: 0 0 0 4px rgba(255,212,58,.16), 0 0 0 8px rgba(53,183,255,.12);
+    }
+
+    .hotspot.gnd {
+      border-radius: 6px;
+      border-color: rgba(106, 210, 255, .95);
+      background: rgba(53, 183, 255, .12);
+      box-shadow: 0 0 0 6px rgba(53, 183, 255, .12), 0 0 18px rgba(53, 183, 255, .65);
+    }
+
+    .dense-board .hotspot {
+      width: 16px;
+      height: 16px;
+      margin: -8px 0 0 -8px;
+      border-width: 1.5px;
+      box-shadow: 0 0 0 2px rgba(255,159,26,.12), 0 0 8px rgba(255,159,26,.52);
+    }
+
+    .dense-board .hotspot:hover,
+    .dense-board .hotspot.active,
+    .dense-board .hotspot.active-ch2,
+    .dense-board .hotspot.active-both {
+      transform: scale(1.4);
+    }
+
+    .dense-board .hotspot.gnd {
+      border-radius: 50%;
+      box-shadow: 0 0 0 2px rgba(53,183,255,.12), 0 0 8px rgba(53,183,255,.55);
+    }
+
+    .dense-board .hotspot .label { display: none; }
+
+    .compact-hotspots .hotspot {
+      width: 16px;
+      height: 16px;
+      margin: -8px 0 0 -8px;
+      border-width: 1.5px;
+      box-shadow: 0 0 0 2px rgba(255,159,26,.12), 0 0 8px rgba(255,159,26,.52);
+    }
+
+    .compact-hotspots .hotspot:hover,
+    .compact-hotspots .hotspot.active,
+    .compact-hotspots .hotspot.active-ch2,
+    .compact-hotspots .hotspot.active-both {
+      transform: scale(1.4);
+    }
+
+    .compact-hotspots .hotspot.gnd {
+      border-radius: 50%;
+      box-shadow: 0 0 0 2px rgba(53,183,255,.12), 0 0 8px rgba(53,183,255,.55);
+    }
+
+    .compact-hotspots .hotspot .label { display: none; }
+
+    .hotspot .label {
+      position: absolute;
+      left: 50%;
+      bottom: calc(100% + 7px);
+      transform: translateX(-50%);
+      white-space: nowrap;
+      font-size: 12px;
+      color: #111;
+      background: rgba(255, 242, 161, .94);
+      padding: 3px 6px;
+      border-radius: 4px;
+      box-shadow: 0 8px 18px rgba(0, 0, 0, .22);
+      pointer-events: none;
+    }
+
+    .probe-layer {
+      position: absolute;
+      inset: 0;
+      z-index: 30;
+      pointer-events: none;
+      overflow: visible;
+    }
+
+    .probe-wire {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      pointer-events: none;
+      display: none;
+    }
+
+    .probe, .ground-clip {
+      position: absolute;
+      z-index: 35;
+      pointer-events: auto;
+      cursor: grab;
+      touch-action: none;
+      user-select: none;
+    }
+
+    .probe:active, .ground-clip:active { cursor: grabbing; }
+
+    .probe {
+      width: 156px;
+      height: 36px;
+      transform-origin: 16px 18px;
+    }
+
+    .probe-body {
+      position: absolute;
+      left: 38px;
+      top: 6px;
+      width: 104px;
+      height: 24px;
+      border-radius: 15px 5px 5px 15px;
+      background: linear-gradient(90deg, #c9a424, #f8d84f 42%, #896f12);
+      border: 1px solid rgba(0, 0, 0, .42);
+      box-shadow: inset 0 2px 3px rgba(255, 255, 255, .45), 0 9px 16px rgba(0, 0, 0, .32);
+    }
+
+    .probe.ch2-probe .probe-body {
+      background: linear-gradient(90deg, #176d98, #53b7ff 42%, #0d425f);
+    }
+
+    .probe-channel {
+      position: absolute;
+      left: 76px;
+      top: 10px;
+      z-index: 2;
+      color: #15191b;
+      font-size: 9px;
+      font-weight: 700;
+      line-height: 1;
+      pointer-events: none;
+    }
+
+    .ch2-probe .probe-channel { color: #071722; }
+
+    .probe.selected .probe-body {
+      box-shadow: inset 0 2px 3px rgba(255,255,255,.52), 0 0 0 3px rgba(255,255,255,.32), 0 9px 16px rgba(0,0,0,.32);
+    }
+
+    .ground-clip.selected .clip-grip {
+      box-shadow: inset 0 1px 0 rgba(255,255,255,.18), 0 0 0 3px rgba(255,255,255,.28), 0 8px 12px rgba(0,0,0,.35);
+    }
+
+    .probe-tip {
+      position: absolute;
+      left: 0;
+      top: 15px;
+      width: 44px;
+      height: 6px;
+      background: linear-gradient(90deg, #e8e8e8, #777);
+      clip-path: polygon(0 50%, 100% 0, 100% 100%);
+      filter: drop-shadow(0 2px 4px rgba(0,0,0,.4));
+    }
+
+    .probe-tail {
+      position: absolute;
+      right: 0;
+      top: 13px;
+      width: 22px;
+      height: 10px;
+      border-radius: 0 8px 8px 0;
+      background: #171717;
+    }
+
+    .ground-clip {
+      width: 118px;
+      height: 42px;
+      transform-origin: 18px 21px;
+    }
+
+    .clip-jaw {
+      position: absolute;
+      left: 0;
+      top: 10px;
+      width: 54px;
+      height: 22px;
+      background: linear-gradient(180deg, #f1f4f2, #8f9799 48%, #3c4447);
+      clip-path: polygon(0 50%, 22% 18%, 72% 10%, 100% 28%, 80% 50%, 100% 72%, 72% 90%, 22% 82%);
+      border: 1px solid rgba(0,0,0,.55);
+      box-shadow: inset 0 1px 1px rgba(255,255,255,.75), 0 5px 9px rgba(0,0,0,.3);
+    }
+
+    .clip-jaw::before {
+      content: "";
+      position: absolute;
+      left: 7px;
+      top: 7px;
+      width: 16px;
+      height: 8px;
+      background: repeating-linear-gradient(90deg, rgba(20,24,26,.8) 0 2px, transparent 2px 4px);
+      transform: skewX(-18deg);
+      opacity: .75;
+    }
+
+    .clip-hinge {
+      position: absolute;
+      left: 42px;
+      top: 13px;
+      width: 16px;
+      height: 16px;
+      border-radius: 50%;
+      background: radial-gradient(circle, #f8f8f0 0 18%, #596267 21% 60%, #15191b 62%);
+      border: 1px solid rgba(0,0,0,.55);
+      box-shadow: 0 3px 5px rgba(0,0,0,.25);
+    }
+
+    .clip-grip {
+      position: absolute;
+      left: 52px;
+      top: 7px;
+      width: 48px;
+      height: 28px;
+      border-radius: 6px 14px 14px 6px;
+      background:
+        repeating-linear-gradient(90deg, rgba(255,255,255,.08) 0 3px, transparent 3px 8px),
+        linear-gradient(180deg, #343b3f, #0e1113);
+      border: 1px solid rgba(255,255,255,.12);
+      box-shadow: inset 0 1px 0 rgba(255,255,255,.18), 0 8px 12px rgba(0,0,0,.35);
+    }
+
+    .clip-wire {
+      position: absolute;
+      left: 94px;
+      top: 17px;
+      width: 24px;
+      height: 9px;
+      background: linear-gradient(180deg, #171717, #020202);
+      border-radius: 999px;
+      box-shadow: inset 0 1px 0 rgba(255,255,255,.12);
+    }
+
+    .board-footer {
+      position: absolute;
+      left: 14px;
+      right: 14px;
+      bottom: 10px;
+      z-index: 6;
+      display: grid;
+      grid-template-columns: repeat(5, 1fr);
+      gap: 8px;
+    }
+
+    .board-footer.hidden { display: none; }
+
+    .lab-controls {
+      position: absolute;
+      right: 14px;
+      bottom: 84px;
+      z-index: 8;
+      display: flex;
+      align-items: center;
+      gap: 7px;
+      padding: 5px 7px;
+      border: 1px solid rgba(255,255,255,.15);
+      border-radius: 7px;
+      background: rgba(10, 12, 11, .72);
+      backdrop-filter: blur(8px);
+    }
+
+    .lab-label {
+      color: var(--muted);
+      font-size: 10px;
+      white-space: nowrap;
+    }
+
+    .lab-button {
+      min-width: 78px;
+      min-height: 28px;
+      padding: 3px 7px;
+      border: 1px solid rgba(255,255,255,.18);
+      border-radius: 5px;
+      background: linear-gradient(#343936, #191c1a);
+      color: var(--text);
+      font-size: 11px;
+      cursor: pointer;
+    }
+
+    .lab-button span {
+      display: block;
+      margin-top: 1px;
+      color: var(--muted);
+      font-size: 9px;
+    }
+
+    .lab-button.active {
+      border-color: rgba(255, 183, 61, .78);
+      box-shadow: 0 0 0 2px rgba(255, 183, 61, .14);
+    }
+
+    .point-button {
+      border: 1px solid rgba(255,255,255,.16);
+      background: rgba(0,0,0,.32);
+      color: var(--text);
+      border-radius: 6px;
+      padding: 6px 5px;
+      font-size: 11px;
+      cursor: pointer;
+    }
+
+    .point-button.active {
+      border-color: rgba(255, 212, 58, .85);
+      background: rgba(255, 212, 58, .16);
+    }
+
+    .scope-body {
+      position: absolute;
+      left: 28px;
+      right: 28px;
+      top: 58px;
+      bottom: 26px;
+      background: linear-gradient(145deg, #4a4f52, #272b2e 48%, #1b1e20);
+      border: 1px solid rgba(255,255,255,.16);
+      border-radius: 8px;
+      box-shadow: inset 0 1px 0 rgba(255,255,255,.18), inset 0 -18px 42px rgba(0,0,0,.42), 0 22px 52px rgba(0,0,0,.45);
+      padding: 22px;
+      display: grid;
+      grid-template-columns: minmax(370px, 1fr) 250px;
+      grid-template-rows: 1fr 182px;
+      gap: 18px;
+    }
+
+    .scope-screen-bezel {
+      position: relative;
+      grid-row: 1 / 2;
+      grid-column: 1 / 2;
+      background: linear-gradient(145deg, #101515, #050807);
+      border: 10px solid #171a1b;
+      border-radius: 8px;
+      box-shadow: inset 0 0 0 1px rgba(255,255,255,.12), 0 14px 28px rgba(0,0,0,.38);
+      min-height: 330px;
+      overflow: hidden;
+    }
+
+    #scopeCanvas {
+      width: 100%;
+      height: 100%;
+      display: block;
+      background: var(--screen);
+    }
+
+    .screen-overlay {
+      position: absolute;
+      inset: 0;
+      pointer-events: none;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      padding: 8px 10px;
+      font: 12px Consolas, "Microsoft YaHei", monospace;
+      color: rgba(238, 255, 211, .88);
+    }
+
+    .screen-top, .screen-bottom {
+      display: flex;
+      justify-content: space-between;
+      gap: 8px;
+    }
+
+    #screenMode.stopped { color: #ff7770; font-weight: 700; }
+    #screenMode.armed { color: #ffb43d; font-weight: 700; }
+
+    .soft-menu {
+      grid-row: 1 / 3;
+      grid-column: 2 / 3;
+      display: grid;
+      grid-template-rows: auto repeat(7, 1fr);
+      gap: 10px;
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      color: #dbe1e2;
+      font-size: 14px;
+      letter-spacing: 0;
+      padding: 0 2px 4px;
+    }
+
+    .brand strong { font-weight: 500; }
+
+    .soft-key, .scope-button {
+      border: 1px solid rgba(255,255,255,.18);
+      background: linear-gradient(#4d5356, #2c3134);
+      color: var(--text);
+      border-radius: 6px;
+      box-shadow: inset 0 1px 0 rgba(255,255,255,.2), 0 5px 10px rgba(0,0,0,.25);
+      cursor: pointer;
+      font-size: 13px;
+    }
+
+    .soft-key {
+      min-height: 46px;
+      text-align: left;
+      padding: 8px 10px;
+    }
+
+    .soft-key span, .scope-button span { display: block; color: var(--muted); font-size: 11px; margin-top: 2px; }
+
+    .soft-key.active, .scope-button.active {
+      border-color: rgba(53, 208, 127, .78);
+      box-shadow: inset 0 1px 0 rgba(255,255,255,.22), 0 0 14px rgba(53,208,127,.24);
+    }
+
+    .control-deck {
+      grid-row: 2 / 3;
+      grid-column: 1 / 2;
+      display: grid;
+      grid-template-columns: 1fr 1fr 1fr;
+      gap: 14px;
+      align-items: stretch;
+    }
+
+    .control-group {
+      background: rgba(16,18,19,.34);
+      border: 1px solid rgba(255,255,255,.12);
+      border-radius: 8px;
+      padding: 10px;
+      min-width: 0;
+    }
+
+    .control-title {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      margin-bottom: 8px;
+      color: #dfe5e2;
+      font-size: 13px;
+    }
+
+    .knob-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-around;
+      gap: 10px;
+    }
+
+    .knob-box {
+      text-align: center;
+      min-width: 76px;
+    }
+
+    .knob {
+      width: 72px;
+      height: 72px;
+      border: 1px solid rgba(255,255,255,.18);
+      border-radius: 50%;
+      margin: 0 auto 7px;
+      position: relative;
+      background: radial-gradient(circle at 38% 30%, #7b8285, #30363a 58%, #171b1d);
+      box-shadow: inset 0 2px 4px rgba(255,255,255,.18), inset 0 -8px 14px rgba(0,0,0,.45), 0 10px 18px rgba(0,0,0,.35);
+      cursor: ns-resize;
+    }
+
+    .knob::after {
+      content: "";
+      position: absolute;
+      width: 4px;
+      height: 22px;
+      left: 50%;
+      top: 11px;
+      margin-left: -2px;
+      border-radius: 99px;
+      background: #f2f6f3;
+      transform-origin: 2px 16px;
+      transform: rotate(var(--angle, -32deg));
+      box-shadow: 0 0 8px rgba(255,255,255,.5);
+    }
+
+    .knob-label {
+      color: var(--muted);
+      font-size: 12px;
+      min-height: 30px;
+    }
+
+    .button-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+    }
+
+    .scope-button {
+      min-height: 38px;
+      padding: 6px;
+    }
+
+    .status-line {
+      position: absolute;
+      left: 28px;
+      right: 28px;
+      bottom: 4px;
+      height: 20px;
+      display: flex;
+      justify-content: space-between;
+      color: rgba(238,242,232,.78);
+      font-size: 12px;
+    }
+
+    .hint {
+      position: absolute;
+      left: 14px;
+      top: 48px;
+      z-index: 20;
+      max-width: min(420px, calc(100% - 28px));
+      background: rgba(0,0,0,.64);
+      border: 1px solid rgba(255,255,255,.16);
+      border-radius: 8px;
+      padding: 8px 10px;
+      color: #e8eee2;
+      line-height: 1.35;
+      font-size: 12px;
+      backdrop-filter: blur(10px);
+    }
+
+    .hint.hidden { display: none; }
+
+    .toast {
+      position: fixed;
+      left: 50%;
+      bottom: 18px;
+      transform: translateX(-50%);
+      z-index: 100;
+      background: rgba(9, 10, 10, .86);
+      border: 1px solid rgba(255,255,255,.2);
+      border-radius: 8px;
+      color: var(--text);
+      padding: 10px 14px;
+      box-shadow: 0 18px 42px rgba(0,0,0,.45);
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity .2s ease;
+    }
+
+    .toast.show { opacity: 1; }
+
+    @media (max-width: 980px) {
+      .topbar, .bench { grid-template-columns: 1fr; }
+      .board-area, .scope-area { min-height: 650px; }
+      .scope-area { min-height: 760px; }
+      .bench { height: auto; }
+    }
+
+    .scope-body.rigol-like {
+      left: 14px;
+      right: 14px;
+      top: 50px;
+      bottom: auto;
+      height: min(690px, calc(100% - 72px));
+      padding: 12px;
+      grid-template-columns: minmax(0, 1.38fr) minmax(260px, .92fr);
+      grid-template-rows: 38px 150px 128px 196px;
+      gap: 8px 12px;
+      align-content: start;
+      background:
+        linear-gradient(135deg, rgba(255,255,255,.86), rgba(207,213,214,.9) 48%, rgba(151,158,160,.95)),
+        linear-gradient(180deg, #e8ecec, #afb7b9);
+      border: 2px solid rgba(19, 23, 26, .72);
+      border-radius: 22px;
+      color: #1b2225;
+    }
+
+    .scope-body.rigol-like::before {
+      content: "";
+      position: absolute;
+      inset: 9px;
+      border-radius: 17px;
+      border: 1px solid rgba(20, 30, 34, .36);
+      box-shadow: inset 0 0 0 3px rgba(255,255,255,.45), inset 0 -24px 38px rgba(0,0,0,.12);
+      pointer-events: none;
+    }
+
+    .scope-brand-bar {
+      grid-column: 1;
+      grid-row: 1;
+      z-index: 2;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 0 12px;
+      border: 1px solid rgba(35,45,48,.6);
+      border-radius: 7px 22px 7px 22px;
+      background: linear-gradient(180deg, rgba(255,255,255,.92), rgba(225,230,230,.86));
+      color: #1d2427;
+      box-shadow: inset 0 1px 0 rgba(255,255,255,.9);
+    }
+
+    .scope-brand-name {
+      padding-right: 11px;
+      border-right: 1px solid rgba(36, 67, 91, .32);
+      font-family: "Microsoft YaHei UI", "Microsoft YaHei", "PingFang SC", sans-serif;
+      font-size: 18px;
+      font-weight: 700;
+      line-height: 1;
+      color: #124f8d;
+      letter-spacing: 0;
+      text-shadow: 0 1px 0 rgba(255,255,255,.92);
+      white-space: nowrap;
+      flex: 0 0 auto;
+    }
+
+    .scope-brand-model {
+      font-family: Arial, "Microsoft YaHei UI", sans-serif;
+      font-size: 12px;
+      font-weight: 600;
+      line-height: 1;
+      color: #273338;
+      min-width: 0;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .scope-body.rigol-like .scope-screen-bezel {
+      grid-column: 1;
+      grid-row: 2 / 4;
+      min-height: 0;
+      height: 100%;
+      border-width: 9px;
+      border-color: #202526;
+      border-radius: 10px;
+      background: #101515;
+    }
+
+    .rigol-top-actions {
+      grid-column: 2;
+      grid-row: 1;
+      z-index: 3;
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 7px;
+      align-items: center;
+    }
+
+    .rigol-panel {
+      z-index: 3;
+      border: 1px solid rgba(67, 78, 82, .46);
+      border-radius: 10px;
+      background: rgba(233, 238, 238, .72);
+      box-shadow: inset 0 1px 0 rgba(255,255,255,.75);
+    }
+
+    .scope-body.rigol-like .soft-menu {
+      grid-column: 2;
+      grid-row: 2;
+      align-self: start;
+      grid-template-rows: repeat(4, minmax(30px, 1fr));
+      grid-template-columns: repeat(2, 1fr);
+      gap: 4px;
+      align-content: stretch;
+      padding: 6px;
+      height: 100%;
+    }
+
+    .scope-body.rigol-like .brand {
+      display: none;
+    }
+
+    .scope-body.rigol-like .soft-key,
+    .scope-body.rigol-like .scope-button {
+      min-height: 30px;
+      color: #172023;
+      background: linear-gradient(#fbfbfb, #c6cbce);
+      border: 1px solid #151a1c;
+      border-radius: 6px;
+      box-shadow: inset 0 2px 0 rgba(255,255,255,.86), 0 2px 0 rgba(0,0,0,.3);
+      text-align: center;
+      padding: 3px 5px;
+      line-height: 1.15;
+    }
+
+    .scope-body.rigol-like .soft-key span,
+    .scope-body.rigol-like .scope-button span {
+      color: #485257;
+      font-size: 9px;
+      margin-top: 1px;
+    }
+
+    .scope-body.rigol-like .soft-key.active,
+    .scope-body.rigol-like .scope-button.active {
+      border-color: #0f5f8d;
+      box-shadow: inset 0 2px 0 rgba(255,255,255,.86), 0 0 0 3px rgba(39, 154, 219, .2);
+    }
+
+    .scope-body.rigol-like .control-deck {
+      grid-column: 1 / 3;
+      grid-row: 4;
+      grid-template-columns: 1fr 1.08fr 1fr;
+      grid-template-rows: 128px 58px;
+      gap: 10px;
+      z-index: 3;
+      align-items: stretch;
+      min-height: 0;
+    }
+
+    .scope-body.rigol-like .control-group {
+      background: rgba(238, 242, 242, .78);
+      border: 1px solid rgba(67, 78, 82, .46);
+      border-top: 3px solid rgba(126, 136, 139, .72);
+      border-radius: 12px;
+      color: #192125;
+      overflow: hidden;
+      padding: 8px;
+    }
+
+    .scope-body.rigol-like .compact-group {
+      height: auto;
+      align-self: stretch;
+    }
+
+    .scope-body.rigol-like .trigger-group {
+      grid-column: 2;
+      grid-row: 3;
+      align-self: stretch;
+      height: auto;
+      min-height: 0;
+      margin-top: 0;
+      display: grid;
+      grid-template-columns: 1fr 86px;
+      grid-template-rows: auto 1fr;
+      gap: 6px 10px;
+      border-top-color: rgba(213, 137, 37, .8);
+    }
+
+    .scope-body.rigol-like .trigger-group .button-grid {
+      grid-column: 1;
+      grid-row: 2;
+      gap: 6px;
+    }
+
+    .scope-body.rigol-like .trigger-group .button-grid {
+      grid-template-columns: 1fr 1fr;
+      align-self: center;
+    }
+
+    .scope-body.rigol-like .trigger-group .scope-button {
+      min-height: 28px;
+    }
+
+    .scope-body.rigol-like .trigger-group .knob-row {
+      margin-top: 6px !important;
+      grid-column: 2;
+      grid-row: 1 / 3;
+      align-self: center;
+      justify-self: center;
+    }
+
+    .scope-body.rigol-like .trigger-group .knob {
+      width: 46px;
+      height: 46px;
+    }
+
+    .scope-body.rigol-like .trigger-group .control-title {
+      grid-column: 1 / 3;
+      grid-row: 1;
+    }
+
+    .scope-body.rigol-like .vertical-ch1-group {
+      grid-column: 1;
+      grid-row: 1;
+      border-top-color: rgba(196, 151, 17, .82);
+    }
+
+    .scope-body.rigol-like .vertical-ch2-group {
+      grid-column: 3;
+      grid-row: 1;
+      border-top-color: rgba(44, 135, 190, .82);
+    }
+
+    .scope-body.rigol-like .horizontal-group {
+      grid-column: 2;
+      grid-row: 1;
+    }
+
+    #ch2VoltKnob { --angle: -38deg; }
+    #ch2PosKnob { --angle: 0deg; }
+
+    .scope-body.rigol-like .control-title {
+      color: #192125;
+      font-weight: 500;
+    }
+
+    .channel-toggle {
+      min-width: 46px;
+      min-height: 25px;
+      padding: 2px 4px;
+      border: 1px solid #80620b;
+      border-radius: 5px;
+      background: linear-gradient(#fff8ce, #d5c36d);
+      color: #24220f;
+      font-size: 11px;
+      font-weight: 500;
+      cursor: pointer;
+      box-shadow: inset 0 1px 0 rgba(255,255,255,.8), 0 1px 2px rgba(0,0,0,.25);
+    }
+
+    .channel-toggle span {
+      display: inline;
+      margin-left: 3px;
+      color: #544a20;
+      font-size: 9px;
+    }
+
+    .channel-toggle:not(.active) {
+      filter: grayscale(.85);
+      opacity: .68;
+    }
+
+    .channel-toggle.ch2-toggle {
+      border-color: #176c94;
+      background: linear-gradient(#d7f2ff, #76c7ee);
+    }
+
+    .vertical-ch1-group .control-title > span,
+    .vertical-ch2-group .control-title > span {
+      white-space: nowrap;
+      font-size: 11px;
+    }
+
+    .scope-body.rigol-like .knob {
+      width: 48px;
+      height: 48px;
+      background:
+        repeating-radial-gradient(circle, transparent 0 19px, rgba(0,0,0,.14) 20px 21px, transparent 22px 24px),
+        radial-gradient(circle at 38% 30%, #fbfbfb, #b7bdc0 56%, #535b60);
+      border-color: #161b1d;
+      overflow: hidden;
+    }
+
+    .scope-body.rigol-like .knob::after {
+      width: 4px;
+      height: 19px;
+      top: 10px;
+      margin-left: -2px;
+      transform-origin: 2px 17px;
+      background: #1c2529;
+      box-shadow: none;
+    }
+
+    .scope-body.rigol-like .knob-label {
+      color: #333f44;
+      min-height: 18px;
+      font-size: 11px;
+    }
+
+    .bnc-bank {
+      position: relative;
+      grid-column: 1 / 4;
+      grid-row: 2;
+      align-self: stretch;
+      justify-self: stretch;
+      z-index: 3;
+      display: flex;
+      gap: 12px;
+      align-items: center;
+      justify-content: flex-start;
+      padding: 13px 14px 8px 92px;
+      width: auto;
+      border: 1px solid rgba(20, 28, 31, .18);
+      border-radius: 10px;
+      background: rgba(232, 237, 237, .64);
+      pointer-events: none;
+    }
+
+    .bnc-bank::before {
+      content: "Inputs";
+      position: absolute;
+      left: 14px;
+      top: 3px;
+      color: #364247;
+      font-size: 11px;
+      font-weight: 500;
+    }
+
+    .bnc {
+      position: relative;
+      width: 76px;
+      height: 38px;
+      border: 2px solid #1f2528;
+      border-radius: 9px;
+      background: linear-gradient(145deg, #fafafa, #c4c8ca);
+      display: grid;
+      place-items: center;
+      padding: 0;
+      box-shadow: 0 6px 10px rgba(0,0,0,.22);
+    }
+
+    .bnc.ch1 {
+      border-color: #80620b;
+      box-shadow: 0 6px 10px rgba(0,0,0,.22), 0 0 0 3px rgba(255, 212, 58, .2);
+    }
+
+    .bnc.ch2 {
+      border-color: #176c94;
+      box-shadow: 0 6px 10px rgba(0,0,0,.22), 0 0 0 3px rgba(53, 183, 255, .18);
+    }
+
+    .bnc.gnd {
+      border-color: #111;
+    }
+
+    .bnc::before {
+      content: "";
+      width: 22px;
+      height: 22px;
+      border-radius: 50%;
+      background: radial-gradient(circle, #101315 0 16%, #f8f8f8 18% 34%, #9fa4a8 36% 54%, #20262a 56% 100%);
+      border: 1px solid #111;
+    }
+
+    .bnc-label {
+      position: absolute;
+      left: 50%;
+      top: -13px;
+      transform: translateX(-50%);
+      color: #1f282c;
+      font-size: 10px;
+      font-weight: 500;
+      line-height: 1;
+      white-space: nowrap;
+      max-width: 66px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      z-index: 2;
+    }
+
+    .comp-out {
+      display: none;
+    }
+
+    @media (max-width: 1450px) and (min-width: 981px) {
+      .scope-body.rigol-like {
+        grid-template-columns: minmax(0, 1.32fr) minmax(250px, .9fr);
+        gap: 8px 10px;
+      }
+
+      .scope-body.rigol-like .soft-menu {
+        gap: 5px;
+        padding: 7px;
+      }
+
+      .scope-body.rigol-like .soft-key,
+      .scope-body.rigol-like .scope-button {
+        padding-left: 3px;
+        padding-right: 3px;
+        font-size: 12px;
+      }
+
+      .scope-brand-name { font-size: 16px; }
+      .scope-brand-model { font-size: 11px; }
+      .bnc-bank { padding-left: 70px; }
+      .bnc { width: 68px; }
+    }
+
+    @media (max-width: 760px) {
+      #oscilloscope-learning-lab { padding: 10px; }
+      .readout-strip { grid-template-columns: repeat(2, 1fr); }
+      .scope-body {
+        left: 10px;
+        right: 10px;
+        padding: 12px;
+        grid-template-columns: 1fr;
+        grid-template-rows: 310px auto auto;
+      }
+      .soft-menu { grid-column: 1; grid-row: 3; grid-template-columns: repeat(2, 1fr); grid-template-rows: auto; }
+      .brand { grid-column: 1 / -1; }
+      .control-deck { grid-row: 2; grid-column: 1; grid-template-columns: 1fr; }
+      .scope-area { min-height: 980px; }
+      .board-footer { grid-template-columns: repeat(2, 1fr); }
+      .scope-body.rigol-like {
+        grid-template-columns: 1fr;
+        grid-template-rows: 44px 280px auto auto auto;
+      }
+      .scope-brand-bar,
+      .rigol-top-actions,
+      .scope-body.rigol-like .scope-screen-bezel,
+      .scope-body.rigol-like .soft-menu,
+      .scope-body.rigol-like .control-deck,
+      .bnc-bank {
+        grid-column: 1;
+      }
+      .rigol-top-actions { grid-row: 3; }
+      .scope-body.rigol-like .soft-menu { grid-row: 4; }
+      .scope-body.rigol-like .control-deck { grid-row: 5; grid-template-columns: 1fr; }
+      .bnc-bank { display: none; }
+      .comp-out { display: none; }
+    }
+  </style>
+
+  <div class="topbar">
+    <section class="mission">
+      <h1>示波器仿真实验台</h1>
+      <div class="mission-row">
+        <select id="lessonSelect" aria-label="选择练习任务">
+          <option value="dc">第 1 关：测 3.3V 直流电源</option>
+          <option value="pwm" selected>第 2 关：稳定显示 PWM</option>
+          <option value="ripple">第 3 关：测电源纹波</option>
+          <option value="sine">自由测量：观察正弦波</option>
+          <option value="bounce">第 4 关：Single 捕获按键抖动</option>
+          <option value="uart">第 5 关：观察 UART 发送</option>
+        </select>
+        <div id="missionText" class="mission-text"></div>
+      </div>
+    </section>
+    <section class="readout-strip" aria-label="当前测量读数">
+      <div class="metric"><span>探头连接</span><strong id="probeReadout">未连接</strong></div>
+      <div class="metric"><span>地夹</span><strong id="groundReadout">未接地</strong></div>
+      <div class="metric"><span>自动测量</span><strong id="measureReadout">--</strong></div>
+      <div class="metric"><span>波形</span><strong id="stateReadout">等待操作</strong></div>
+    </section>
+  </div>
+
+  <main class="bench" id="bench">
+    <svg class="bench-cable-layer" id="benchCableSvg" aria-hidden="true"></svg>
+    <section class="board-area" id="boardArea" aria-label="虚拟电路板">
+      <div class="board-header">
+        <span class="tag"><span class="lamp"></span><select class="board-select" id="boardSelect" aria-label="切换电路板"><option value="stm32">STM32 调试板</option><option value="trainer49">示波器练习板 49 点</option></select></span>
+        <span class="tag" id="activeProbeTag">当前探头 CH1</span>
+      </div>
+      <div class="hint" id="hintBox">先把黑色地夹接到 GND，再把黄色探头尖端接到测试点。可以点击底部测试点快捷连接。</div>
+      <div class="board-wrap" id="boardWrap">
+        <img class="board-photo" id="boardPhoto" src="oscilloscope-edu-pcb-generated.webp" alt="实物风格示波器学习 PCB">
+      </div>
+      <div class="hotspot-layer" id="hotspotLayer" aria-hidden="true"></div>
+      <div class="probe-layer">
+        <svg class="probe-wire" id="wireSvg" aria-hidden="true"></svg>
+        <div class="probe selected" id="probe" aria-label="CH1 探头" role="button">
+          <div class="probe-tip"></div><div class="probe-body"></div><span class="probe-channel">CH1</span><div class="probe-tail"></div>
+        </div>
+        <div class="probe ch2-probe" id="ch2Probe" aria-label="CH2 探头" role="button">
+          <div class="probe-tip"></div><div class="probe-body"></div><span class="probe-channel">CH2</span><div class="probe-tail"></div>
+        </div>
+        <div class="ground-clip" id="groundClip" aria-label="探头地夹" role="button">
+          <div class="clip-jaw"></div><div class="clip-hinge"></div><div class="clip-grip"></div><div class="clip-wire"></div>
+        </div>
+      </div>
+      <div class="hotspot-hit-layer" id="hotspotHitLayer" aria-label="电路板测试焊盘"></div>
+      <div class="board-footer" id="pointButtons"></div>
+      <div class="lab-controls" aria-label="教学模拟设置">
+        <span class="lab-label">教学模拟</span>
+        <button class="lab-button" id="noiseBtn" type="button">Noise<span id="noiseLabel">Realistic</span></button>
+        <button class="lab-button" id="faultBtn" type="button">Fault Lab<span id="faultLabel">Normal</span></button>
+      </div>
+    </section>
+
+    <section class="scope-area" aria-label="虚拟示波器">
+      <div class="scope-header">
+        <span class="tag"><span class="lamp"></span>VibeHard 100MHz</span>
+        <span class="tag">旋钮支持鼠标滚轮</span>
+      </div>
+      <div class="scope-body rigol-like">
+        <div class="scope-brand-bar">
+          <span class="scope-brand-name">VibeHard</span>
+          <span class="scope-brand-model">2 Channel Digital Oscilloscope 100MHz</span>
+        </div>
+
+        <div class="scope-screen-bezel">
+          <canvas id="scopeCanvas" width="900" height="560" aria-label="示波器屏幕"></canvas>
+          <div class="screen-overlay">
+            <div class="screen-top"><span id="screenMode">AUTO</span><span id="screenTrig">Trig CH1 Rising</span></div>
+            <div class="screen-bottom"><span id="screenCh">CH1 1.00V/div DC 10X</span><span id="screenTime">M 500us/div</span></div>
+          </div>
+        </div>
+
+        <div class="rigol-top-actions" aria-label="常用操作键">
+          <button class="scope-button" id="defaultSetupBtn" type="button">Default<span>默认设置</span></button>
+          <button class="scope-button" id="autoSetBtn" type="button">Auto<span>自动显示</span></button>
+          <button class="scope-button active" id="runStopBtn" type="button">Run/Stop<span id="runStopStateLabel">运行中</span></button>
+          <button class="scope-button" id="singleBtn" type="button">Single<span id="singleStateLabel">单次捕获</span></button>
+        </div>
+
+        <div class="soft-menu rigol-panel" aria-label="示波器功能键">
+          <button class="soft-key" id="measureBtn" type="button">Measure<span>频率 / Vpp / 占空比</span></button>
+          <button class="soft-key" id="couplingBtn" type="button">Coupling<span id="couplingLabel">DC</span></button>
+          <button class="soft-key" id="probeRatioBtn" type="button">Probe<span id="ratioLabel">10X</span></button>
+          <button class="soft-key" id="bandLimitBtn" type="button">BW Limit<span id="bandLabel">Off</span></button>
+          <button class="soft-key pending-key" id="acquireBtn" type="button">Acquire<span>采样设置</span></button>
+          <button class="soft-key pending-key" id="storageBtn" type="button">Storage<span>存储</span></button>
+          <button class="soft-key pending-key" id="displayBtn" type="button">Display<span>显示设置</span></button>
+          <button class="soft-key pending-key" id="utilityBtn" type="button">Utility<span>系统设置</span></button>
+        </div>
+
+        <div class="control-group trigger-group">
+          <div class="control-title"><span>Trigger</span><span id="triggerValue">0.00 V</span></div>
+          <div class="button-grid">
+            <button class="scope-button active" id="triggerModeBtn" type="button">Mode<span id="triggerModeLabel">Auto</span></button>
+            <button class="scope-button" id="triggerEdgeBtn" type="button">Edge<span id="edgeLabel">Rising</span></button>
+            <button class="scope-button pending-key" id="forceTriggerBtn" type="button">Force<span>强制触发</span></button>
+            <button class="scope-button pending-key" id="triggerMenuBtn" type="button">Trigger Menu<span>触发菜单</span></button>
+          </div>
+          <div class="knob-row" style="margin-top:8px"><div class="knob-box"><div class="knob" id="triggerKnob"></div><div class="knob-label">Level</div></div></div>
+        </div>
+
+        <div class="control-deck">
+          <div class="control-group compact-group vertical-ch1-group">
+            <div class="control-title"><span>Vertical CH1</span><button class="channel-toggle active" id="ch1Btn" type="button">CH1 <span id="ch1StateLabel">On</span></button><span id="voltValue">1.00 V/div</span></div>
+            <div class="knob-row">
+              <div class="knob-box"><div class="knob" id="voltKnob"></div><div class="knob-label">V/div</div></div>
+              <div class="knob-box"><div class="knob" id="vposKnob"></div><div class="knob-label">Position</div></div>
+            </div>
+          </div>
+          <div class="control-group compact-group horizontal-group">
+            <div class="control-title"><span>Horizontal</span><span id="timeValue">500 us/div</span></div>
+            <div class="knob-row">
+              <div class="knob-box"><div class="knob" id="timeKnob"></div><div class="knob-label">Time/div</div></div>
+              <div class="knob-box"><div class="knob" id="hposKnob"></div><div class="knob-label">Delay</div></div>
+            </div>
+          </div>
+          <div class="control-group compact-group vertical-ch2-group">
+            <div class="control-title"><span>Vertical CH2</span><button class="channel-toggle ch2-toggle active" id="ch2Btn" type="button">CH2 <span id="ch2StateLabel">On</span></button><span id="ch2VoltValue">1.00 V/div</span></div>
+            <div class="knob-row">
+              <div class="knob-box"><div class="knob" id="ch2VoltKnob"></div><div class="knob-label">V/div</div></div>
+              <div class="knob-box"><div class="knob" id="ch2PosKnob"></div><div class="knob-label">Position</div></div>
+            </div>
+          </div>
+          <div class="bnc-bank" aria-hidden="true">
+            <div class="bnc ch1" data-terminal="ch1"><span class="bnc-label">CH1</span></div>
+            <div class="bnc ch2" data-terminal="ch2"><span class="bnc-label">CH2</span></div>
+            <div class="bnc gnd" data-terminal="gnd"><span class="bnc-label">GND</span></div>
+          </div>
+        </div>
+      </div>
+      <div class="status-line"><span>鼠标探头 + 真实示波器操作模拟</span><span id="statusTip">准备测量</span></div>
+    </section>
+  </main>
+  <div class="toast" id="toast"></div>
+
+  <script>
+    (() => {
+      const stm32Points = [
+        { id: 'TP1', name: '3V3', label: 'TP1 3.3V', x: 19.2, y: 22.4, type: 'dc', amp: 3.3, freq: 0, duty: 1, lesson: 'dc' },
+        { id: 'TP2', name: 'RIPPLE', label: 'TP2 纹波', x: 75.0, y: 22.4, type: 'ripple', amp: 0.08, offset: 3.3, freq: 120000, lesson: 'ripple' },
+        { id: 'TP3', name: 'SINE', label: 'TP3 正弦', x: 75.0, y: 30.9, type: 'sine', amp: 1.2, offset: 1.65, freq: 1000, lesson: 'sine' },
+        { id: 'TP4', name: 'PWM', label: 'TP4 PWM', x: 75.1, y: 39.4, type: 'pwm', amp: 3.3, offset: 0, freq: 1000, duty: .35, lesson: 'pwm' },
+        { id: 'TP5', name: 'KEY', label: 'TP5 按键', x: 75.1, y: 48.0, type: 'bounce', amp: 3.3, offset: 0, freq: 0, lesson: 'bounce' },
+        { id: 'TP6', name: 'UART_TX', label: 'TP6 UART', x: 75.1, y: 56.4, type: 'uart', amp: 3.3, offset: 0, freq: 9600, lesson: 'uart' },
+        { id: 'GND', name: 'GND', label: 'GND', x: 75.1, y: 65.2, type: 'gnd' }
+      ];
+
+      const trainer49Points = [
+        { id:'TP1', name:'0V', label:'TP1 0V', x:9.32, y:18.69, type:'dc', amp:0, lesson:'dc' },
+        { id:'TP2', name:'3V3', label:'TP2 3.3V', x:14.92, y:18.69, type:'dc', amp:3.3, lesson:'dc' },
+        { id:'TP3', name:'5V', label:'TP3 5V', x:20.65, y:18.69, type:'dc', amp:5, lesson:'dc' },
+        { id:'TP4', name:'12V', label:'TP4 12V', x:25.76, y:18.69, type:'dc', amp:12, lesson:'dc' },
+        { id:'TP5', name:'GND', label:'TP5 GND', x:9.32, y:27.53, type:'gnd' },
+        { id:'TP6', name:'GND', label:'TP6 GND', x:14.92, y:27.53, type:'gnd' },
+        { id:'TP7', name:'GND', label:'TP7 GND', x:20.65, y:27.53, type:'gnd' },
+        { id:'TP8', name:'GND', label:'TP8 GND', x:25.76, y:27.53, type:'gnd' },
+        { id:'TP9', name:'SINE_1K', label:'TP9 1kHz Sine', x:35.01, y:19.34, type:'sine', amp:.5, offset:1.65, freq:1000, lesson:'sine' },
+        { id:'TP10', name:'SINE_10K', label:'TP10 10kHz Sine', x:42.75, y:19.34, type:'sine', amp:.5, offset:1.65, freq:10000, lesson:'sine' },
+        { id:'TP11', name:'GND', label:'TP11 GND', x:35.01, y:27.35, type:'gnd' },
+        { id:'TP12', name:'GND', label:'TP12 GND', x:42.75, y:27.35, type:'gnd' },
+        { id:'TP13', name:'SQUARE_1K', label:'TP13 1kHz Square', x:52.42, y:19.34, type:'pwm', amp:5, freq:1000, duty:.5 },
+        { id:'TP14', name:'SQUARE_10K', label:'TP14 10kHz Square', x:59.39, y:19.34, type:'pwm', amp:5, freq:10000, duty:.5 },
+        { id:'TP15', name:'SQUARE_100K', label:'TP15 100kHz Square', x:66.37, y:19.34, type:'pwm', amp:5, freq:100000, duty:.5 },
+        { id:'TP16', name:'GND', label:'TP16 GND', x:52.42, y:27.44, type:'gnd' },
+        { id:'TP17', name:'GND', label:'TP17 GND', x:59.39, y:27.44, type:'gnd' },
+        { id:'TP18', name:'GND', label:'TP18 GND', x:66.37, y:27.44, type:'gnd' },
+        { id:'TP19', name:'PWM_25', label:'TP19 PWM 25%', x:75.07, y:18.69, type:'pwm', amp:3.3, freq:1000, duty:.25, lesson:'pwm' },
+        { id:'TP20', name:'PWM_50', label:'TP20 PWM 50%', x:82.46, y:18.69, type:'pwm', amp:3.3, freq:1000, duty:.5, lesson:'pwm' },
+        { id:'TP21', name:'PWM_75', label:'TP21 PWM 75%', x:89.78, y:18.69, type:'pwm', amp:3.3, freq:1000, duty:.75, lesson:'pwm' },
+        { id:'TP22', name:'GND', label:'TP22 GND', x:75.07, y:27.26, type:'gnd' },
+        { id:'TP23', name:'GND', label:'TP23 GND', x:82.46, y:27.26, type:'gnd' },
+        { id:'TP24', name:'GND', label:'TP24 GND', x:89.78, y:27.26, type:'gnd' },
+        { id:'TP25', name:'RC_CHARGE', label:'TP25 RC Charge', x:8.63, y:46.32, type:'rccharge', amp:3.3, freq:2 },
+        { id:'TP26', name:'RC_DISCHARGE', label:'TP26 RC Discharge', x:25.41, y:46.32, type:'rcdischarge', amp:3.3, freq:2 },
+        { id:'TP27', name:'GND', label:'TP27 GND', x:16.30, y:53.78, type:'gnd' },
+        { id:'TP28', name:'KEY_OUT', label:'TP28 Key Output', x:32.39, y:46.32, type:'bounce', amp:3.3, freq:0, lesson:'bounce' },
+        { id:'TP29', name:'KEY_IN', label:'TP29 Key Input', x:45.86, y:46.32, type:'bounce', amp:3.3, freq:0, lesson:'bounce' },
+        { id:'TP30', name:'GND', label:'TP30 GND', x:39.09, y:54.05, type:'gnd' },
+        { id:'TP31', name:'LED_DRIVE', label:'TP31 LED Drive', x:53.38, y:46.32, type:'pwm', amp:3.3, freq:500, duty:.5 },
+        { id:'TP32', name:'LED_NODE', label:'TP32 LED Node', x:68.78, y:46.32, type:'pwm', amp:2.1, freq:500, duty:.5 },
+        { id:'TP33', name:'GND', label:'TP33 GND', x:59.53, y:54.24, type:'gnd' },
+        { id:'TP34', name:'BUZZER_DRIVE', label:'TP34 Buzzer Drive', x:76.17, y:46.32, type:'pwm', amp:3.3, freq:2000, duty:.5 },
+        { id:'TP35', name:'BUZZER_RETURN', label:'TP35 Buzzer Return', x:90.81, y:46.32, type:'pwm', amp:3.3, freq:2000, duty:.5, phase:.5 },
+        { id:'TP36', name:'GND', label:'TP36 GND', x:83.36, y:54.24, type:'gnd' },
+        { id:'TP37', name:'CLK_8M', label:'TP37 8MHz Clock', x:10.98, y:69.98, type:'pwm', amp:3.3, freq:8000000, duty:.5 },
+        { id:'TP38', name:'GND', label:'TP38 GND', x:13.60, y:75.78, type:'gnd' },
+        { id:'TP39', name:'UART_TX', label:'TP39 UART TX', x:30.39, y:69.52, type:'uart', amp:3.3, freq:9600, lesson:'uart' },
+        { id:'TP40', name:'UART_RX', label:'TP40 UART RX', x:44.34, y:69.52, type:'uart', amp:3.3, freq:9600, phase:5, lesson:'uart' },
+        { id:'TP41', name:'GND', label:'TP41 GND', x:43.72, y:75.41, type:'gnd' },
+        { id:'TP42', name:'SPI_SCK', label:'TP42 SPI SCK', x:52.49, y:70.07, type:'pwm', amp:3.3, freq:1000000, duty:.5 },
+        { id:'TP43', name:'SPI_MOSI', label:'TP43 SPI MOSI', x:58.36, y:70.07, type:'pwm', amp:3.3, freq:250000, duty:.35 },
+        { id:'TP44', name:'SPI_MISO', label:'TP44 SPI MISO', x:64.02, y:70.07, type:'pwm', amp:3.3, freq:400000, duty:.6 },
+        { id:'TP45', name:'SPI_CS', label:'TP45 SPI CS', x:69.82, y:70.07, type:'pwm', amp:3.3, freq:10000, duty:.8 },
+        { id:'TP46', name:'GND', label:'TP46 GND', x:60.70, y:76.06, type:'gnd' },
+        { id:'TP47', name:'I2C_SCL', label:'TP47 I2C SCL', x:79.49, y:70.07, type:'pwm', amp:3.3, freq:100000, duty:.5 },
+        { id:'TP48', name:'I2C_SDA', label:'TP48 I2C SDA', x:87.71, y:70.07, type:'pwm', amp:3.3, freq:40000, duty:.65 },
+        { id:'TP49', name:'GND', label:'TP49 GND', x:83.36, y:75.87, type:'gnd' }
+      ];
+
+      const lessons = {
+        dc: '任务：地夹接 GND，探头接 TP1。把 CH1 打开，调 V/div，让 3.3V 直流线落在屏幕中间附近。',
+        pwm: '任务：地夹接 GND，探头接 TP4。调 Time/div、V/div 和 Trigger Level，让 PWM 波形稳定显示。',
+        ripple: '任务：探头接 TP2。切到 AC 耦合，调小 V/div，观察叠加在 3.3V 电源上的高频纹波。',
+        sine: '自由测量：探头接 TP3。调节 Time/div 和 V/div，观察正弦波的周期、幅度与触发位置。',
+        bounce: '任务：探头接 TP5。按 Single，再点击板上的 KEY 测试点，捕获一次按键抖动。',
+        uart: '任务：探头接 TP6。把 Time/div 调到 50us 附近，观察 UART 起始位、数据位和停止位。'
+      };
+
+      const trainerLessons = {
+        dc: '任务：在 TP1～TP4 测量 0V、3.3V、5V 和 12V，并选择合适的 V/div。',
+        pwm: '任务：比较 TP19、TP20、TP21 的 25%、50%、75% PWM 占空比。',
+        ripple: '任务：观察 TP25 与 TP26 的 RC 充电、放电曲线，调慢 Time/div。',
+        sine: '任务：比较 TP9 的 1kHz 和 TP10 的 10kHz 正弦波。',
+        bounce: '任务：用 Single 捕获 TP28 或 TP29 的按键抖动。',
+        uart: '任务：在 TP39、TP40 观察 UART TX/RX，并与 TP42～TP49 的 SPI、I²C 波形比较。'
+      };
+
+      const boardDefinitions = {
+        stm32: {
+          image: 'oscilloscope-edu-pcb-generated.webp',
+          alt: '实物风格 STM32 示波器学习 PCB',
+          hint: '先把黑色地夹接到 GND，再把黄色或蓝色探头接到测试点。可以点击底部测试点快捷连接。',
+          points: stm32Points,
+          lessons,
+          lessonTargets: { dc:'TP1', pwm:'TP4', ripple:'TP2', sine:'TP3', bounce:'TP5', uart:'TP6' },
+          defaults: { ch1:'TP4', ch2:'TP3' },
+          groundIdle: { x:18, y:88 },
+          compactHotspots: true,
+          dense: false,
+          footer: false
+        },
+        trainer49: {
+          image: 'oscilloscope-training-board-49tp.webp',
+          alt: '示波器练习板 49 个可测试焊盘',
+          hint: '板上 TP1～TP49 均可测量。先连接任意 GND 焊盘，再选择 CH1 或 CH2 探头点击目标焊盘。',
+          points: trainer49Points,
+          lessons: trainerLessons,
+          lessonTargets: { dc:'TP2', pwm:'TP20', ripple:'TP25', sine:'TP9', bounce:'TP28', uart:'TP39' },
+          defaults: { ch1:'TP20', ch2:'TP9' },
+          groundIdle: { x:8, y:86 },
+          dense: true,
+          footer: false
+        }
+      };
+
+      let points = boardDefinitions.stm32.points;
+
+      const volts = [0.01,0.02,0.05,0.1,0.2,0.5,1,2,5];
+      const times = [1e-6,2e-6,5e-6,10e-6,20e-6,50e-6,100e-6,200e-6,500e-6,1e-3,2e-3,5e-3,10e-3,20e-3,50e-3,100e-3,200e-3,500e-3,1];
+      const uartFrames = [
+        [0,1,0,1,0,1,0,1,0,1],
+        [0,1,0,1,0,0,1,0,1,1],
+        [0,0,0,1,1,1,1,0,0,1]
+      ];
+      const state = {
+        boardId: 'stm32',
+        point: null,
+        ch2Point: null,
+        grounded: false,
+        ch1: true,
+        ch2: true,
+        activeChannel: 'ch1',
+        voltIdx: 6,
+        ch2VoltIdx: 6,
+        timeIdx: 8,
+        vpos: 0,
+        ch2Vpos: 0,
+        hpos: 0,
+        trigger: 0,
+        edge: 'Rising',
+        coupling: 'DC',
+        ch2Coupling: 'DC',
+        ratio: '10X',
+        ch2Ratio: '10X',
+        running: true,
+        singleArmed: false,
+        singleCaptureAt: 0,
+        singleCaptured: false,
+        triggerMode: 'Auto',
+        stoppedFrame: null,
+        measure: true,
+        bwLimit: false,
+        noise: true,
+        fault: 'normal',
+        start: performance.now(),
+        lastDraw: 0,
+        uartFrameIndex: 0,
+        bounceStart: 0,
+        selectedLesson: 'pwm'
+      };
+
+      const root = document.getElementById('oscilloscope-learning-lab');
+      const boardWrap = document.getElementById('boardWrap');
+      const hotspotLayer = document.getElementById('hotspotLayer');
+      const hotspotHitLayer = document.getElementById('hotspotHitLayer');
+      const pointButtons = document.getElementById('pointButtons');
+      const probe = document.getElementById('probe');
+      const ch2Probe = document.getElementById('ch2Probe');
+      const groundClip = document.getElementById('groundClip');
+      const wireSvg = document.getElementById('wireSvg');
+      const benchCableSvg = document.getElementById('benchCableSvg');
+      const canvas = document.getElementById('scopeCanvas');
+      const ctx = canvas.getContext('2d');
+
+      function $(id) { return document.getElementById(id); }
+      function fmtVolt(v) { return Math.abs(v) < 1 ? `${Math.round(v * 1000)} mV` : `${v.toFixed(v >= 1 ? 2 : 3)} V`; }
+      function fmtFreq(v) { return v >= 1000 ? `${Number((v / 1000).toFixed(1))}kHz` : `${v}Hz`; }
+      function fmtTime(t) {
+        if (t < 1e-6) return `${(t * 1e9).toFixed(0)} ns`;
+        if (t < 1e-3) return `${(t * 1e6).toFixed(0)} us`;
+        if (t >= 1) return `${t.toFixed(1)} s`;
+        return `${(t * 1e3).toFixed(t < .01 ? 1 : 0)} ms`;
+      }
+      function showToast(text) {
+        const t = $('toast');
+        t.textContent = text;
+        t.classList.add('show');
+        clearTimeout(showToast.timer);
+        showToast.timer = setTimeout(() => t.classList.remove('show'), 1700);
+      }
+
+      function boardPointPosition(p) {
+        const area = $('boardArea').getBoundingClientRect();
+        const hotspot = p.id ? hotspotLayer.querySelector(`.hotspot[data-id="${p.id}"]`) : null;
+        if (hotspot) {
+          const h = hotspot.getBoundingClientRect();
+          return { x: h.left - area.left + h.width / 2, y: h.top - area.top + h.height / 2 };
+        }
+        const b = boardWrap.getBoundingClientRect();
+        return { x: b.left - area.left + b.width * p.x / 100, y: b.top - area.top + b.height * p.y / 100 };
+      }
+
+      function rotatedPoint(localX, localY, originX, originY, angle) {
+        const rad = angle * Math.PI / 180;
+        const dx = localX - originX;
+        const dy = localY - originY;
+        return {
+          x: originX + dx * Math.cos(rad) - dy * Math.sin(rad),
+          y: originY + dx * Math.sin(rad) + dy * Math.cos(rad)
+        };
+      }
+
+      function contactConfig(kind) {
+        if (kind === 'ground') return { point: rotatedPoint(0, 21, 18, 21, -8), angle: -8 };
+        const angle = kind === 'ch2' ? -24 : -13;
+        return { point: rotatedPoint(0, 18, 16, 18, angle), angle };
+      }
+
+      function placeContactAt(el, kind, pos) {
+        const config = contactConfig(kind);
+        el.style.left = `${pos.x - config.point.x}px`;
+        el.style.top = `${pos.y - config.point.y}px`;
+        el.style.transform = `rotate(${config.angle}deg)`;
+      }
+
+      function contactPosition(el, kind) {
+        const config = contactConfig(kind);
+        return { x: el.offsetLeft + config.point.x, y: el.offsetTop + config.point.y };
+      }
+
+      function placeProbeAt(p, channel = 'ch1') {
+        placeContactAt(channel === 'ch2' ? ch2Probe : probe, channel, boardPointPosition(p));
+      }
+
+      function placeGroundAt(p) {
+        placeContactAt(groundClip, 'ground', boardPointPosition(p));
+      }
+
+      function renderHotspots() {
+        hotspotLayer.innerHTML = '';
+        hotspotHitLayer.innerHTML = '';
+        pointButtons.innerHTML = '';
+        const board = boardDefinitions[state.boardId];
+        pointButtons.classList.toggle('hidden', !board.footer);
+        points.forEach(p => {
+          const dot = document.createElement('span');
+          dot.className = `hotspot ${p.type === 'gnd' ? 'gnd' : ''}`;
+          dot.dataset.id = p.id;
+          dot.style.left = `${p.x}%`;
+          dot.style.top = `${p.y}%`;
+          dot.innerHTML = `<span class="label">${p.label}</span>`;
+          hotspotLayer.appendChild(dot);
+
+          const hit = document.createElement('button');
+          hit.className = 'hotspot-hit';
+          hit.type = 'button';
+          hit.dataset.id = p.id;
+          hit.setAttribute('aria-label', p.label);
+          hit.style.left = `${p.x}%`;
+          hit.style.top = `${p.y}%`;
+          hit.addEventListener('click', () => {
+            if (p.type === 'gnd' && (!state.grounded || state.activeChannel === 'ground')) connectGround(p);
+            else connectPoint(p.id, true, state.activeChannel === 'ground' ? 'ch1' : state.activeChannel);
+          });
+          hotspotHitLayer.appendChild(hit);
+        });
+        if (!board.footer) return;
+        points.filter(p => p.type !== 'gnd').forEach(p => {
+          const btn = document.createElement('button');
+          btn.type = 'button';
+          btn.className = 'point-button';
+          btn.dataset.id = p.id;
+          btn.textContent = p.label;
+          btn.addEventListener('click', () => connectPoint(p.id, true, state.activeChannel));
+          pointButtons.appendChild(btn);
+        });
+      }
+
+      function connectGround(point = points.find(p => p.type === 'gnd')) {
+        if (!point) return;
+        state.grounded = true;
+        placeGroundAt(point);
+        showToast(`地夹已接到 ${point.label}，参考地正确`);
+        updateUi();
+      }
+
+      function switchBoard(boardId, toast = true) {
+        const board = boardDefinitions[boardId];
+        if (!board) return;
+        state.boardId = boardId;
+        points = board.points;
+        state.point = null;
+        state.ch2Point = null;
+        state.grounded = false;
+        state.activeChannel = 'ch1';
+        state.running = true;
+        state.singleArmed = false;
+        state.singleCaptureAt = 0;
+        state.singleCaptured = false;
+        state.stoppedFrame = null;
+        $('boardSelect').value = boardId;
+        $('boardPhoto').src = board.image;
+        $('boardPhoto').alt = board.alt;
+        $('hintBox').textContent = board.hint;
+        $('hintBox').classList.toggle('hidden', board.dense || board.compactHotspots);
+        boardWrap.classList.toggle('dense-board', board.dense);
+        hotspotLayer.classList.toggle('dense-board', board.dense);
+        hotspotHitLayer.classList.toggle('dense-board', board.dense);
+        hotspotLayer.classList.toggle('compact-hotspots', Boolean(board.compactHotspots));
+        hotspotHitLayer.classList.toggle('compact-hotspots', Boolean(board.compactHotspots));
+        renderHotspots();
+        connectPoint(board.defaults.ch1, false, 'ch1');
+        connectPoint(board.defaults.ch2, false, 'ch2');
+        state.activeChannel = 'ch1';
+        placeGroundAt(board.groundIdle);
+        if (toast) showToast(`已切换到${$('boardSelect').selectedOptions[0].textContent}`);
+        updateUi();
+      }
+
+      function selectChannel(channel) {
+        state.activeChannel = channel;
+        updateUi();
+      }
+
+      function connectPoint(id, toast, channel = 'ch1') {
+        const p = points.find(item => item.id === id);
+        if (!p) return;
+        if (channel === 'ch2') state.ch2Point = p;
+        else state.point = p;
+        state.activeChannel = channel;
+        const boardLessons = boardDefinitions[state.boardId].lessons;
+        if (channel === 'ch1' && toast && p.lesson && boardLessons[p.lesson]) {
+          state.selectedLesson = p.lesson;
+          $('lessonSelect').value = p.lesson;
+        }
+        placeProbeAt(p, channel);
+        if (p.type === 'bounce') state.bounceStart = performance.now();
+        if (channel === 'ch1' && toast && state.singleArmed && p.type === 'bounce') {
+          state.singleCaptureAt = performance.now() + 420;
+        }
+        if (toast) showToast(`${channel.toUpperCase()} 探头接入 ${p.label}`);
+        updateUi();
+      }
+
+      function makeDraggable(el, kind) {
+        let dragging = false;
+        let dx = 0, dy = 0;
+        el.addEventListener('pointerdown', e => {
+          if (kind === 'ch1' || kind === 'ch2' || kind === 'ground') state.activeChannel = kind;
+          if (kind === 'ground' && state.grounded) {
+            state.grounded = false;
+            updateUi();
+          }
+          dragging = true;
+          const r = el.getBoundingClientRect();
+          dx = e.clientX - r.left;
+          dy = e.clientY - r.top;
+          el.setPointerCapture(e.pointerId);
+        });
+        el.addEventListener('pointermove', e => {
+          if (!dragging) return;
+          const area = $('boardArea').getBoundingClientRect();
+          el.style.left = `${e.clientX - area.left - dx}px`;
+          el.style.top = `${e.clientY - area.top - dy}px`;
+          updateWire();
+        });
+        el.addEventListener('pointerup', e => {
+          dragging = false;
+          const contact = contactPosition(el, kind);
+          const x = contact.x;
+          const y = contact.y;
+          let best = null;
+          let bestD = Infinity;
+          points.forEach(p => {
+            if (kind === 'ground' && p.type !== 'gnd') return;
+            const pos = boardPointPosition(p);
+            const d = Math.hypot(pos.x - x, pos.y - y);
+            if (d < bestD) { bestD = d; best = p; }
+          });
+          const snapDistance = boardDefinitions[state.boardId].dense ? 28 : 62;
+          if (best && bestD < snapDistance) {
+            if (kind === 'ground') connectGround(best); else connectPoint(best.id, true, kind);
+          } else {
+            if (kind === 'ground') {
+              state.grounded = false;
+              showToast('地夹已离开 GND，参考地断开');
+              updateUi();
+            } else {
+              showToast('探头没有点到测试点');
+            }
+          }
+          updateWire();
+        });
+      }
+
+      function updateWire() {
+        wireSvg.innerHTML = '';
+        const benchRect = $('bench').getBoundingClientRect();
+        const probeTail = probe.querySelector('.probe-tail').getBoundingClientRect();
+        const ch2ProbeTail = ch2Probe.querySelector('.probe-tail').getBoundingClientRect();
+        const groundTail = groundClip.querySelector('.clip-wire').getBoundingClientRect();
+        const ch1 = document.querySelector('[data-terminal="ch1"]')?.getBoundingClientRect();
+        const ch2 = document.querySelector('[data-terminal="ch2"]')?.getBoundingClientRect();
+        const gnd = document.querySelector('[data-terminal="gnd"]')?.getBoundingClientRect();
+        if (!ch1 || !ch2 || !gnd) return;
+        const scopeArea = document.querySelector('.scope-area').getBoundingClientRect();
+        const footerEl = document.querySelector('.board-footer');
+        const footer = footerEl.getBoundingClientRect();
+        const board = boardWrap.getBoundingClientRect();
+        const pTip = { x: probeTail.right - benchRect.left, y: probeTail.top - benchRect.top + probeTail.height / 2 };
+        const p2Tip = { x: ch2ProbeTail.right - benchRect.left, y: ch2ProbeTail.top - benchRect.top + ch2ProbeTail.height / 2 };
+        const gTip = { x: groundTail.right - benchRect.left, y: groundTail.top - benchRect.top + groundTail.height / 2 };
+        const ch1Port = { x: ch1.left - benchRect.left + ch1.width / 2, y: ch1.top - benchRect.top + 18 };
+        const ch2Port = { x: ch2.left - benchRect.left + ch2.width / 2, y: ch2.top - benchRect.top + 18 };
+        const gndPort = { x: gnd.left - benchRect.left + gnd.width / 2, y: gnd.top - benchRect.top + 18 };
+        const scopeEdge = scopeArea.left - benchRect.left - 8;
+        const footerRouteY = footerEl.offsetParent ? footer.top - benchRect.top - 18 : board.bottom - benchRect.top + 64;
+        const routeY = Math.min(benchRect.height - 70, footerRouteY);
+        const boardLaneY = Math.min(routeY - 30, board.bottom - benchRect.top + 18);
+        const routedCable = (port, tail, laneOffset) => {
+          const laneY = Math.max(port.y + 52, routeY + laneOffset);
+          const cableBoardY = boardLaneY + laneOffset * 2;
+          const bendX = scopeEdge - (laneOffset < 0 ? 36 : 54);
+          return `M ${port.x} ${port.y}
+            C ${port.x} ${port.y + 30}, ${port.x - 8} ${laneY - 8}, ${port.x - 56} ${laneY}
+            C ${port.x - 176} ${laneY}, ${scopeEdge + 108} ${laneY}, ${scopeEdge} ${laneY}
+            C ${scopeEdge - 24} ${laneY}, ${bendX + 18} ${cableBoardY}, ${bendX} ${cableBoardY}
+            C ${bendX - 20} ${cableBoardY}, ${tail.x + 24} ${tail.y + 36}, ${tail.x} ${tail.y}`;
+        };
+        benchCableSvg.innerHTML = `
+          <path d="${routedCable(ch1Port, pTip, -16)}" fill="none" stroke="rgba(9,9,8,.96)" stroke-width="8" stroke-linecap="round"/>
+          <path d="${routedCable(ch1Port, pTip, -16)}" fill="none" stroke="rgba(255,212,58,.9)" stroke-width="3" stroke-linecap="round"/>
+          <path d="${routedCable(ch2Port, p2Tip, 0)}" fill="none" stroke="rgba(9,9,8,.96)" stroke-width="8" stroke-linecap="round"/>
+          <path d="${routedCable(ch2Port, p2Tip, 0)}" fill="none" stroke="rgba(53,183,255,.92)" stroke-width="3" stroke-linecap="round"/>
+          <path d="${routedCable(gndPort, gTip, 16)}" fill="none" stroke="rgba(5,5,5,.96)" stroke-width="6" stroke-linecap="round"/>
+        `;
+      }
+
+      function signalAt(p, t) {
+        if (!p) return signalNoise(t, .18);
+        if (!state.grounded || state.fault === 'floating') {
+          return signalNoise(t, 1.1) + (state.noise ? Math.sin(t * 35) * .8 : 0) + 1.6;
+        }
+        if (state.fault === 'ratio') return baseSignal(p, t) / 10;
+        return baseSignal(p, t);
+      }
+
+      function noise(t, level) {
+        return (Math.sin(t * 9871) + Math.sin(t * 27113 + 1.7) + Math.sin(t * 6427 + 2.1)) * level / 3;
+      }
+
+      function signalNoise(t, level) {
+        return state.noise ? noise(t, level) : 0;
+      }
+
+      function baseSignal(p, t) {
+        if (p.type === 'gnd') return 0;
+        if (p.type === 'dc') return p.amp + signalNoise(t, .012);
+        if (p.type === 'sine') return p.offset + Math.sin(2 * Math.PI * p.freq * t) * p.amp + signalNoise(t, .025);
+        if (p.type === 'ripple') return p.offset + Math.sin(2 * Math.PI * p.freq * t) * p.amp + Math.sin(2 * Math.PI * 1000 * t) * .015;
+        if (p.type === 'rccharge' || p.type === 'rcdischarge') {
+          const phase = ((t * p.freq) % 1 + 1) % 1;
+          return p.type === 'rccharge' ? p.amp * (1 - Math.exp(-phase * 5)) : p.amp * Math.exp(-phase * 5);
+        }
+        if (p.type === 'pwm') {
+          const phase = ((t * p.freq + (p.phase || 0)) % 1 + 1) % 1;
+          const ideal = phase < p.duty ? p.amp : 0;
+          const edge = Math.min(Math.abs(phase - p.duty), phase, Math.abs(phase - 1));
+          const ring = edge < .03 ? Math.sin(edge * 900) * Math.exp(-edge * 80) * .16 : 0;
+          return ideal + ring + signalNoise(t, .02);
+        }
+        if (p.type === 'bounce') {
+          const dt = ((performance.now() - state.bounceStart) / 1000 + t) % 1.4;
+          if (dt < .16) {
+            const burst = Math.sin(dt * 900) > Math.sin(dt * 1770 + .5) ? p.amp : 0;
+            return burst + signalNoise(t, .03);
+          }
+          return dt < .72 ? 0 : p.amp;
+        }
+        if (p.type === 'uart') {
+          const bitT = 1 / 9600;
+          const frame = uartFrames[state.uartFrameIndex];
+          const frameT = bitT * 13;
+          const idx = (Math.floor((((t % frameT) + frameT) % frameT) / bitT) + (p.phase || 0)) % 13;
+          const val = idx < frame.length ? frame[idx] : 1;
+          return val * 3.3 + signalNoise(t, .025);
+        }
+        return 0;
+      }
+
+      function conditioned(v, p, coupling = state.coupling) {
+        if (!p) return v;
+        if (coupling === 'GND') return 0;
+        if (coupling === 'AC') {
+          const dc = p.type === 'ripple' ? p.offset : (p.offset || (p.type === 'dc' ? p.amp : 1.65));
+          return v - dc;
+        }
+        return v;
+      }
+
+      function triggerAlignedBase(p, totalT) {
+        if (!p) return state.hpos * totalT;
+        let edgeTime = 0;
+        if (p.type === 'sine') {
+          const ratio = Math.max(-1, Math.min(1, (state.trigger - p.offset) / p.amp));
+          let phase = Math.asin(ratio);
+          if (state.edge === 'Falling') phase = Math.PI - phase;
+          if (phase < 0) phase += Math.PI * 2;
+          edgeTime = phase / (Math.PI * 2 * p.freq);
+        } else if (p.type === 'pwm') {
+          edgeTime = state.edge === 'Falling' ? p.duty / p.freq : 0;
+        } else if (p.type === 'uart') {
+          edgeTime = state.edge === 'Rising' ? 1 / 9600 : 0;
+        }
+        return edgeTime - totalT * .24 + state.hpos * totalT;
+      }
+
+      function drawScope(frameNow = performance.now()) {
+        const w = canvas.width, h = canvas.height;
+        if (!state.running && state.stoppedFrame) {
+          ctx.putImageData(state.stoppedFrame, 0, 0);
+          return;
+        }
+        ctx.clearRect(0, 0, w, h);
+        ctx.fillStyle = '#07100b';
+        ctx.fillRect(0, 0, w, h);
+        drawGrid(w, h);
+
+        if (!state.ch1 && !state.ch2) {
+          drawScreenText('CH1 / CH2 关闭', w, h);
+          return;
+        }
+        if (!state.point && !state.ch2Point && state.grounded) drawScreenText('探头未接入测试点', w, h);
+
+        const p = state.point;
+        const p2 = state.ch2Point;
+        const vdiv = volts[state.voltIdx];
+        const tdiv = times[state.timeIdx];
+        const samples = 900;
+        const totalT = tdiv * 10;
+        const now = (frameNow - state.start) / 1000;
+        const stable = !state.running || triggerStable(p);
+        if (state.running && state.triggerMode === 'Normal' && !stable) {
+          drawScreenText('WAITING FOR TRIGGER', w, h);
+          drawTriggerLine(w, h, vdiv);
+          return;
+        }
+        if (state.running && ((p && p.type === 'uart') || (p2 && p2.type === 'uart'))) {
+          state.uartFrameIndex = Math.floor(now / 1.2) % uartFrames.length;
+        }
+        const acquisitionTick = state.running ? Math.floor(now * 10) : 0;
+        const roll = stable ? 0 : (now * .18) % 1;
+        const baseT = stable
+          ? triggerAlignedBase(p, totalT) + Math.sin(acquisitionTick * 1.7) * totalT / samples * .28
+          : now * .05 + state.hpos * totalT - roll * totalT;
+        const livePulse = state.running ? .5 + Math.sin(now * Math.PI * 6) * .5 : 0;
+        const channelTrace = (point, channelVdiv, position, coupling, phaseOffset = 0) => {
+          const trace = [];
+          for (let i = 0; i < samples; i++) {
+            const t = baseT + (i / (samples - 1)) * totalT;
+            let v = conditioned(signalAt(point, t), point, coupling);
+            const noiseTime = stable ? t + acquisitionTick * .000031 + phaseOffset : t + now + phaseOffset;
+            if (state.noise && state.grounded) v += noise(noiseTime, point && point.type === 'ripple' ? .006 : .018);
+            if (state.bwLimit && point && (point.type === 'pwm' || point.type === 'ripple' || point.type === 'uart')) {
+              v = v * .96 + conditioned(signalAt(point, t - totalT / samples), point, coupling) * .04;
+            }
+            const x = i / (samples - 1) * w;
+            const y = h / 2 - ((v - position) / channelVdiv) * (h / 8);
+            trace.push([x, y]);
+          }
+          return trace;
+        };
+        if (state.ch2) drawTrace(channelTrace(p2, volts[state.ch2VoltIdx], state.ch2Vpos, state.ch2Coupling, .000017), getComputedStyle(root).getPropertyValue('--trace2').trim(), livePulse * .9);
+        if (state.ch1) drawTrace(channelTrace(p, vdiv, state.vpos, state.coupling), getComputedStyle(root).getPropertyValue('--trace').trim(), livePulse);
+        if (state.ch1) drawTriggerLine(w, h, vdiv);
+      }
+
+      function drawGrid(w, h) {
+        ctx.strokeStyle = 'rgba(122,191,133,.24)';
+        ctx.lineWidth = 1;
+        for (let i = 0; i <= 10; i++) {
+          const x = i * w / 10;
+          ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, h); ctx.stroke();
+        }
+        for (let i = 0; i <= 8; i++) {
+          const y = i * h / 8;
+          ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(w, y); ctx.stroke();
+        }
+        ctx.strokeStyle = 'rgba(180,230,170,.36)';
+        ctx.setLineDash([6, 8]);
+        ctx.beginPath(); ctx.moveTo(w/2, 0); ctx.lineTo(w/2, h); ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(0, h/2); ctx.lineTo(w, h/2); ctx.stroke();
+        ctx.setLineDash([]);
+      }
+
+      function drawTrace(pts, color, livePulse = 0) {
+        ctx.save();
+        ctx.strokeStyle = color;
+        ctx.lineWidth = 2.25 + livePulse * .18;
+        ctx.shadowColor = color;
+        ctx.shadowBlur = 7 + livePulse * 1.8;
+        ctx.beginPath();
+        pts.forEach((pt, i) => i ? ctx.lineTo(pt[0], pt[1]) : ctx.moveTo(pt[0], pt[1]));
+        ctx.stroke();
+        ctx.restore();
+      }
+
+      function drawTriggerLine(w, h, vdiv) {
+        const y = h / 2 - ((state.trigger - state.vpos) / vdiv) * (h / 8);
+        ctx.strokeStyle = 'rgba(255,159,26,.8)';
+        ctx.setLineDash([8, 8]);
+        ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(w, y); ctx.stroke();
+        ctx.setLineDash([]);
+        ctx.fillStyle = 'rgba(255,159,26,.95)';
+        ctx.beginPath(); ctx.moveTo(w - 18, y); ctx.lineTo(w - 2, y - 8); ctx.lineTo(w - 2, y + 8); ctx.closePath(); ctx.fill();
+      }
+
+      function drawScreenText(text, w, h) {
+        ctx.fillStyle = 'rgba(238,255,211,.78)';
+        ctx.font = '24px Consolas, Microsoft YaHei';
+        ctx.textAlign = 'center';
+        ctx.fillText(text, w / 2, h / 2);
+      }
+
+      function triggerStable(p) {
+        if (!p || !state.grounded || state.fault === 'floating') return false;
+        if (state.running === false) return true;
+        if (p.type === 'dc' || p.type === 'ripple' || p.type === 'gnd') return true;
+        if (p.type === 'sine') {
+          return state.trigger > p.offset - p.amp + .02 && state.trigger < p.offset + p.amp - .02;
+        }
+        return state.trigger >= -.02 && state.trigger <= 3.32;
+      }
+
+      function measurePoint(p) {
+        if (!p) return '--';
+        if (p.type === 'dc') return `DC ${fmtVolt(p.amp)}`;
+        if (p.type === 'gnd') return '0 V';
+        if (p.type === 'ripple') return `Vpp ${fmtVolt(p.amp * 2)}`;
+        if (p.type === 'rccharge') return 'RC 充电';
+        if (p.type === 'rcdischarge') return 'RC 放电';
+        if (p.type === 'sine') return `${fmtFreq(p.freq)} ${fmtVolt(p.amp * 2)}pp`;
+        if (p.type === 'pwm') return `${fmtFreq(p.freq)} ${Math.round(p.duty * 100)}%`;
+        if (p.type === 'bounce') return '按键抖动';
+        if (p.type === 'uart') return 'UART 9600';
+        return '--';
+      }
+
+      function measure() {
+        if (!state.grounded) return '--';
+        const values = [];
+        if (state.ch1) values.push(`1:${measurePoint(state.point)}`);
+        if (state.ch2) values.push(`2:${measurePoint(state.ch2Point)}`);
+        return values.join(' · ') || '--';
+      }
+
+      function updateUi() {
+        $('missionText').textContent = boardDefinitions[state.boardId].lessons[state.selectedLesson];
+        $('probeReadout').textContent = `1:${state.point ? state.point.id : '--'} · 2:${state.ch2Point ? state.ch2Point.id : '--'}`;
+        $('groundReadout').textContent = state.grounded ? 'GND 已连接' : '未接地';
+        $('measureReadout').textContent = state.measure ? measure() : 'Measure 关闭';
+        $('stateReadout').textContent = scopeStatus();
+        $('statusTip').textContent = scopeStatus(true);
+        $('voltValue').textContent = `${fmtVolt(volts[state.voltIdx])}/div`;
+        $('ch2VoltValue').textContent = `${fmtVolt(volts[state.ch2VoltIdx])}/div`;
+        $('timeValue').textContent = `${fmtTime(times[state.timeIdx])}/div`;
+        $('triggerValue').textContent = `${state.trigger.toFixed(2)} V`;
+        const waiting = state.running && state.triggerMode === 'Normal' && !triggerStable(state.point);
+        $('screenMode').textContent = state.running ? (state.singleArmed ? 'SINGLE ARMED' : waiting ? 'WAIT' : state.triggerMode.toUpperCase()) : 'STOP';
+        $('screenMode').classList.toggle('stopped', !state.running);
+        $('screenMode').classList.toggle('armed', state.singleArmed);
+        $('screenTrig').textContent = `Trig CH1 ${state.edge}`;
+        $('screenCh').textContent = `CH1 ${fmtVolt(volts[state.voltIdx])}  CH2 ${fmtVolt(volts[state.ch2VoltIdx])}`;
+        $('screenTime').textContent = `M ${fmtTime(times[state.timeIdx])}/div`;
+        $('couplingLabel').textContent = state.activeChannel === 'ch2' ? state.ch2Coupling : state.coupling;
+        $('ratioLabel').textContent = state.activeChannel === 'ch2' ? state.ch2Ratio : state.ratio;
+        $('edgeLabel').textContent = state.edge;
+        $('triggerModeLabel').textContent = state.triggerMode;
+        $('ch1StateLabel').textContent = state.ch1 ? 'On' : 'Off';
+        $('ch2StateLabel').textContent = state.ch2 ? 'On' : 'Off';
+        $('activeProbeTag').textContent = `当前探头 ${state.activeChannel === 'ground' ? 'GND' : state.activeChannel.toUpperCase()}`;
+        $('bandLabel').textContent = state.bwLimit ? 'On' : 'Off';
+        $('noiseLabel').textContent = state.noise ? 'Realistic' : 'Clean';
+        $('faultLabel').textContent = state.fault === 'normal' ? 'Normal' : state.fault === 'floating' ? 'No GND' : '1X/10X mismatch';
+        $('runStopStateLabel').textContent = state.running ? '运行中' : '已停止';
+        $('singleStateLabel').textContent = state.singleArmed ? '等待触发' : (state.singleCaptured ? '捕获完成' : '单次捕获');
+        $('runStopBtn').classList.toggle('active', state.running);
+        $('singleBtn').classList.toggle('active', state.singleArmed);
+        $('triggerModeBtn').classList.toggle('active', state.triggerMode === 'Auto');
+        $('measureBtn').classList.toggle('active', state.measure);
+        $('couplingBtn').classList.toggle('active', (state.activeChannel === 'ch2' ? state.ch2Coupling : state.coupling) !== 'DC');
+        $('bandLimitBtn').classList.toggle('active', state.bwLimit);
+        $('noiseBtn').classList.toggle('active', state.noise);
+        $('faultBtn').classList.toggle('active', state.fault !== 'normal');
+        $('ch1Btn').classList.toggle('active', state.ch1);
+        $('ch2Btn').classList.toggle('active', state.ch2);
+        probe.classList.toggle('selected', state.activeChannel === 'ch1');
+        ch2Probe.classList.toggle('selected', state.activeChannel === 'ch2');
+        groundClip.classList.toggle('selected', state.activeChannel === 'ground');
+        document.querySelectorAll('.hotspot').forEach(el => {
+          const onCh1 = state.point && el.dataset.id === state.point.id;
+          const onCh2 = state.ch2Point && el.dataset.id === state.ch2Point.id;
+          el.classList.toggle('active', !!onCh1 && !onCh2);
+          el.classList.toggle('active-ch2', !!onCh2 && !onCh1);
+          el.classList.toggle('active-both', !!onCh1 && !!onCh2);
+        });
+        document.querySelectorAll('.point-button').forEach(el => el.classList.toggle('active', !!((state.point && el.dataset.id === state.point.id) || (state.ch2Point && el.dataset.id === state.ch2Point.id))));
+        setKnobAngles();
+        updateWire();
+      }
+
+      function scopeStatus(short) {
+        if (state.singleArmed) return short ? 'Single 等待有效触发' : '单次捕获已准备';
+        if (!state.running && state.stoppedFrame) return short ? '采集已停止' : '波形已冻结';
+        if (!state.grounded) return short ? '先接地夹到 GND' : '参考地未连接';
+        if ((!state.ch1 || !state.point) && (!state.ch2 || !state.ch2Point)) return short ? '接入一个测试点' : '探头未连接';
+        if (!state.ch1 && !state.ch2) return 'CH1 / CH2 已关闭';
+        if (state.ch1 && !triggerStable(state.point)) return short ? '调 CH1 触发电平稳定波形' : 'CH1 未稳定触发';
+        if (state.ch1 && state.point && state.point.type === 'ripple' && state.coupling !== 'AC') return short ? '纹波建议切 AC 耦合' : 'DC 耦合下纹波不明显';
+        return state.ch1 && state.ch2 ? '双通道波形显示' : '波形稳定';
+      }
+
+      function setKnobAngles() {
+        const angleForIdx = (idx, len) => -135 + idx * 270 / Math.max(1, len - 1);
+        $('voltKnob').style.setProperty('--angle', `${angleForIdx(state.voltIdx, volts.length)}deg`);
+        $('ch2VoltKnob').style.setProperty('--angle', `${angleForIdx(state.ch2VoltIdx, volts.length)}deg`);
+        $('timeKnob').style.setProperty('--angle', `${angleForIdx(state.timeIdx, times.length)}deg`);
+        $('triggerKnob').style.setProperty('--angle', `${-135 + (state.trigger / 3.3) * 270}deg`);
+        $('vposKnob').style.setProperty('--angle', `${state.vpos * 35}deg`);
+        $('ch2PosKnob').style.setProperty('--angle', `${state.ch2Vpos * 35}deg`);
+        $('hposKnob').style.setProperty('--angle', `${state.hpos * 70}deg`);
+      }
+
+      function knob(el, onDelta) {
+        el.addEventListener('wheel', e => { e.preventDefault(); onDelta(e.deltaY > 0 ? -1 : 1); updateUi(); });
+        let lastY = 0, down = false;
+        el.addEventListener('pointerdown', e => { down = true; lastY = e.clientY; el.setPointerCapture(e.pointerId); });
+        el.addEventListener('pointermove', e => {
+          if (!down) return;
+          const d = lastY - e.clientY;
+          if (Math.abs(d) > 9) { onDelta(d > 0 ? 1 : -1); lastY = e.clientY; updateUi(); }
+        });
+        el.addEventListener('pointerup', () => { down = false; });
+      }
+
+      function autoSet() {
+        if (!state.point) { showToast('先把探头接到测试点'); return; }
+        state.running = true;
+        state.singleArmed = false;
+        state.singleCaptureAt = 0;
+        state.singleCaptured = false;
+        state.stoppedFrame = null;
+        state.ch1 = true;
+        if (state.point.type === 'ripple') { state.coupling = 'AC'; state.voltIdx = 2; state.timeIdx = 1; state.trigger = 0; }
+        else if (state.point.type === 'dc') { state.coupling = 'DC'; state.voltIdx = 6; state.timeIdx = 11; state.trigger = 1.65; state.vpos = 1.65; }
+        else if (state.point.type === 'uart') { state.coupling = 'DC'; state.voltIdx = 6; state.timeIdx = 5; state.trigger = 1.6; state.vpos = 1.65; }
+        else { state.coupling = 'DC'; state.voltIdx = 6; state.timeIdx = 8; state.trigger = 1.65; state.vpos = 1.65; }
+        if (state.ch2Point) {
+          state.ch2 = true;
+          if (state.ch2Point.type === 'ripple') { state.ch2Coupling = 'AC'; state.ch2VoltIdx = 2; state.ch2Vpos = 0; }
+          else { state.ch2Coupling = 'DC'; state.ch2VoltIdx = 6; state.ch2Vpos = 1.65; }
+        }
+        showToast('Auto Set 已根据当前测试点调整档位');
+        updateUi();
+      }
+
+      function defaultSetup() {
+        state.ch1 = true;
+        state.ch2 = true;
+        state.activeChannel = 'ch1';
+        state.voltIdx = 6;
+        state.ch2VoltIdx = 6;
+        state.timeIdx = 8;
+        state.vpos = 0;
+        state.ch2Vpos = 0;
+        state.hpos = 0;
+        state.trigger = 0;
+        state.edge = 'Rising';
+        state.triggerMode = 'Auto';
+        state.coupling = 'DC';
+        state.ch2Coupling = 'DC';
+        state.ratio = '10X';
+        state.ch2Ratio = '10X';
+        state.running = true;
+        state.singleArmed = false;
+        state.singleCaptureAt = 0;
+        state.singleCaptured = false;
+        state.stoppedFrame = null;
+        state.measure = true;
+        state.bwLimit = false;
+        state.noise = true;
+        state.fault = 'normal';
+        showToast('已恢复示波器默认设置');
+        updateUi();
+      }
+
+      function setupControls() {
+        knob($('voltKnob'), d => state.voltIdx = Math.max(0, Math.min(volts.length - 1, state.voltIdx + d)));
+        knob($('ch2VoltKnob'), d => state.ch2VoltIdx = Math.max(0, Math.min(volts.length - 1, state.ch2VoltIdx + d)));
+        knob($('timeKnob'), d => state.timeIdx = Math.max(0, Math.min(times.length - 1, state.timeIdx + d)));
+        knob($('triggerKnob'), d => state.trigger = Math.max(-1, Math.min(5, state.trigger + d * .1)));
+        knob($('vposKnob'), d => state.vpos = Math.max(-5, Math.min(5, state.vpos + d * .15)));
+        knob($('ch2PosKnob'), d => state.ch2Vpos = Math.max(-5, Math.min(5, state.ch2Vpos + d * .15)));
+        knob($('hposKnob'), d => state.hpos = Math.max(-1, Math.min(1, state.hpos + d * .05)));
+        $('measureBtn').addEventListener('click', () => { state.measure = !state.measure; updateUi(); });
+        $('couplingBtn').addEventListener('click', () => {
+          const key = state.activeChannel === 'ch2' ? 'ch2Coupling' : 'coupling';
+          state[key] = state[key] === 'DC' ? 'AC' : state[key] === 'AC' ? 'GND' : 'DC';
+          updateUi();
+        });
+        $('probeRatioBtn').addEventListener('click', () => {
+          const key = state.activeChannel === 'ch2' ? 'ch2Ratio' : 'ratio';
+          state[key] = state[key] === '10X' ? '1X' : '10X';
+          state.fault = state[key] === '1X' ? 'ratio' : 'normal';
+          updateUi();
+        });
+        $('triggerEdgeBtn').addEventListener('click', () => { state.edge = state.edge === 'Rising' ? 'Falling' : 'Rising'; updateUi(); });
+        $('triggerModeBtn').addEventListener('click', () => { state.triggerMode = state.triggerMode === 'Auto' ? 'Normal' : 'Auto'; updateUi(); });
+        $('bandLimitBtn').addEventListener('click', () => { state.bwLimit = !state.bwLimit; updateUi(); });
+        $('noiseBtn').addEventListener('click', () => {
+          state.noise = !state.noise;
+          if (!state.running) {
+            state.stoppedFrame = null;
+            drawScope();
+            state.stoppedFrame = ctx.getImageData(0, 0, canvas.width, canvas.height);
+          }
+          showToast(state.noise ? 'Noise：已加入真实采样噪声' : 'Noise：已切换为干净波形');
+          updateUi();
+        });
+        $('faultBtn').addEventListener('click', () => { state.fault = state.fault === 'normal' ? 'floating' : state.fault === 'floating' ? 'ratio' : 'normal'; updateUi(); });
+        ['acquireBtn', 'storageBtn', 'displayBtn', 'utilityBtn', 'forceTriggerBtn', 'triggerMenuBtn'].forEach(id => {
+          $(id).addEventListener('click', () => showToast(`${$(id).firstChild.textContent.trim()} 当前版本暂未实现，此按键无效`));
+        });
+        $('defaultSetupBtn').addEventListener('click', defaultSetup);
+        $('runStopBtn').addEventListener('click', () => {
+          if (state.running) {
+            state.stoppedFrame = ctx.getImageData(0, 0, canvas.width, canvas.height);
+            state.running = false;
+            showToast('采集已停止，当前波形已冻结');
+          } else {
+            state.running = true;
+            state.stoppedFrame = null;
+            showToast('采集已恢复运行');
+          }
+          state.singleArmed = false;
+          state.singleCaptureAt = 0;
+          state.singleCaptured = false;
+          updateUi();
+        });
+        $('singleBtn').addEventListener('click', () => {
+          state.running = true;
+          state.singleArmed = true;
+          state.singleCaptured = false;
+          state.stoppedFrame = null;
+          state.singleCaptureAt = state.point && state.point.type !== 'bounce' && triggerStable(state.point) ? performance.now() + 320 : 0;
+          showToast(state.point && state.point.type === 'bounce' ? 'Single 已准备，请点击 TP5 产生按键事件' : 'Single 已准备，等待一次有效触发');
+          updateUi();
+        });
+        $('autoSetBtn').addEventListener('click', autoSet);
+        $('ch1Btn').addEventListener('click', () => { state.activeChannel = 'ch1'; state.ch1 = !state.ch1; updateUi(); });
+        $('ch2Btn').addEventListener('click', () => { state.activeChannel = 'ch2'; state.ch2 = !state.ch2; updateUi(); });
+        $('boardSelect').addEventListener('change', e => switchBoard(e.target.value));
+        $('lessonSelect').addEventListener('change', e => {
+          state.selectedLesson = e.target.value;
+          const target = boardDefinitions[state.boardId].lessonTargets[state.selectedLesson];
+          connectPoint(target, false, 'ch1');
+          updateUi();
+        });
+      }
+
+      function loop(timestamp = performance.now()) {
+        if (state.singleArmed && !state.singleCaptureAt && state.point && state.point.type !== 'bounce' && triggerStable(state.point)) {
+          state.singleCaptureAt = timestamp + 320;
+        }
+        if (state.singleArmed && state.singleCaptureAt && timestamp >= state.singleCaptureAt) {
+          state.stoppedFrame = ctx.getImageData(0, 0, canvas.width, canvas.height);
+          state.running = false;
+          state.singleArmed = false;
+          state.singleCaptureAt = 0;
+          state.singleCaptured = true;
+          showToast('Single 捕获完成，波形已停止');
+          updateUi();
+        }
+        if ((state.running || !state.stoppedFrame) && timestamp - state.lastDraw >= 1000 / 24) {
+          state.lastDraw = timestamp;
+          drawScope(timestamp);
+        }
+        requestAnimationFrame(loop);
+      }
+
+      window.addEventListener('resize', updateUi);
+      makeDraggable(probe, 'ch1');
+      makeDraggable(ch2Probe, 'ch2');
+      makeDraggable(groundClip, 'ground');
+      setupControls();
+      switchBoard('stm32', false);
+      loop();
+    })();
+  </script>
+</div>
+</body>
+</html>

@@ -5,6 +5,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { AUTH_CHANGED_EVENT, AUTH_COOKIE } from "@/lib/auth";
+import { assetPath } from "@/lib/utils";
 
 function subscribe(onStoreChange: () => void) {
   window.addEventListener(AUTH_CHANGED_EVENT, onStoreChange);
@@ -30,7 +31,7 @@ export function HomeNav() {
     <nav className="sticky top-0 z-30 flex items-center justify-between border-b border-border/70 bg-background/80 px-5 py-4 backdrop-blur-xl lg:px-12">
       <div className="flex items-center gap-2.5">
         <Image
-          src="/vibehard-icon.svg"
+          src={assetPath("/vibehard-icon.svg")}
           alt=""
           width={32}
           height={32}
@@ -46,14 +47,6 @@ export function HomeNav() {
 
       <div className="flex items-center gap-2 sm:gap-3">
         <ThemeToggle />
-        <Link
-          href="https://www.bilibili.com/cheese/play/ss544982351"
-          target="_blank"
-          rel="noopener noreferrer"
-          className="hidden rounded-lg px-3 py-2 text-[13px] font-semibold text-muted-foreground transition-colors duration-200 hover:text-foreground sm:block"
-        >
-          视频课程
-        </Link>
         {isLoggedIn ? (
           <Link
             href="/app"

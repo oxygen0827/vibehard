@@ -1,0 +1,1521 @@
+<!doctype html>
+<!--
+  ============================================================
+  VibeHard工具 · 仪器仪表仿真实验台
+  Copyright (c) 2026 VibeHard工具 (xiaozhi-tools). All rights reserved.
+  本页面及其中的仿真逻辑、界面设计为原创作品，受著作权法保护。
+  未经授权，禁止复制、镜像、二次分发或用于商业用途。
+  ============================================================
+-->
+
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>任意波形发生器仿真实验台</title>
+</head>
+<body>
+<div id="awg-learning-lab">
+  <style>
+    :root {
+      color-scheme: dark;
+      --bg: #151716;
+      --bench: #242820;
+      --panel: rgba(17, 19, 18, .78);
+      --panel-2: rgba(35, 38, 35, .84);
+      --line: rgba(255, 255, 255, .17);
+      --text: #eef3ea;
+      --muted: #aeb8ad;
+      --screen: #06100b;
+      --grid: rgba(97, 190, 126, .22);
+      --ch1: #ffd42a;
+      --ch2: #28c7ff;
+      --green: #35d07f;
+      --red: #ff675f;
+      --orange: #ff9f1a;
+      --violet: #a48cff;
+      --shadow: rgba(0, 0, 0, .35);
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      overflow-x: hidden;
+      background:
+        radial-gradient(circle at 12% 10%, rgba(82, 110, 68, .34), transparent 32%),
+        radial-gradient(circle at 84% 8%, rgba(48, 116, 134, .22), transparent 28%),
+        linear-gradient(135deg, #151716, #28261f 58%, #171d1f);
+      color: var(--text);
+      font-family: "Microsoft YaHei", "Segoe UI", Arial, sans-serif;
+    }
+
+    #awg-learning-lab {
+      min-height: 100vh;
+      padding: 10px;
+    }
+
+    .topbar {
+      max-width: 1680px;
+      margin: 0 auto 8px;
+      display: grid;
+      grid-template-columns: minmax(280px, 1fr) minmax(360px, .95fr);
+      gap: 10px;
+    }
+
+    .mission, .readouts, .panel, .soft-panel {
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      box-shadow: 0 18px 46px var(--shadow);
+      backdrop-filter: blur(12px);
+    }
+
+    .mission {
+      padding: 9px 11px;
+    }
+
+    .mission h1 {
+      margin: 0 0 5px;
+      font-size: 17px;
+      font-weight: 500;
+      letter-spacing: 0;
+    }
+
+    .mission-row {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+
+    .mission-text {
+      flex: 1 1 430px;
+      color: var(--muted);
+      font-size: 14px;
+      line-height: 1.36;
+    }
+
+    select, input[type="number"] {
+      background: #232722;
+      color: var(--text);
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      padding: 6px 8px;
+      font: inherit;
+      min-width: 0;
+    }
+
+    input[type="range"] {
+      width: 100%;
+      accent-color: var(--green);
+    }
+
+    button {
+      border: 1px solid rgba(255, 255, 255, .18);
+      border-radius: 6px;
+      background: linear-gradient(#f6f5ee, #d8d8d1);
+      color: #1d211f;
+      font: 500 13px "Microsoft YaHei", "Segoe UI", Arial, sans-serif;
+      padding: 7px 10px;
+      cursor: pointer;
+      box-shadow: inset 0 1px rgba(255,255,255,.75), 0 2px 4px rgba(0,0,0,.22);
+    }
+
+    button.active {
+      background: linear-gradient(#65e196, #23a35f);
+      color: #04120a;
+      box-shadow: 0 0 16px rgba(53, 208, 127, .28), inset 0 1px rgba(255,255,255,.55);
+    }
+
+    button.dark {
+      background: linear-gradient(#393f3f, #1f2424);
+      color: var(--text);
+    }
+
+    .readouts {
+      padding: 9px 10px;
+      display: grid;
+      grid-template-columns: repeat(4, minmax(98px, 1fr));
+      gap: 8px;
+      align-content: center;
+    }
+
+    .metric {
+      min-width: 0;
+      padding-left: 10px;
+      border-left: 3px solid var(--ch1);
+    }
+
+    .metric:nth-child(2) { border-left-color: var(--ch2); }
+    .metric:nth-child(3) { border-left-color: var(--green); }
+    .metric:nth-child(4) { border-left-color: var(--orange); }
+
+    .metric span {
+      display: block;
+      color: var(--muted);
+      font-size: 11px;
+      white-space: nowrap;
+    }
+
+    .metric strong {
+      display: block;
+      margin-top: 3px;
+      font-size: 14px;
+      font-weight: 500;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .bench {
+      max-width: 1680px;
+      margin: 0 auto;
+      min-height: 650px;
+      height: clamp(650px, calc(100vh - 108px), 780px);
+      display: grid;
+      grid-template-columns: minmax(700px, 1.5fr) minmax(390px, .75fr);
+      gap: 14px;
+      position: relative;
+    }
+
+    .instrument-area, .analysis-area {
+      position: relative;
+      min-height: 0;
+      overflow: hidden;
+      background: linear-gradient(160deg, rgba(54,58,47,.82), rgba(20,23,22,.94));
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      box-shadow: 0 26px 70px var(--shadow);
+    }
+
+    .instrument-area, .analysis-area { min-height: 0; }
+
+    .area-header {
+      position: absolute;
+      inset: 12px 12px auto;
+      z-index: 8;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      pointer-events: none;
+    }
+
+    .tag {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 6px 9px;
+      border-radius: 6px;
+      background: rgba(0, 0, 0, .42);
+      border: 1px solid rgba(255, 255, 255, .14);
+      color: var(--text);
+      font-size: 13px;
+      backdrop-filter: blur(8px);
+    }
+
+    .lamp {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--green);
+      box-shadow: 0 0 14px var(--green);
+    }
+
+    .instrument-wrap {
+      position: absolute;
+      left: 2.5%;
+      right: 2.5%;
+      top: 8%;
+      aspect-ratio: 1624 / 928;
+      filter: drop-shadow(0 32px 34px rgba(0,0,0,.52));
+      transform: perspective(1100px) rotateX(1deg);
+    }
+
+    .device-shell {
+      position: absolute;
+      inset: 0;
+      border-radius: 18px;
+      background:
+        linear-gradient(90deg, rgba(233, 240, 238, .78), rgba(255,255,255,.96) 18%, rgba(232, 236, 236, .96) 52%, rgba(213, 218, 218, .98)),
+        linear-gradient(145deg, #eef2f1, #c7cece);
+      border: 1px solid rgba(255,255,255,.82);
+      box-shadow:
+        inset 0 0 0 18px rgba(222, 228, 229, .82),
+        inset 0 0 0 20px rgba(255,255,255,.42),
+        inset 0 -34px 48px rgba(122, 135, 135, .28),
+        0 34px 44px rgba(0,0,0,.38);
+      overflow: hidden;
+    }
+
+    .device-shell::before {
+      content: "任意波形\A 学习实验台";
+      position: absolute;
+      left: 7%;
+      top: 18%;
+      color: #314244;
+      font-size: clamp(14px, 1.9vw, 30px);
+      font-weight: 500;
+      letter-spacing: 0;
+      white-space: pre-line;
+    }
+
+    .device-shell::after {
+      content: "DDS 任意波形发生器";
+      position: absolute;
+      left: 21%;
+      top: 13%;
+      right: 35%;
+      height: 7%;
+      color: #233033;
+      font-size: clamp(10px, 1.15vw, 20px);
+      border-bottom: 1px solid rgba(60, 70, 74, .16);
+    }
+
+    .screen-overlay {
+      position: absolute;
+      left: 22.7%;
+      top: 24.0%;
+      width: 21.0%;
+      height: 34.0%;
+      border-radius: 5px;
+      overflow: hidden;
+      border: 1px solid rgba(212, 255, 137, .4);
+      background: #030805;
+      box-shadow: inset 0 0 18px rgba(0,0,0,.8), 0 0 18px rgba(17, 255, 129, .12);
+    }
+
+    .screen-overlay canvas {
+      width: 100%;
+      height: 100%;
+      display: block;
+    }
+
+    .hot {
+      position: absolute;
+      z-index: 9;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 0 4px;
+      border: 1px solid rgba(37, 48, 52, .34);
+      border-radius: 999px;
+      background: linear-gradient(#f8f9f6, #d4dad9);
+      box-shadow: inset 0 1px rgba(255,255,255,.88), inset 0 -2px rgba(82,92,94,.13), 0 3px 6px rgba(0,0,0,.20);
+      color: #1e2b2e;
+      font-size: clamp(8px, .8vw, 13px);
+      font-weight: 500;
+      letter-spacing: 0;
+    }
+
+    .hot:focus-visible {
+      outline: 2px solid var(--green);
+      outline-offset: 2px;
+    }
+
+    .hot:hover {
+      filter: brightness(1.05);
+      outline: 2px solid rgba(53, 208, 127, .50);
+      outline-offset: 2px;
+    }
+
+    .hot.active {
+      background: linear-gradient(#78eaa6, #30a961);
+      color: #07180d;
+      box-shadow: inset 0 1px rgba(255,255,255,.72), 0 0 14px rgba(53,208,127,.42);
+    }
+
+    .hot.power {
+      left: 9.5%; top: 52.0%; width: 5.3%; height: 10.0%;
+      font-size: clamp(10px, 1.15vw, 18px);
+      white-space: nowrap;
+      color: #1b2627;
+      background: radial-gradient(circle at 50% 42%, #ffffff 0 34%, #d3d8d8 35% 68%, #aeb8b8 69% 100%);
+    }
+
+    .hot.screen {
+      left: 22.3%; top: 24.2%; width: 22.0%; height: 34.6%;
+      border-radius: 6px;
+      background: rgba(0,0,0,0);
+      border: 0;
+      box-shadow: none;
+      color: transparent;
+    }
+
+    .hot.soft1, .hot.soft2, .hot.soft3, .hot.soft4, .hot.soft5 {
+      left: 46.2%;
+      width: 5.8%;
+      height: 6.0%;
+      border-radius: 8px;
+      color: #17363b;
+      background: linear-gradient(145deg, #d8fbff, #a9d1d9);
+      font-size: clamp(7px, .72vw, 12px);
+      font-weight: 700;
+    }
+    .hot.soft1 { top: 25.5%; }
+    .hot.soft2 { top: 33.0%; }
+    .hot.soft3 { top: 40.5%; }
+    .hot.soft4 { top: 48.0%; }
+    .hot.soft5 { top: 55.5%; }
+
+    .hot.wave, .hot.mod, .hot.sweep, .hot.counter, .hot.vco, .hot.system {
+      width: 5.7%;
+      height: 6.2%;
+      border-radius: 6px;
+      background: linear-gradient(#fdfcf8, #d8dddc);
+    }
+    .hot.wave { left: 58.0%; top: 25.5%; }
+    .hot.mod { left: 64.5%; top: 25.5%; }
+    .hot.sweep { left: 71.0%; top: 25.5%; }
+    .hot.counter { left: 58.0%; top: 33.5%; }
+    .hot.vco { left: 64.5%; top: 33.5%; }
+    .hot.system { left: 71.0%; top: 33.5%; }
+
+    .hot.panel-ch1, .hot.panel-ch2, .hot.ok, .hot.left, .hot.right {
+      height: 5.8%;
+      border-radius: 6px;
+    }
+    .hot.panel-ch1 { left: 57.4%; top: 45.5%; width: 4.7%; }
+    .hot.ok { left: 63.0%; top: 45.5%; width: 5.8%; background: linear-gradient(#fffefa, #e9e6dd); }
+    .hot.panel-ch2 { left: 69.8%; top: 45.5%; width: 4.7%; }
+    .hot.left { left: 78.0%; top: 45.7%; width: 4.8%; }
+    .hot.right { left: 84.0%; top: 45.7%; width: 4.8%; }
+
+    .hot.out1, .hot.out2, .hot.input {
+      top: 56.0%;
+      width: 6.4%;
+      height: 11.2%;
+      border-radius: 50%;
+      color: transparent;
+      border-width: 4px;
+      background:
+        radial-gradient(circle at 50% 50%, #0b0c0a 0 10%, #f4efe0 11% 21%, #7c6744 22% 35%, #f6f4ee 36% 54%, #827b72 55% 70%, #d9d9d2 71% 100%);
+    }
+    .hot.out1 { left: 57.0%; border-color: #f1d100; }
+    .hot.out2 { left: 67.0%; border-color: #24bfee; }
+    .hot.input { left: 79.2%; border-color: #39d66a; }
+
+    .hot.out1::after, .hot.out2::after, .hot.input::after, .hot.knob::after {
+      position: absolute;
+      left: 50%;
+      transform: translateX(-50%);
+      color: #263538;
+      font-size: clamp(8px, .72vw, 12px);
+      font-weight: 500;
+      white-space: nowrap;
+      pointer-events: none;
+    }
+
+    .hot.out1::after { content: "通道 1 输出"; top: -24%; }
+    .hot.out2::after { content: "通道 2 输出"; top: -24%; }
+    .hot.input::after { content: "外部输入"; top: -24%; }
+
+    .hot.knob {
+      left: 80.0%;
+      top: 20.0%;
+      width: 11.0%;
+      height: 20.5%;
+      border-radius: 50%;
+      color: transparent;
+      border: 1px solid rgba(0,0,0,.2);
+      background:
+        radial-gradient(circle at 36% 32%, rgba(255,255,255,.9) 0 10%, transparent 11%),
+        radial-gradient(circle, #f1f2ef 0 44%, #d9dddd 45% 65%, #b9c0c0 66% 100%);
+    }
+
+    .hot.knob::after { content: "调节旋钮"; top: 105%; }
+
+    /* FY6900-style front panel, drawn entirely with live HTML controls. */
+    .instrument-wrap {
+      left: 1.8%;
+      right: 1.8%;
+      top: 12%;
+      aspect-ratio: 2.04 / 1;
+      transform: perspective(1200px) rotateX(1.2deg);
+    }
+
+    .device-shell {
+      border-radius: 10% 10% 7% 7% / 12% 12% 9% 9%;
+      border: 2px solid #eef3f1;
+      background:
+        linear-gradient(115deg, transparent 0 9%, rgba(255,255,255,.76) 9.2% 12%, transparent 12.2% 84%, rgba(180,187,186,.22) 84.2% 89%, transparent 89.2%),
+        linear-gradient(180deg, #f8faf8 0 10%, #d9dedd 11% 15%, #f5f7f5 16% 84%, #c4cac9 85% 91%, #eef1ef 92% 100%);
+      box-shadow:
+        inset 0 10px 18px rgba(255,255,255,.96),
+        inset 0 -22px 28px rgba(100,110,109,.22),
+        inset 12px 0 14px rgba(116,126,125,.12),
+        inset -12px 0 14px rgba(116,126,125,.15),
+        0 12px 0 -6px #87908e,
+        0 24px 26px rgba(0,0,0,.42);
+    }
+
+    .device-shell::before,
+    .device-shell::after { content: none; }
+
+    .brand-line {
+      position: absolute;
+      left: 7.2%;
+      top: 9.5%;
+      width: 40%;
+      display: flex;
+      align-items: baseline;
+      gap: 8px;
+      color: #17201f;
+      white-space: nowrap;
+    }
+
+    .brand-line strong { font: 500 clamp(12px, 1.4vw, 24px) Arial, sans-serif; }
+    .brand-line strong span { color: #28a9d4; }
+    .brand-line small { font-size: clamp(6px, .72vw, 12px); }
+
+    .model-block {
+      position: absolute;
+      left: 5.2%;
+      top: 18%;
+      width: 10.5%;
+      height: 47%;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      color: #151918;
+      background: linear-gradient(100deg, #fff62b, #e8df19);
+      border-radius: 7px 24px 5px 5px;
+      box-shadow: inset 0 0 0 1px rgba(153,144,0,.22);
+    }
+
+    .model-block b { margin-top: 13%; font: italic 500 clamp(18px, 3.1vw, 48px) Arial, sans-serif; }
+    .model-block strong { font-size: clamp(9px, 1.15vw, 18px); }
+    .model-block small { margin-top: auto; font-size: clamp(6px, .65vw, 10px); }
+    .model-block i { width: 100%; padding: 9% 0; text-align: center; font: 500 clamp(7px, .8vw, 12px) Arial, sans-serif; background: #d9edf0; }
+
+    .channel-badge {
+      position: absolute;
+      left: 46.2%;
+      top: 8.4%;
+      width: 9.2%;
+      padding: 1.2% 0 .7%;
+      color: #282500;
+      text-align: center;
+      font: 500 clamp(7px, .8vw, 13px) Arial, sans-serif;
+      background: #f3e61c;
+      clip-path: polygon(20% 0,100% 0,80% 100%,0 100%);
+    }
+
+    .function-bezel {
+      position: absolute;
+      left: 56.3%;
+      top: 15.2%;
+      width: 20.3%;
+      height: 34%;
+      border: 3px solid #4e5353;
+      border-radius: 5px;
+      background: #949999;
+      box-shadow: inset 0 0 0 4px #d9dcda, 0 2px 3px rgba(0,0,0,.25);
+    }
+
+    .function-bezel span {
+      display: block;
+      margin: 2% 5% 0;
+      height: 18%;
+      color: #fff;
+      text-align: center;
+      font: 500 clamp(7px, .8vw, 13px) Arial, sans-serif;
+      background: #424747;
+      border-radius: 3px 3px 0 0;
+    }
+
+    .screen-overlay {
+      left: 16.4%;
+      top: 20.5%;
+      width: 30.7%;
+      height: 52%;
+      border: 6px solid #d6dbd9;
+      border-radius: 2px;
+      box-shadow: inset 0 0 16px rgba(0,0,0,.7), 0 1px 5px rgba(0,0,0,.38);
+    }
+
+    .hot {
+      border-radius: 3px;
+      border-color: rgba(46,51,51,.45);
+      font-size: clamp(9px, 1vw, 15px);
+      font-weight: 500;
+      box-shadow: inset 0 1px rgba(255,255,255,.92), inset 0 -2px rgba(80,88,87,.17), 0 2px 4px rgba(0,0,0,.28);
+    }
+
+    .hot.power {
+      left: 7.0%; top: 68.0%; width: 6.0%; height: 12.5%;
+      font-size: clamp(8px, .85vw, 13px);
+      color: transparent;
+      border: 3px solid #c3cac7;
+      border-radius: 50%;
+      background:
+        radial-gradient(circle at 38% 28%, rgba(255,255,255,.95) 0 9%, transparent 10%),
+        radial-gradient(circle, #f8faf8 0 43%, #d9deda 44% 61%, #aeb6b3 62% 72%, #edf1ee 73% 100%);
+      box-shadow:
+        inset 0 -5px 7px rgba(82,92,89,.22),
+        inset 0 2px 3px rgba(255,255,255,.9),
+        0 2px 5px rgba(0,0,0,.28),
+        0 0 14px rgba(53,208,127,.16);
+    }
+
+    .hot.power::before {
+      content: "";
+      position: absolute;
+      left: 50%;
+      top: 50%;
+      width: 34%;
+      height: 34%;
+      transform: translate(-50%, -45%);
+      border: 2px solid #34413e;
+      border-top-color: transparent;
+      border-radius: 50%;
+      background: linear-gradient(#34413e, #34413e) center -3px / 2px 48% no-repeat;
+      filter: drop-shadow(0 1px rgba(255,255,255,.75));
+      pointer-events: none;
+    }
+
+    .hot.power::after {
+      content: "电源";
+      position: absolute;
+      top: 112%;
+      left: 50%;
+      transform: translateX(-50%);
+      color: #26312f;
+      white-space: nowrap;
+      font-size: clamp(7px, .72vw, 12px);
+    }
+
+    .hot.screen { left: 16.4%; top: 20.5%; width: 30.7%; height: 52%; }
+
+    .hot.soft1, .hot.soft2, .hot.soft3, .hot.soft4, .hot.soft5 {
+      left: 49.1%;
+      width: 5.7%;
+      height: 9.2%;
+      border-radius: 0;
+      padding: 0 3px 0 8px;
+      color: #153237;
+      font-size: clamp(9px, .92vw, 14px);
+      background: linear-gradient(145deg, #dffbff, #8ebbc0);
+      clip-path: polygon(18% 0, 100% 0, 100% 100%, 18% 100%, 0 50%);
+    }
+    .hot.soft1 { top: 20.3%; }
+    .hot.soft2 { top: 30.8%; }
+    .hot.soft3 { top: 41.3%; }
+    .hot.soft4 { top: 51.8%; }
+    .hot.soft5 { top: 62.3%; }
+
+    .hot.wave, .hot.mod, .hot.sweep, .hot.counter, .hot.vco, .hot.system {
+      width: 5.1%;
+      height: 8.1%;
+      border-radius: 3px;
+      background: linear-gradient(#fffef9, #dedfd9);
+    }
+    .hot.wave, .hot.mod, .hot.sweep, .hot.counter, .hot.vco, .hot.system,
+    .hot.panel-ch1, .hot.panel-ch2, .hot.ok {
+      flex-direction: column;
+      gap: 1px;
+      padding: 2px 3px;
+      line-height: 1;
+    }
+    .hot.wave b, .hot.mod b, .hot.sweep b, .hot.counter b, .hot.vco b, .hot.system b,
+    .hot.panel-ch1 b, .hot.panel-ch2 b, .hot.ok b {
+      font: 500 clamp(7px, .76vw, 12px) Arial, sans-serif;
+      white-space: nowrap;
+    }
+    .hot.wave span, .hot.mod span, .hot.sweep span, .hot.counter span, .hot.vco span, .hot.system span,
+    .hot.panel-ch1 span, .hot.panel-ch2 span, .hot.ok span {
+      font-size: clamp(6px, .6vw, 9px);
+      color: #52605d;
+      white-space: nowrap;
+    }
+    .hot.counter b { font-size: clamp(6px, .6vw, 9px); }
+    .hot.active span { color: #173a25; }
+    .hot.wave { left: 57.8%; top: 24.0%; }
+    .hot.mod { left: 64.2%; top: 24.0%; }
+    .hot.sweep { left: 70.6%; top: 24.0%; }
+    .hot.counter { left: 57.8%; top: 35.4%; }
+    .hot.vco { left: 64.2%; top: 35.4%; }
+    .hot.system { left: 70.6%; top: 35.4%; }
+
+    .hot.panel-ch1, .hot.panel-ch2, .hot.ok, .hot.left, .hot.right { height: 7.4%; }
+    .hot.panel-ch1 { left: 57.7%; top: 55.5%; width: 5.3%; clip-path: polygon(10% 0,100% 0,84% 100%,0 100%); }
+    .hot.ok { left: 63.6%; top: 55.5%; width: 5.8%; background: linear-gradient(#fffef8,#e8e2d5); clip-path: polygon(18% 0,82% 0,100% 50%,82% 100%,18% 100%,0 50%); }
+    .hot.panel-ch2 { left: 70.0%; top: 55.5%; width: 5.3%; clip-path: polygon(0 0,90% 0,100% 100%,16% 100%); }
+    .hot.left { left: 78.9%; top: 55.5%; width: 5.8%; }
+    .hot.right { left: 86.0%; top: 55.5%; width: 5.8%; }
+
+    .hot.out1, .hot.out2, .hot.input {
+      top: 68%;
+      width: 7.2%;
+      height: 15.2%;
+      border-width: 5px;
+      background:
+        radial-gradient(circle at 50% 50%, #171612 0 6%, #d9b86e 7% 12%, #6d5225 13% 17%, #f3dfaa 18% 25%, #7a633d 26% 31%, #e9e7df 32% 42%, #7f8683 43% 49%, transparent 50%),
+        radial-gradient(circle at 39% 30%, rgba(255,255,255,.92) 0 7%, transparent 8%),
+        conic-gradient(from 12deg, #f7f8f5, #9ba29f 11%, #eef0ed 22%, #777e7b 34%, #f9faf8 47%, #929996 61%, #f0f2ef 76%, #7d8481 88%, #f7f8f5);
+      box-shadow:
+        inset 0 0 0 3px rgba(255,255,255,.52),
+        inset 0 -4px 5px rgba(67,73,71,.28),
+        0 2px 5px rgba(0,0,0,.34),
+        0 0 0 1px rgba(39,45,43,.24);
+    }
+    .hot.out1 { left: 58.1%; border-color: #f5df00; }
+    .hot.out2 { left: 68.8%; border-color: #20bee7; }
+    .hot.input { left: 82.4%; border-color: #2bd66b; }
+    .hot.out1::after, .hot.out2::after, .hot.input::after { content: none; }
+
+    .hot.knob {
+      left: 80.0%;
+      top: 17.1%;
+      width: 13.5%;
+      height: 28.3%;
+      border: 4px solid #aeb5b3;
+      background:
+        radial-gradient(circle at 34% 29%, rgba(255,255,255,.96) 0 8%, transparent 9%),
+        radial-gradient(circle, #edf0ed 0 48%, #d1d6d4 49% 67%, #f3f5f2 68% 73%, #aeb5b3 74% 100%);
+      box-shadow: inset 0 -7px 10px rgba(90,99,97,.24), 0 4px 7px rgba(0,0,0,.28);
+    }
+    .hot.knob::before {
+      content: "";
+      position: absolute;
+      left: calc(50% - 2px);
+      top: 11%;
+      width: 4px;
+      height: 39%;
+      border-radius: 3px;
+      background: linear-gradient(180deg, #687371 0 23%, transparent 24% 100%);
+      transform-origin: 50% 100%;
+      transform: rotate(var(--knob-angle, -135deg));
+      transition: transform .12s ease;
+      pointer-events: none;
+    }
+    .hot.knob::after { content: "调节旋钮"; top: 109%; font-size: clamp(7px, .78vw, 13px); }
+
+    .knob-scale { position: absolute; left: 78.8%; top: 19%; width: 15%; height: 24%; }
+    .knob-scale i { position: absolute; left: 0; width: 5px; height: 5px; border-radius: 50%; background: #b8bebb; }
+    .knob-scale i:nth-child(1) { top: 10%; left: 5%; }
+    .knob-scale i:nth-child(2) { top: 22%; left: 1%; }
+    .knob-scale i:nth-child(3) { top: 35%; left: 0; }
+    .knob-scale i:nth-child(4) { top: 49%; left: 1%; }
+    .knob-scale i:nth-child(5) { top: 63%; left: 4%; }
+    .knob-scale i:nth-child(6) { top: 75%; left: 9%; }
+    .knob-scale i:nth-child(7) { top: 84%; left: 16%; }
+    .knob-scale i:nth-child(8) { top: 90%; left: 25%; }
+    .knob-scale i:nth-child(9) { top: 93%; left: 36%; }
+
+    .output-caption, .input-caption, .ground-mark {
+      position: absolute;
+      color: #202827;
+      font: 500 clamp(7px, .72vw, 12px) Arial, "Microsoft YaHei", sans-serif;
+      white-space: nowrap;
+    }
+    .output-caption { top: 64.0%; }
+    .output-caption-1 { left: 58.5%; }
+    .output-caption-2 { left: 69.2%; }
+    .input-caption { left: 81.7%; top: 64.0%; }
+    .ground-mark { top: 72.5%; color: #35403d; font-size: clamp(11px, 1.15vw, 18px); }
+    .ground-mark-1 { left: 65.5%; }
+    .ground-mark-2 { left: 76.2%; }
+    .ground-mark-3 { left: 89.9%; }
+
+    .cable-layer {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      pointer-events: none;
+      z-index: 7;
+    }
+
+    .small-title {
+      margin: 0 0 7px;
+      font-size: 13px;
+      color: var(--muted);
+    }
+
+    .editor {
+      display: grid;
+      grid-template-columns: repeat(16, 1fr);
+      gap: 4px;
+      align-items: end;
+      min-height: 118px;
+      padding: 8px;
+      border-radius: 6px;
+      background: rgba(0,0,0,.26);
+      border: 1px solid rgba(255,255,255,.11);
+      cursor: crosshair;
+    }
+
+    .bar {
+      min-width: 0;
+      height: calc(12px + var(--h) * 62px);
+      border-radius: 4px 4px 2px 2px;
+      background: linear-gradient(180deg, rgba(53,208,127,.95), rgba(40,199,255,.82));
+      box-shadow: 0 0 12px rgba(53,208,127,.18);
+    }
+
+    .analysis-area {
+      display: grid;
+      grid-template-rows: minmax(0, 1fr) auto;
+      padding: 56px 12px 12px;
+      gap: 10px;
+    }
+
+    .panel {
+      padding: 10px;
+      min-height: 0;
+    }
+
+    .scope-panel {
+      display: grid;
+      grid-template-rows: minmax(0, 1fr) 150px auto;
+      gap: 10px;
+    }
+
+    .display {
+      position: relative;
+      min-height: 210px;
+      border-radius: 8px;
+      background: var(--screen);
+      border: 1px solid rgba(98, 194, 126, .28);
+      overflow: hidden;
+      box-shadow: inset 0 0 28px rgba(0,0,0,.74);
+    }
+
+    .display canvas {
+      width: 100%;
+      height: 100%;
+      display: block;
+    }
+
+    .scope-label {
+      position: absolute;
+      left: 10px;
+      top: 8px;
+      z-index: 2;
+      color: rgba(226, 255, 211, .78);
+      font-size: 12px;
+      font-family: Consolas, "Microsoft YaHei", monospace;
+      pointer-events: none;
+    }
+
+    .mode-row, .footer-row {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      align-items: center;
+    }
+
+    .footer-row {
+      justify-content: space-between;
+      color: var(--muted);
+      font-size: 12px;
+    }
+
+    .front-readout {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 8px;
+    }
+
+    .front-readout .metric {
+      border-left-width: 2px;
+      background: rgba(0,0,0,.18);
+      border-radius: 6px;
+      padding: 7px 8px 7px 10px;
+    }
+
+    .toast {
+      position: absolute;
+      left: 50%;
+      bottom: 146px;
+      transform: translateX(-50%);
+      z-index: 15;
+      padding: 8px 11px;
+      border-radius: 6px;
+      background: rgba(0,0,0,.7);
+      color: var(--text);
+      border: 1px solid rgba(255,255,255,.16);
+      opacity: 0;
+      transition: opacity .18s ease;
+      pointer-events: none;
+      font-size: 13px;
+      white-space: nowrap;
+    }
+
+    .toast.show { opacity: 1; }
+
+    .button-help {
+      position: fixed;
+      z-index: 100;
+      width: max-content;
+      max-width: min(280px, calc(100vw - 20px));
+      padding: 9px 11px;
+      border: 1px solid rgba(116, 226, 163, .38);
+      border-radius: 6px;
+      background: rgba(10, 16, 13, .96);
+      color: #eef6ef;
+      box-shadow: 0 10px 28px rgba(0,0,0,.42);
+      font-size: 13px;
+      line-height: 1.45;
+      pointer-events: none;
+      opacity: 0;
+      visibility: hidden;
+      transform: translateY(3px);
+      transition: opacity .14s ease, transform .14s ease;
+    }
+
+    .button-help.show {
+      opacity: 1;
+      visibility: visible;
+      transform: translateY(0);
+    }
+
+    @media (min-width: 981px) {
+      #awg-learning-lab {
+        height: auto;
+        min-height: 720px;
+        overflow: visible;
+      }
+    }
+
+    @media (max-width: 980px) {
+      .topbar, .bench {
+        grid-template-columns: 1fr;
+        height: auto;
+      }
+
+      .bench { min-height: 0; }
+
+      .instrument-area { min-height: clamp(430px, 61vw, 600px); }
+
+      .analysis-area {
+        min-height: 650px;
+      }
+    }
+
+    @media (max-width: 620px) {
+      #awg-learning-lab { padding: 8px; }
+      .readouts { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      .instrument-area { min-height: 360px; }
+      .instrument-wrap { top: 10%; left: 3%; right: 3%; }
+      .front-readout { grid-template-columns: 1fr; }
+    }
+  </style>
+
+  <div class="topbar">
+    <section class="mission" aria-label="实验任务">
+      <h1>任意波形发生器仿真实验台</h1>
+      <div class="mission-row">
+        <div class="mission-text" id="missionText">选择波形、调节频率/幅度/偏置，再观察输出端的时域波形与频谱。自定义模式可以直接“捏”出 16 点任意波形。</div>
+        <select id="lessonSelect" aria-label="实验任务选择">
+          <option value="basic">基础输出：正弦/方波/三角波</option>
+          <option value="offset">直流偏置：让信号整体上移/下移</option>
+          <option value="duty">占空比：脉冲波的高低电平时间</option>
+          <option value="mod">调制：AM/FM/PWM 的包络变化</option>
+          <option value="sweep">扫频：从低频扫到高频</option>
+          <option value="arb">任意波：手绘采样点</option>
+        </select>
+      </div>
+    </section>
+
+    <section class="readouts" aria-label="输出读数">
+      <div class="metric"><span>当前通道</span><strong id="channelReadout">CH1 输出</strong></div>
+      <div class="metric"><span>波形</span><strong id="waveReadout">正弦波</strong></div>
+      <div class="metric"><span>频率</span><strong id="freqReadout">1.000 kHz</strong></div>
+      <div class="metric"><span>电平</span><strong id="levelReadout">5.00 Vpp / 0.00 V</strong></div>
+    </section>
+  </div>
+
+  <main class="bench" id="bench">
+    <section class="instrument-area" aria-label="波形发生器面板">
+      <div class="area-header">
+        <div class="tag"><span class="lamp"></span><span id="runTag">输出已开启</span></div>
+        <div class="tag">DDS / 任意波 / 扫频 / 调制</div>
+      </div>
+
+      <div class="instrument-wrap" id="instrumentWrap">
+        <div class="device-shell" aria-hidden="true">
+          <div class="brand-line"><strong>VibeHard</strong><small>DDS Function / Arbitrary Waveform Generator</small></div>
+          <div class="model-block"><b>FE</b><strong>FY6900</strong><small>14Bit　250MSa/s</small><i>VCO　 MOD</i></div>
+          <div class="channel-badge">2 CHANNEL</div>
+          <div class="function-bezel"><span>功能　FUNCTION</span></div>
+          <div class="knob-scale"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div>
+          <div class="output-caption output-caption-1">通道 1 输出</div>
+          <div class="output-caption output-caption-2">通道 2 输出</div>
+          <div class="input-caption">外部输入 · 20VRMS</div>
+          <div class="ground-mark ground-mark-1">⏚</div>
+          <div class="ground-mark ground-mark-2">⏚</div>
+          <div class="ground-mark ground-mark-3">⏚</div>
+        </div>
+        <div class="screen-overlay"><canvas id="frontScreen" width="520" height="360" aria-label="发生器彩色显示屏"></canvas></div>
+        <button class="hot power" id="hotPower" type="button" aria-label="电源开关">电源</button>
+        <button class="hot screen" id="hotScreen" type="button" aria-label="彩色显示屏"></button>
+        <button class="hot soft1" id="softFreq" type="button" aria-label="软键：频率">频率</button>
+        <button class="hot soft2" id="softAmp" type="button" aria-label="软键：幅度">幅度</button>
+        <button class="hot soft3" id="softOffset" type="button" aria-label="软键：偏置">偏置</button>
+        <button class="hot soft4" id="softDuty" type="button" aria-label="软键：占空比">占空比</button>
+        <button class="hot soft5" id="softPhase" type="button" aria-label="软键：相位">相位</button>
+        <button class="hot wave" id="hotWave" type="button" aria-label="波形选择"><b>WAVE</b><span>波形</span></button>
+        <button class="hot mod" id="hotMod" type="button" aria-label="调制"><b>MOD</b><span>调制</span></button>
+        <button class="hot sweep" id="hotSweep" type="button" aria-label="扫频"><b>SWEEP</b><span>扫频</span></button>
+        <button class="hot counter" id="hotCounter" type="button" aria-label="计数器"><b>COUNTER</b><span>计数</span></button>
+        <button class="hot vco" id="hotVco" type="button" aria-label="压控振荡器"><b>VCO</b><span>压控</span></button>
+        <button class="hot system" id="hotSystem" type="button" aria-label="系统运行暂停"><b>SYSTEM</b><span id="systemCn">运行</span></button>
+        <button class="hot panel-ch1" id="hotPanelCh1" type="button" aria-label="通道一"><b>CH1</b><span>通道一</span></button>
+        <button class="hot panel-ch2" id="hotPanelCh2" type="button" aria-label="通道二"><b>CH2</b><span>通道二</span></button>
+        <button class="hot ok" id="hotOk" type="button" aria-label="确认输出"><b>OK</b><span>确认</span></button>
+        <button class="hot left" id="hotLeft" type="button" aria-label="减小参数">◀</button>
+        <button class="hot right" id="hotRight" type="button" aria-label="增大参数">▶</button>
+        <button class="hot out1" id="hotOut1" type="button" aria-label="通道一输出"></button>
+        <button class="hot out2" id="hotOut2" type="button" aria-label="通道二输出"></button>
+        <button class="hot input" id="hotInput" type="button" aria-label="外部输入"></button>
+        <button class="hot knob" id="hotKnob" type="button" aria-label="调节旋钮"></button>
+      </div>
+
+      <svg class="cable-layer" id="cableLayer" viewBox="0 0 1000 650" preserveAspectRatio="none" aria-hidden="true"></svg>
+
+      <div class="toast" id="toast">已更新</div>
+      <div class="button-help" id="buttonHelp" role="tooltip" aria-hidden="true"></div>
+    </section>
+
+    <section class="analysis-area" aria-label="输出观察区">
+      <div class="area-header">
+        <div class="tag"><span class="lamp"></span><span id="scopeState">虚拟示波器已连接</span></div>
+      </div>
+
+      <div class="panel scope-panel">
+        <div class="display">
+          <span class="scope-label" id="scopeLabel">CH1 1.000 kHz 5.00 Vpp</span>
+          <canvas id="scopeCanvas" width="900" height="430" aria-label="输出波形时域显示"></canvas>
+        </div>
+        <div class="display">
+          <span class="scope-label" id="spectrumLabel">频谱</span>
+          <canvas id="spectrumCanvas" width="900" height="180" aria-label="输出频谱显示"></canvas>
+        </div>
+        <div class="front-readout">
+          <div class="metric"><span>屏幕软键选中</span><strong id="selectedReadout">频率</strong></div>
+          <div class="metric"><span>调制/扫频</span><strong id="modeReadout">调制关闭 / 扫频关闭</strong></div>
+          <div class="metric"><span>输入端</span><strong id="counterReadout">计数器就绪</strong></div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <script>
+    (() => {
+      const $ = id => document.getElementById(id);
+      const root = $('awg-learning-lab');
+      const screen = $('frontScreen');
+      const screenCtx = screen.getContext('2d');
+      const scope = $('scopeCanvas');
+      const ctx = scope.getContext('2d');
+      const spectrum = $('spectrumCanvas');
+      const sp = spectrum.getContext('2d');
+      const state = {
+        channel: 1,
+        output: true,
+        hold: false,
+        wave: 'sine',
+        mod: 'off',
+        sweep: false,
+        selectedParam: 'freq',
+        freq: 1000,
+        amp: 5,
+        offset: 0,
+        duty: 50,
+        phase: 0,
+        modDepth: 40,
+        start: performance.now(),
+        lastDraw: 0,
+        arb: [.50, .70, .86, .93, .82, .58, .34, .20, .25, .43, .65, .78, .68, .48, .36, .42]
+      };
+
+      const lessons = {
+        basic: '基础输出：按“波形”切换形状，用方向键或调节旋钮修改选中的参数。',
+        offset: '直流偏置：选择“偏置”，再用方向键或调节旋钮移动信号中心。',
+        duty: '占空比：切换至脉冲波，选择“占空比”并调节高电平时间比例。',
+        mod: '调制：按“调制”循环选择 AM / FM / PWM，再调节参数。',
+        sweep: '扫频：按“扫频”按钮，围绕当前频率自动扫描。',
+        arb: '任意波：切换至任意波后，可直接在仪器屏幕拖动采样点。'
+      };
+
+      const waveNames = { sine: '正弦波', square: '方波', triangle: '三角波', ramp: '锯齿波', pulse: '脉冲波', noise: '噪声', arb: '任意波' };
+      const paramLabels = { freq: '频率', amp: '幅度', offset: '偏置', duty: '占空比', phase: '相位' };
+      const buttonHelpText = {
+        hotPower: '电源键：开启或关闭当前通道的信号输出。',
+        hotScreen: '彩色显示屏：查看通道参数；任意波模式下可直接拖动绘制采样点。',
+        softFreq: '频率软键：选中频率，随后使用方向键或调节旋钮修改。',
+        softAmp: '幅度软键：选中峰峰值幅度，随后使用方向键或调节旋钮修改。',
+        softOffset: '偏置软键：选中直流偏置，用于整体上移或下移波形。',
+        softDuty: '占空比软键：选中脉冲高电平所占的时间比例。',
+        softPhase: '相位软键：选中输出波形的起始相位。',
+        hotWave: 'WAVE 波形键：依次切换正弦波、方波、三角波、锯齿波、脉冲、噪声和任意波。',
+        hotMod: 'MOD 调制键：依次切换关闭、AM、FM 和 PWM 调制。',
+        hotSweep: 'SWEEP 扫频键：开启或关闭围绕当前频率的自动扫描。',
+        hotCounter: 'COUNTER 计数键：进入频率计数状态并显示当前测量频率。',
+        hotVco: 'VCO 压控键：启用压控扫频，并将调节对象切换到频率。',
+        hotSystem: 'SYSTEM 系统键：暂停或继续示波器波形采集。',
+        hotPanelCh1: 'CH1 通道一：选择通道 1 作为当前设置和观察通道。',
+        hotPanelCh2: 'CH2 通道二：选择通道 2 作为当前设置和观察通道。',
+        hotOk: 'OK 确认键：确认当前设置，并切换当前通道的输出状态。',
+        hotLeft: '左方向键：减小当前选中的参数。',
+        hotRight: '右方向键：增大当前选中的参数。',
+        hotOut1: '通道 1 输出端：选择通道 1，并把虚拟连接线接到该端口。',
+        hotOut2: '通道 2 输出端：选择通道 2，并把虚拟连接线接到该端口。',
+        hotInput: '外部输入端：用于频率计数和外部信号测量。',
+        hotKnob: '调节旋钮：单击增大当前参数；鼠标滚轮向上增大、向下减小。'
+      };
+      let toastTimer = 0;
+      let helpTimer = 0;
+      let helpTarget = null;
+      let cableSignature = '';
+
+      function fmtFreq(v) { return v >= 1000 ? `${(v / 1000).toFixed(v >= 10000 ? 2 : 3)} kHz` : `${v.toFixed(0)} Hz`; }
+      function clamp(v, min, max) { return Math.max(min, Math.min(max, v)); }
+      function showToast(text) {
+        const t = $('toast');
+        t.textContent = text;
+        t.classList.add('show');
+        clearTimeout(toastTimer);
+        toastTimer = setTimeout(() => t.classList.remove('show'), 1000);
+      }
+
+      function currentFreq(now) {
+        if (!state.sweep) return state.freq;
+        const lfo = (Math.sin(now * Math.PI * .72) + 1) / 2;
+        return state.freq * (.45 + lfo * 1.1);
+      }
+
+      function noise(x) {
+        const n = Math.sin(x * 127.1) * 43758.5453;
+        return (n - Math.floor(n)) * 2 - 1;
+      }
+
+      function arbAt(phase) {
+        const n = state.arb.length;
+        const p = ((phase % 1) + 1) % 1 * n;
+        const i = Math.floor(p);
+        const f = p - i;
+        const a = state.arb[i % n] * 2 - 1;
+        const b = state.arb[(i + 1) % n] * 2 - 1;
+        return a + (b - a) * f;
+      }
+
+      function rawWave(phase, t) {
+        const p = ((phase % 1) + 1) % 1;
+        if (state.wave === 'sine') return Math.sin(2 * Math.PI * p);
+        if (state.wave === 'square') return p < state.duty / 100 ? 1 : -1;
+        if (state.wave === 'triangle') return 1 - 4 * Math.abs(Math.round(p - .25) - (p - .25));
+        if (state.wave === 'ramp') return p * 2 - 1;
+        if (state.wave === 'pulse') return p < state.duty / 100 ? 1 : -.72;
+        if (state.wave === 'noise') return noise(Math.floor(t * 26000) + state.phase);
+        if (state.wave === 'arb') return arbAt(p);
+        return 0;
+      }
+
+      function sampleAt(t, now) {
+        if (!state.output) return 0;
+        let freq = currentFreq(now);
+        const modLfo = Math.sin(2 * Math.PI * 7 * t);
+        let phase = t * freq + state.phase / 360;
+        let ampMul = 1;
+        let dutyHold = state.duty;
+        if (state.mod === 'am') ampMul = 1 - state.modDepth / 200 + (state.modDepth / 200) * (modLfo + 1);
+        if (state.mod === 'fm') phase = t * freq * (1 + modLfo * state.modDepth / 140) + state.phase / 360;
+        if (state.mod === 'pwm') dutyHold = clamp(state.duty + modLfo * state.modDepth * .45, 5, 95);
+        const y = rawWave(phase, t) * (state.amp / 2) * ampMul + state.offset;
+        if (state.mod === 'pwm') state.duty = dutyHold;
+        return clamp(y, -5.8, 5.8);
+      }
+
+      function drawGrid(canvasCtx, w, h) {
+        canvasCtx.strokeStyle = 'rgba(97,190,126,.22)';
+        canvasCtx.lineWidth = 1;
+        for (let i = 0; i <= 10; i++) {
+          const x = i * w / 10;
+          canvasCtx.beginPath(); canvasCtx.moveTo(x, 0); canvasCtx.lineTo(x, h); canvasCtx.stroke();
+        }
+        for (let i = 0; i <= 8; i++) {
+          const y = i * h / 8;
+          canvasCtx.beginPath(); canvasCtx.moveTo(0, y); canvasCtx.lineTo(w, y); canvasCtx.stroke();
+        }
+        canvasCtx.strokeStyle = 'rgba(204,244,184,.34)';
+        canvasCtx.setLineDash([6, 8]);
+        canvasCtx.beginPath(); canvasCtx.moveTo(0, h / 2); canvasCtx.lineTo(w, h / 2); canvasCtx.stroke();
+        canvasCtx.beginPath(); canvasCtx.moveTo(w / 2, 0); canvasCtx.lineTo(w / 2, h); canvasCtx.stroke();
+        canvasCtx.setLineDash([]);
+      }
+
+      function drawTrace(canvasCtx, pts, color, livePulse = 0) {
+        canvasCtx.save();
+        canvasCtx.strokeStyle = color;
+        canvasCtx.globalAlpha = .9 + livePulse * .1;
+        canvasCtx.lineWidth = 2.15 + livePulse * .2;
+        canvasCtx.shadowColor = color;
+        canvasCtx.shadowBlur = 7 + livePulse * 2;
+        canvasCtx.beginPath();
+        pts.forEach((pt, i) => i ? canvasCtx.lineTo(pt[0], pt[1]) : canvasCtx.moveTo(pt[0], pt[1]));
+        canvasCtx.stroke();
+        canvasCtx.restore();
+      }
+
+      function getCss(name) { return getComputedStyle(root).getPropertyValue(name).trim(); }
+
+      function harmonicBars() {
+        if (!state.output) return [0,0,0,0,0,0,0,0];
+        if (state.wave === 'sine') return state.mod === 'off' ? [1,.03,.015,.01,.006,.004,.003,.002] : [1,.28,.18,.09,.06,.04,.03,.025];
+        if (state.wave === 'square') return [1,0,.34,0,.2,0,.14,0];
+        if (state.wave === 'triangle') return [1,0,.12,0,.04,0,.02,0];
+        if (state.wave === 'ramp') return [1,.5,.33,.25,.2,.16,.14,.12];
+        if (state.wave === 'pulse') return [1,.62,.44,.33,.27,.22,.18,.15].map((v, i) => v * Math.abs(Math.sin((i + 1) * Math.PI * state.duty / 100)));
+        if (state.wave === 'noise') return [.38,.52,.48,.58,.46,.62,.50,.42];
+        return [1,.42,.25,.34,.19,.23,.16,.12];
+      }
+
+      function triggerAlignedStart(freq, now) {
+        if (state.wave === 'noise') return Math.floor(now * 8) / 8;
+        return -state.phase / 360 / Math.max(freq, 1);
+      }
+
+      function drawScope(frameNow = performance.now()) {
+        const w = scope.width, h = scope.height;
+        const now = (frameNow - state.start) / 1000;
+        if (state.hold) return;
+        ctx.clearRect(0, 0, w, h);
+        ctx.fillStyle = '#06100b';
+        ctx.fillRect(0, 0, w, h);
+        drawGrid(ctx, w, h);
+        const pts = [];
+        const freq = currentFreq(now);
+        const totalT = clamp(freq / 220, 1.8, 12) / freq;
+        const acquisitionTick = Math.floor(now * 10);
+        const triggerJitter = Math.sin(acquisitionTick * 1.7) * totalT / 900 * .28;
+        const t0 = triggerAlignedStart(freq, now) + triggerJitter;
+        for (let i = 0; i < 900; i++) {
+          const t = t0 + i / 899 * totalT;
+          const v = sampleAt(t, now);
+          pts.push([i / 899 * w, h / 2 - v / 6 * (h / 2 - 18)]);
+        }
+        const livePulse = .5 + Math.sin(now * Math.PI * 3) * .5;
+        drawTrace(ctx, pts, state.channel === 1 ? getCss('--ch1') : getCss('--ch2'), livePulse);
+        ctx.fillStyle = 'rgba(238,255,211,.75)';
+        ctx.font = '16px Consolas, Microsoft YaHei';
+        ctx.fillText('0 V', 8, h / 2 - 8);
+      }
+
+      function drawSpectrum() {
+        const w = spectrum.width, h = spectrum.height;
+        const now = (performance.now() - state.start) / 1000;
+        sp.clearRect(0, 0, w, h);
+        sp.fillStyle = '#06100b';
+        sp.fillRect(0, 0, w, h);
+        sp.strokeStyle = 'rgba(97,190,126,.18)';
+        for (let i = 1; i < 8; i++) {
+          const x = i * w / 8;
+          sp.beginPath(); sp.moveTo(x, 0); sp.lineTo(x, h); sp.stroke();
+        }
+        const bars = harmonicBars();
+        bars.forEach((height, idx) => {
+          const x = (idx + 1) / 9 * w;
+          const bh = height * (h - 28);
+          const grad = sp.createLinearGradient(0, h - bh, 0, h);
+          grad.addColorStop(0, state.channel === 1 ? '#ffd42a' : '#28c7ff');
+          grad.addColorStop(1, 'rgba(53,208,127,.32)');
+          sp.fillStyle = grad;
+          sp.fillRect(x - 10, h - 15 - bh, 20, bh);
+        });
+        $('spectrumLabel').textContent = `频谱  基波 ${fmtFreq(currentFreq(now))}`;
+      }
+
+      function drawFrontScreen() {
+        const w = screen.width, h = screen.height;
+        const now = (performance.now() - state.start) / 1000;
+        screenCtx.clearRect(0, 0, w, h);
+        screenCtx.fillStyle = '#65717b';
+        screenCtx.fillRect(0, 0, w, h);
+        screenCtx.fillStyle = '#263038';
+        screenCtx.fillRect(8, 8, w - 16, 42);
+        screenCtx.fillStyle = '#eaff25';
+        screenCtx.font = '500 20px Consolas, Microsoft YaHei';
+        screenCtx.fillText(`CH1  ${waveNames[state.wave]}`, 18, 36);
+        screenCtx.fillStyle = state.output ? '#33f07c' : '#ff675f';
+        screenCtx.fillText(state.output ? 'ON' : 'OFF', 430, 36);
+        const rows = [
+          ['频率', fmtFreq(currentFreq(now))],
+          ['幅度', `${state.amp.toFixed(2)} Vpp`],
+          ['偏置', `${state.offset.toFixed(2)} V`],
+          ['占空比', `${state.duty.toFixed(0)} %`],
+          ['相位', `${state.phase.toFixed(0)}°`]
+        ];
+        screenCtx.font = '500 18px Consolas, Microsoft YaHei';
+        rows.forEach((row, i) => {
+          const y = 79 + i * 34;
+          if (paramLabels[state.selectedParam] === row[0]) {
+            screenCtx.fillStyle = '#38e86f';
+            screenCtx.fillRect(12, y - 21, 236, 27);
+          }
+          screenCtx.fillStyle = paramLabels[state.selectedParam] === row[0] ? '#102819' : '#eaff25';
+          screenCtx.fillText(row[0], 18, y);
+          screenCtx.fillStyle = paramLabels[state.selectedParam] === row[0] ? '#102819' : '#f0f4df';
+          screenCtx.fillText(row[1], 104, y);
+        });
+        const bx = 274, by = 66, bw = 228, bh = 158;
+        screenCtx.fillStyle = '#46515a';
+        screenCtx.fillRect(bx, by, bw, bh);
+        screenCtx.strokeStyle = 'rgba(230,244,223,.58)';
+        screenCtx.strokeRect(bx, by, bw, bh);
+        const pts = [];
+        const previewFreq = currentFreq(now);
+        const previewStart = triggerAlignedStart(previewFreq, now);
+        for (let i = 0; i < 180; i++) {
+          const t = previewStart + i / 179 * 3 / previewFreq;
+          const v = sampleAt(t, now);
+          pts.push([bx + i / 179 * bw, by + bh / 2 - v / 6 * bh / 2]);
+        }
+        drawTrace(screenCtx, pts, '#eaff25');
+        screenCtx.fillStyle = '#18252c';
+        screenCtx.fillRect(8, 237, w - 16, 113);
+        screenCtx.strokeStyle = '#20dfff';
+        screenCtx.strokeRect(10, 239, w - 20, 109);
+        screenCtx.fillStyle = '#20dfff';
+        screenCtx.font = '500 18px Consolas, Microsoft YaHei';
+        screenCtx.fillText('CH2  正弦波', 18, 265);
+        screenCtx.fillText('频率', 18, 298);
+        screenCtx.fillText(fmtFreq(state.freq), 104, 298);
+        screenCtx.fillText('幅度', 18, 329);
+        screenCtx.fillText(`${state.amp.toFixed(2)} Vpp`, 104, 329);
+        screenCtx.fillStyle = state.channel === 2 ? '#33f07c' : '#aeb8bd';
+        screenCtx.fillText(state.channel === 2 && state.output ? 'ON' : '待机', 425, 265);
+      }
+
+      function setSelectedParam(param) {
+        state.selectedParam = param;
+        showToast(paramLabels[param] || param);
+        updateUi();
+      }
+
+      function stepParam(dir) {
+        const big = dir * 10;
+        const small = dir;
+        if (state.selectedParam === 'freq') state.freq = clamp(state.freq + (state.freq >= 1000 ? big * 10 : big), 1, 5000);
+        if (state.selectedParam === 'amp') state.amp = clamp(state.amp + dir * .1, .1, 10);
+        if (state.selectedParam === 'offset') state.offset = clamp(state.offset + dir * .05, -5, 5);
+        if (state.selectedParam === 'duty') state.duty = clamp(state.duty + dir * 2, 5, 95);
+        if (state.selectedParam === 'phase') state.phase = (state.phase + dir * 5 + 360) % 360;
+        updateUi();
+      }
+
+      function selectedKnobAngle() {
+        let ratio = 0;
+        if (state.selectedParam === 'freq') ratio = Math.log10(Math.max(1, state.freq)) / Math.log10(5000);
+        if (state.selectedParam === 'amp') ratio = (state.amp - .1) / 9.9;
+        if (state.selectedParam === 'offset') ratio = (state.offset + 5) / 10;
+        if (state.selectedParam === 'duty') ratio = (state.duty - 5) / 90;
+        if (state.selectedParam === 'phase') ratio = state.phase / 360;
+        return -135 + clamp(ratio, 0, 1) * 270;
+      }
+
+      function cycleWave() {
+        const waves = ['sine', 'square', 'triangle', 'ramp', 'pulse', 'noise', 'arb'];
+        state.wave = waves[(waves.indexOf(state.wave) + 1) % waves.length];
+        showToast(`波形：${waveNames[state.wave]}`);
+        if (state.wave === 'arb') state.selectedParam = 'amp';
+        updateUi();
+      }
+
+      function cycleMod() {
+        const modes = ['off', 'am', 'fm', 'pwm'];
+        state.mod = modes[(modes.indexOf(state.mod) + 1) % modes.length];
+        showToast(`调制：${state.mod.toUpperCase()}`);
+        updateUi();
+      }
+
+      function routeCable() {
+        const svg = $('cableLayer');
+        const terminal = state.channel === 1 ? $('hotOut1') : $('hotOut2');
+        const svgRect = svg.getBoundingClientRect();
+        const terminalRect = terminal.getBoundingClientRect();
+        if (!svgRect.width || !svgRect.height) return;
+        const color = state.channel === 1 ? '#ffd42a' : '#28c7ff';
+        const startX = (terminalRect.left + terminalRect.width / 2 - svgRect.left) / svgRect.width * 1000;
+        const startY = (terminalRect.top + terminalRect.height * .72 - svgRect.top) / svgRect.height * 650;
+        const endX = Math.min(940, startX + 260);
+        const endY = Math.min(632, startY + 145);
+        const signature = [state.output, state.channel, Math.round(startX), Math.round(startY), Math.round(endX), Math.round(endY)].join(':');
+        if (signature === cableSignature) return;
+        cableSignature = signature;
+        svg.innerHTML = state.output ? `
+          <path d="M ${startX} ${startY} C ${startX + 10} ${startY + 74}, ${endX - 118} ${endY - 62}, ${endX} ${endY}" fill="none" stroke="rgba(0,0,0,.88)" stroke-width="12" stroke-linecap="round"/>
+          <path d="M ${startX} ${startY} C ${startX + 10} ${startY + 74}, ${endX - 118} ${endY - 62}, ${endX} ${endY}" fill="none" stroke="${color}" stroke-width="4.5" stroke-linecap="round"/>
+        ` : '';
+      }
+
+      function updateUi() {
+        $('missionText').textContent = lessons[$('lessonSelect').value];
+        $('channelReadout').textContent = `通道${state.channel} ${state.output ? '输出' : '关闭'}`;
+        $('waveReadout').textContent = waveNames[state.wave];
+        $('freqReadout').textContent = fmtFreq(state.freq);
+        $('levelReadout').textContent = `${state.amp.toFixed(2)} Vpp / ${state.offset.toFixed(2)} V`;
+        $('selectedReadout').textContent = paramLabels[state.selectedParam] || state.selectedParam;
+        $('modeReadout').textContent = `${state.mod === 'off' ? '调制关闭' : `调制 ${state.mod.toUpperCase()}`} / ${state.sweep ? '扫频开启' : '扫频关闭'}`;
+        $('counterReadout').textContent = state.channel === 1 ? '通道1输出' : '通道2输出';
+        $('runTag').textContent = state.output ? '输出已开启' : '输出已关闭';
+        $('systemCn').textContent = state.hold ? '继续' : '运行';
+        $('hotKnob').style.setProperty('--knob-angle', `${selectedKnobAngle()}deg`);
+        $('hotPower').classList.toggle('active', state.output);
+        $('hotPanelCh1').classList.toggle('active', state.channel === 1);
+        $('hotPanelCh2').classList.toggle('active', state.channel === 2);
+        $('hotMod').classList.toggle('active', state.mod !== 'off');
+        $('hotSweep').classList.toggle('active', state.sweep);
+        $('hotSystem').classList.toggle('active', state.hold);
+        [['softFreq', 'freq'], ['softAmp', 'amp'], ['softOffset', 'offset'], ['softDuty', 'duty'], ['softPhase', 'phase']]
+          .forEach(([id, param]) => $(id).classList.toggle('active', state.selectedParam === param));
+        $('scopeState').textContent = state.hold ? 'Hold 暂停' : '虚拟示波器已连接';
+        $('scopeLabel').textContent = `CH${state.channel} ${fmtFreq(currentFreq((performance.now() - state.start) / 1000))} ${state.amp.toFixed(2)} Vpp  ${state.output ? '输出开启' : '输出关闭'}${state.mod !== 'off' ? `  ${state.mod.toUpperCase()}` : ''}${state.sweep ? '  扫频' : ''}`;
+        routeCable();
+      }
+
+      function renderArbPreview() {
+        const ctx = screenCtx;
+        const w = screen.width, h = screen.height;
+        ctx.save();
+        ctx.fillStyle = 'rgba(3, 8, 6, .82)';
+        ctx.fillRect(0, 0, w, h);
+        ctx.strokeStyle = 'rgba(255,255,255,.18)';
+        ctx.strokeRect(8, 8, w - 16, h - 16);
+        ctx.restore();
+      }
+
+      function setArbFromPointer(e) {
+        if (state.wave !== 'arb') return;
+        const rect = screen.getBoundingClientRect();
+        const x = clamp((e.clientX - rect.left) / rect.width, 0, 1);
+        const y = clamp(1 - (e.clientY - rect.top) / rect.height, 0, 1);
+        const idx = clamp(Math.floor(x * state.arb.length), 0, state.arb.length - 1);
+        state.arb[idx] = y;
+        showToast(`Arb 点 ${idx + 1}`);
+      }
+
+      function hideButtonHelp() {
+        clearTimeout(helpTimer);
+        helpTimer = 0;
+        const help = $('buttonHelp');
+        help.classList.remove('show');
+        help.setAttribute('aria-hidden', 'true');
+        if (helpTarget) helpTarget.removeAttribute('aria-describedby');
+        helpTarget = null;
+      }
+
+      function showButtonHelp(button) {
+        const text = buttonHelpText[button.id];
+        if (!text || helpTarget !== button) return;
+        const help = $('buttonHelp');
+        help.textContent = text;
+        help.style.left = '0px';
+        help.style.top = '0px';
+        help.classList.add('show');
+        help.setAttribute('aria-hidden', 'false');
+        button.setAttribute('aria-describedby', 'buttonHelp');
+        const buttonRect = button.getBoundingClientRect();
+        const helpRect = help.getBoundingClientRect();
+        const gap = 10;
+        const left = clamp(buttonRect.left + buttonRect.width / 2 - helpRect.width / 2, 10, window.innerWidth - helpRect.width - 10);
+        let top = buttonRect.top - helpRect.height - gap;
+        if (top < 10) top = buttonRect.bottom + gap;
+        top = clamp(top, 10, window.innerHeight - helpRect.height - 10);
+        help.style.left = `${left}px`;
+        help.style.top = `${top}px`;
+      }
+
+      function setupButtonHelp() {
+        Object.keys(buttonHelpText).forEach(id => {
+          const button = $(id);
+          if (!button) return;
+          button.addEventListener('mouseenter', () => {
+            hideButtonHelp();
+            helpTarget = button;
+            helpTimer = setTimeout(() => showButtonHelp(button), 2000);
+          });
+          button.addEventListener('mouseleave', hideButtonHelp);
+          button.addEventListener('pointerdown', hideButtonHelp);
+          button.addEventListener('wheel', hideButtonHelp);
+        });
+        window.addEventListener('scroll', hideButtonHelp, { passive: true });
+        window.addEventListener('resize', hideButtonHelp);
+      }
+
+      function setupControls() {
+        $('hotPower').addEventListener('click', () => { state.output = !state.output; updateUi(); });
+        $('hotWave').addEventListener('click', cycleWave);
+        $('hotMod').addEventListener('click', cycleMod);
+        $('hotSweep').addEventListener('click', () => { state.sweep = !state.sweep; updateUi(); });
+        $('hotCounter').addEventListener('click', () => { state.selectedParam = 'freq'; showToast(`Counter ${fmtFreq(currentFreq((performance.now() - state.start) / 1000))}`); updateUi(); });
+        $('hotVco').addEventListener('click', () => { state.sweep = true; state.selectedParam = 'freq'; showToast('VCO / Sweep'); updateUi(); });
+        $('hotSystem').addEventListener('click', () => { state.hold = !state.hold; showToast(state.hold ? 'Hold' : 'Run'); updateUi(); });
+        $('hotPanelCh1').addEventListener('click', () => { state.channel = 1; updateUi(); });
+        $('hotPanelCh2').addEventListener('click', () => { state.channel = 2; updateUi(); });
+        $('hotOk').addEventListener('click', () => { state.output = !state.output; showToast(state.output ? 'Output On' : 'Output Off'); updateUi(); });
+        $('hotLeft').addEventListener('click', () => stepParam(-1));
+        $('hotRight').addEventListener('click', () => stepParam(1));
+        $('hotOut1').addEventListener('click', () => { state.channel = 1; state.selectedParam = 'freq'; showToast('Output1'); updateUi(); });
+        $('hotOut2').addEventListener('click', () => { state.channel = 2; state.selectedParam = 'freq'; showToast('Output2'); updateUi(); });
+        $('hotInput').addEventListener('click', () => { state.selectedParam = 'freq'; state.channel = 1; showToast('Input / Counter'); updateUi(); });
+        $('hotKnob').addEventListener('click', () => stepParam(1));
+        $('hotKnob').addEventListener('wheel', e => {
+          e.preventDefault();
+          stepParam(e.deltaY < 0 ? 1 : -1);
+          showToast(`${paramLabels[state.selectedParam]}：已调节`);
+        }, { passive: false });
+        $('hotScreen').addEventListener('pointerdown', setArbFromPointer);
+        $('hotScreen').addEventListener('pointermove', e => { if (e.buttons) setArbFromPointer(e); });
+        $('lessonSelect').addEventListener('change', e => {
+          if (e.target.value === 'duty') { state.wave = 'pulse'; state.selectedParam = 'duty'; }
+          if (e.target.value === 'mod') { state.mod = 'am'; state.selectedParam = 'freq'; }
+          if (e.target.value === 'sweep') { state.sweep = true; state.selectedParam = 'freq'; }
+          if (e.target.value === 'arb') { state.wave = 'arb'; state.selectedParam = 'amp'; }
+          updateUi();
+        });
+        $('softFreq').addEventListener('click', () => setSelectedParam('freq'));
+        $('softAmp').addEventListener('click', () => setSelectedParam('amp'));
+        $('softOffset').addEventListener('click', () => setSelectedParam('offset'));
+        $('softDuty').addEventListener('click', () => setSelectedParam('duty'));
+        $('softPhase').addEventListener('click', () => setSelectedParam('phase'));
+        screen.addEventListener('wheel', e => {
+          if (state.wave !== 'arb') return;
+          e.preventDefault();
+          const delta = e.deltaY > 0 ? -1 : 1;
+          stepParam(delta);
+        }, { passive: false });
+        screen.addEventListener('pointerdown', e => {
+          if (state.wave === 'arb') {
+            setArbFromPointer(e);
+          } else {
+            state.channel = e.clientX < screen.getBoundingClientRect().left + screen.getBoundingClientRect().width / 2 ? 1 : 2;
+            showToast('屏幕区域仅用于观察，Arb 模式可直接编辑采样点');
+            updateUi();
+          }
+        });
+        setupButtonHelp();
+      }
+
+      function loop(timestamp = performance.now()) {
+        if (timestamp - state.lastDraw >= 1000 / 24) {
+          state.lastDraw = timestamp;
+          drawScope(timestamp);
+          drawSpectrum();
+          drawFrontScreen();
+          updateUi();
+        }
+        requestAnimationFrame(loop);
+      }
+
+      setupControls();
+      updateUi();
+      loop();
+    })();
+  </script>
+</div>
+</body>
+</html>

@@ -1,0 +1,1476 @@
+<!doctype html>
+<!--
+  ============================================================
+  VibeHard工具 · 仪器仪表仿真实验台
+  Copyright (c) 2026 VibeHard工具 (xiaozhi-tools). All rights reserved.
+  本页面及其中的仿真逻辑、界面设计为原创作品，受著作权法保护。
+  未经授权，禁止复制、镜像、二次分发或用于商业用途。
+  ============================================================
+-->
+
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>万用表测量实验台</title>
+</head>
+<body>
+<div id="multimeter-learning-lab">
+  <style>
+    :root {
+      color-scheme: dark;
+      --bg: #171816;
+      --bench: #252820;
+      --panel: rgba(18, 19, 17, .72);
+      --meter: #2e302f;
+      --meter-deep: #171817;
+      --yellow: #f6b72d;
+      --amber: #ffcf49;
+      --green: #35d07f;
+      --red: #ff5a50;
+      --blue: #49b8ff;
+      --text: #eef2e8;
+      --muted: #aeb8a7;
+      --line: rgba(255, 255, 255, .16);
+      --shadow: rgba(0, 0, 0, .38);
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      background:
+        radial-gradient(circle at 12% 8%, rgba(70, 92, 63, .32), transparent 34%),
+        radial-gradient(circle at 88% 12%, rgba(255, 184, 45, .12), transparent 28%),
+        linear-gradient(135deg, #151817, #2b2a22 54%, #171d1d);
+      color: var(--text);
+      font-family: "Microsoft YaHei", "Segoe UI", Arial, sans-serif;
+      overflow-x: hidden;
+    }
+
+    #multimeter-learning-lab {
+      min-height: 100vh;
+      padding: 10px;
+    }
+
+    .topbar {
+      max-width: 1680px;
+      margin: 0 auto 8px;
+      display: grid;
+      grid-template-columns: minmax(280px, 1.12fr) minmax(320px, .88fr);
+      gap: 10px;
+    }
+
+    .mission, .readouts, .board-area, .meter-area {
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      box-shadow: 0 18px 48px var(--shadow);
+    }
+
+    .mission {
+      padding: 9px 11px;
+    }
+
+    h1 {
+      margin: 0 0 5px;
+      font-size: 17px;
+      font-weight: 500;
+      letter-spacing: 0;
+    }
+
+    .mission-row {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+
+    .mission-text {
+      flex: 1 1 440px;
+      color: var(--muted);
+      font-size: 14px;
+      line-height: 1.35;
+    }
+
+    select, button {
+      font: inherit;
+    }
+
+    select {
+      min-width: 190px;
+      color: var(--text);
+      background: #242821;
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      padding: 6px 8px;
+    }
+
+    .readouts {
+      padding: 8px 10px;
+      display: grid;
+      grid-template-columns: repeat(4, minmax(110px, 1fr));
+      gap: 8px;
+      align-content: center;
+    }
+
+    .metric {
+      min-width: 0;
+      border-left: 3px solid rgba(255, 207, 73, .82);
+      padding-left: 10px;
+    }
+
+    .metric span {
+      display: block;
+      color: var(--muted);
+      font-size: 11px;
+      white-space: nowrap;
+    }
+
+    .metric strong {
+      display: block;
+      margin-top: 3px;
+      font-size: 14px;
+      font-weight: 500;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .bench {
+      position: relative;
+      max-width: 1680px;
+      margin: 0 auto;
+      min-height: 650px;
+      height: calc(100vh - 106px);
+      display: grid;
+      grid-template-columns: minmax(540px, 1fr) minmax(460px, .88fr);
+      gap: 16px;
+    }
+
+    .cable-layer {
+      position: absolute;
+      inset: 0;
+      z-index: 30;
+      width: 100%;
+      height: 100%;
+      pointer-events: none;
+      overflow: visible;
+      display: block;
+    }
+
+    .board-area, .meter-area {
+      position: relative;
+      overflow: hidden;
+      min-height: 0;
+      background: linear-gradient(160deg, rgba(54, 58, 47, .84), rgba(22, 25, 24, .94));
+    }
+
+    .section-header {
+      position: absolute;
+      inset: 12px 12px auto;
+      z-index: 5;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      pointer-events: none;
+    }
+
+    .tag {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 6px 9px;
+      border-radius: 6px;
+      background: rgba(0, 0, 0, .42);
+      border: 1px solid rgba(255, 255, 255, .14);
+      color: var(--text);
+      font-size: 13px;
+      backdrop-filter: blur(8px);
+    }
+
+    .lamp {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--green);
+      box-shadow: 0 0 14px var(--green);
+    }
+
+    .experiment-board {
+      position: absolute;
+      left: 5%;
+      right: 5%;
+      top: 70px;
+      bottom: auto;
+      aspect-ratio: 4 / 3;
+      max-height: calc(100% - 92px);
+      border-radius: 12px;
+      transform: none;
+      background:
+        linear-gradient(rgba(255,255,255,.035) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(255,255,255,.035) 1px, transparent 1px),
+        radial-gradient(circle at 18% 14%, rgba(255,255,255,.08), transparent 8%),
+        linear-gradient(135deg, #24734f, #0d604a 58%, #083e3b);
+      background-size: 32px 32px, 32px 32px, auto, auto;
+      border: 1px solid rgba(181, 255, 168, .26);
+      box-shadow:
+        inset 0 0 0 8px rgba(5, 49, 39, .52),
+        inset 0 0 0 9px rgba(255,255,255,.08),
+        inset 0 24px 40px rgba(255,255,255,.08),
+        0 32px 38px rgba(0,0,0,.46);
+    }
+
+    .board-photo {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      object-fit: contain;
+      border-radius: inherit;
+      user-select: none;
+      pointer-events: none;
+    }
+
+    .rail {
+      position: absolute;
+      height: 10px;
+      left: 7%;
+      right: 7%;
+      border-radius: 999px;
+      background: linear-gradient(90deg, rgba(215, 172, 73, .85), rgba(255, 221, 118, .95), rgba(168, 118, 36, .85));
+      box-shadow: 0 0 12px rgba(255, 205, 93, .32);
+    }
+
+    .rail.plus { top: 13%; }
+    .rail.ground { bottom: 13%; background: linear-gradient(90deg, #d6d7d2, #8c9694, #d6d7d2); }
+
+    .part {
+      position: absolute;
+      border-radius: 4px;
+      background: linear-gradient(90deg, #c9c2a8, #eee6c8 18%, #2d2b28 20% 80%, #eee6c8 82%, #aaa58e);
+      box-shadow: 0 8px 12px rgba(0,0,0,.28);
+    }
+
+    .resistor { width: 170px; height: 34px; left: 28%; top: 33%; }
+    .resistor::after {
+      content: "";
+      position: absolute;
+      inset: 0 44px;
+      background: repeating-linear-gradient(90deg, transparent 0 20px, #b42e27 20px 26px, transparent 26px 42px, #d4b13b 42px 48px);
+      opacity: .9;
+    }
+
+    .load {
+      width: 128px;
+      height: 72px;
+      left: 63%;
+      top: 30%;
+      border-radius: 10px;
+      background: linear-gradient(145deg, #34383a, #111415);
+      border: 1px solid rgba(255,255,255,.12);
+    }
+
+    .load::after {
+      content: "";
+      position: absolute;
+      left: 42px;
+      top: 17px;
+      width: 42px;
+      height: 42px;
+      border-radius: 50%;
+      background: radial-gradient(circle at 35% 30%, #fffbd2, #ffcf49 42%, #95620f);
+      box-shadow: 0 0 24px rgba(255, 207, 73, .45);
+    }
+
+    .cap-part {
+      position: absolute;
+      left: 42%;
+      top: 56%;
+      width: 86px;
+      height: 74px;
+    }
+
+    .cap-part::before, .cap-part::after {
+      content: "";
+      position: absolute;
+      top: 0;
+      width: 32px;
+      height: 72px;
+      border-radius: 8px;
+      background: linear-gradient(#376b8d, #132f44);
+      border: 1px solid rgba(255,255,255,.18);
+    }
+
+    .cap-part::before { left: 0; }
+    .cap-part::after { right: 0; }
+
+    .battery {
+      position: absolute;
+      left: 13%;
+      top: 28%;
+      width: 86px;
+      height: 150px;
+      border-radius: 12px;
+      background: linear-gradient(180deg, #323738, #141718);
+      border: 1px solid rgba(255,255,255,.16);
+      box-shadow: inset 0 1px rgba(255,255,255,.18), 0 16px 22px rgba(0,0,0,.32);
+    }
+
+    .battery::before {
+      content: "";
+      position: absolute;
+      left: 28px;
+      top: -14px;
+      width: 30px;
+      height: 14px;
+      border-radius: 6px 6px 0 0;
+      background: #c8c3a5;
+    }
+
+    .battery span {
+      position: absolute;
+      inset: 24px 0 auto;
+      text-align: center;
+      font-size: 17px;
+      color: #f2f3df;
+    }
+
+    .diode {
+      position: absolute;
+      left: 63%;
+      top: 58%;
+      width: 120px;
+      height: 44px;
+      border-radius: 999px;
+      background: linear-gradient(90deg, #bcc4c7, #ef5a4d 28% 72%, #752a24);
+      box-shadow: 0 10px 14px rgba(0,0,0,.3), 0 0 18px rgba(255,90,80,.24);
+    }
+
+    .trace {
+      position: absolute;
+      height: 5px;
+      border-radius: 999px;
+      background: linear-gradient(90deg, rgba(214,172,73,.86), rgba(255,221,118,.94));
+      transform-origin: left center;
+    }
+
+    .silk {
+      position: absolute;
+      color: rgba(238, 255, 226, .9);
+      font-size: 12px;
+      white-space: nowrap;
+      text-shadow: 0 1px 1px rgba(0,0,0,.45);
+    }
+
+    .node {
+      position: absolute;
+      width: 18px;
+      height: 18px;
+      margin: -9px 0 0 -9px;
+      border-radius: 50%;
+      background: transparent;
+      border: 1px solid transparent;
+      box-shadow: none;
+      z-index: 32;
+      cursor: crosshair;
+    }
+
+    .node.active-red, .node.active-black { border-color: transparent; box-shadow: none; }
+
+    .node .label {
+      position: absolute;
+      left: 50%;
+      bottom: calc(100% + 7px);
+      transform: translateX(-50%);
+      padding: 3px 6px;
+      border-radius: 4px;
+      color: #17140b;
+      background: rgba(255, 242, 161, .94);
+      font-size: 12px;
+      white-space: nowrap;
+      pointer-events: none;
+      box-shadow: 0 8px 18px rgba(0,0,0,.22);
+      opacity: 0;
+      transition: opacity .14s ease, transform .14s ease;
+    }
+
+    .node:hover .label, .node:focus-visible .label {
+      opacity: 1;
+      transform: translateX(-50%) translateY(-2px);
+    }
+
+    .board-switch {
+      position: absolute;
+      z-index: 33;
+      width: 28px;
+      height: 28px;
+      padding: 0;
+      transform: translate(-50%, -50%);
+      border: 1px solid transparent;
+      border-radius: 4px;
+      background: transparent;
+      cursor: pointer;
+    }
+
+    .board-switch:hover,
+    .board-switch:focus-visible,
+    .board-switch.closed {
+      border-color: var(--amber);
+      background: rgba(255, 207, 73, .16);
+      outline: none;
+    }
+
+    .probe {
+      position: absolute;
+      z-index: 34;
+      width: 150px;
+      height: 36px;
+      transform-origin: 14px 18px;
+      cursor: grab;
+      touch-action: none;
+      user-select: none;
+    }
+
+    .probe:active { cursor: grabbing; }
+    .probe.dragging { z-index: 36; }
+    .probe.black { transform: rotate(-8deg); }
+    .probe.red { transform: rotate(-14deg); }
+
+    .probe-body {
+      position: absolute;
+      left: 36px;
+      top: 7px;
+      width: 98px;
+      height: 22px;
+      border-radius: 14px 5px 5px 14px;
+      border: 1px solid rgba(0,0,0,.48);
+      box-shadow: inset 0 2px 3px rgba(255,255,255,.25), 0 9px 16px rgba(0,0,0,.32);
+    }
+
+    .probe.red .probe-body { background: linear-gradient(90deg, #9c1918, #ff5a50 48%, #5d0f0d); }
+    .probe.black .probe-body { background: linear-gradient(90deg, #030303, #333 52%, #020202); }
+
+    .probe-tip {
+      position: absolute;
+      left: 0;
+      top: 15px;
+      width: 44px;
+      height: 6px;
+      background: linear-gradient(90deg, #ececec, #777);
+      clip-path: polygon(0 50%, 100% 0, 100% 100%);
+      filter: drop-shadow(0 2px 4px rgba(0,0,0,.4));
+    }
+
+    .probe-tail {
+      position: absolute;
+      right: 0;
+      top: 13px;
+      width: 24px;
+      height: 10px;
+      border-radius: 0 8px 8px 0;
+      background: #090909;
+    }
+
+    .meter-button {
+      border: 1px solid rgba(255,255,255,.16);
+      background: rgba(0,0,0,.32);
+      color: var(--text);
+      border-radius: 6px;
+      padding: 7px 6px;
+      font-size: 12px;
+      cursor: pointer;
+    }
+
+    .meter-shell {
+      position: absolute;
+      z-index: 6;
+      left: 50%;
+      top: 49%;
+      width: min(62%, 370px);
+      aspect-ratio: 9 / 13;
+      transform: translate(-50%, -50%);
+      filter: drop-shadow(0 30px 40px rgba(0,0,0,.48));
+    }
+
+    .meter-face {
+      position: absolute;
+      inset: 0;
+    }
+
+    .meter-frame {
+      position: absolute;
+      inset: 0;
+      border-radius: 9% / 7%;
+      background: var(--yellow);
+      box-shadow: inset 0 0 0 5px rgba(255,231,116,.5);
+    }
+
+    .meter-inner {
+      position: absolute;
+      inset: 5.2% 7.5% 4.2%;
+      border-radius: 6% / 4.5%;
+      background: linear-gradient(145deg, #414442, #232524 48%, #171817);
+      border: 1px solid rgba(255,255,255,.12);
+      box-shadow: inset 0 1px 0 rgba(255,255,255,.16), inset 0 -22px 50px rgba(0,0,0,.36);
+    }
+
+    .brand-strip {
+      position: absolute;
+      left: 11%;
+      right: 11%;
+      top: 7.4%;
+      height: 5.2%;
+      display: flex;
+      align-items: center;
+      gap: 9px;
+      color: #e9ebdd;
+      font-size: 10px;
+      white-space: nowrap;
+    }
+
+    .brand-strip > span:last-child {
+      min-width: 0;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .brand-mark {
+      display: inline-grid;
+      place-items: center;
+      flex: 0 0 112px;
+      width: 112px;
+      height: 31px;
+      color: #16120a;
+      background: var(--yellow);
+      border: 1px solid rgba(255, 245, 178, .68);
+      border-radius: 5px;
+      font-size: 16px;
+      font-weight: 700;
+      letter-spacing: 1px;
+      text-shadow: 0 1px 0 rgba(255, 244, 170, .42);
+      box-shadow: inset 0 1px 0 rgba(255,255,255,.42), 0 4px 10px rgba(0,0,0,.22);
+    }
+
+    .lcd {
+      position: absolute;
+      left: 12%;
+      right: 12%;
+      top: 14.2%;
+      height: 22%;
+      border-radius: 10px;
+      background: linear-gradient(180deg, #d8dbc9, #aeb4a5);
+      border: 7px solid #191b1a;
+      box-shadow: inset 0 0 0 1px rgba(255,255,255,.32), 0 12px 22px rgba(0,0,0,.35);
+      color: #10110f;
+      overflow: hidden;
+      transition: background .18s ease, box-shadow .18s ease;
+    }
+
+    .lcd.backlit {
+      background: linear-gradient(180deg, #d8f6df, #9fd8b7);
+      box-shadow: inset 0 0 0 1px rgba(255,255,255,.5), 0 0 24px rgba(76, 232, 143, .42);
+    }
+
+    .lcd-main {
+      position: absolute;
+      left: 7%;
+      right: 18%;
+      top: 21%;
+      font-family: Consolas, "Courier New", monospace;
+      font-size: clamp(42px, 6.6vw, 78px);
+      line-height: .9;
+      font-weight: 500;
+      text-align: right;
+      letter-spacing: 0;
+    }
+
+    .lcd-unit {
+      position: absolute;
+      right: 5%;
+      top: 35%;
+      font-size: 13px;
+      font-weight: 500;
+      line-height: 1.2;
+      white-space: pre-line;
+    }
+
+    .lcd-sub {
+      position: absolute;
+      left: 9%;
+      right: 9%;
+      bottom: 7%;
+      font-size: 12px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .lcd.alerting .lcd-main {
+      left: 9%;
+      right: 9%;
+      font-size: 54px;
+      text-align: center;
+    }
+
+    .hold-row {
+      position: absolute;
+      left: 14%;
+      right: 14%;
+      top: 37.2%;
+      display: flex;
+      justify-content: space-between;
+    }
+
+    .mini-button {
+      min-width: 62px;
+      height: 28px;
+      display: grid;
+      place-items: center;
+      border-radius: 6px;
+      background: linear-gradient(#54585a, #202224);
+      border: 1px solid rgba(255,255,255,.14);
+      font-size: 11px;
+      color: #f0f2ec;
+      box-shadow: inset 0 1px rgba(255,255,255,.18), 0 6px 10px rgba(0,0,0,.3);
+      padding: 0;
+      cursor: pointer;
+      transition: border-color .16s ease, background .16s ease, color .16s ease, transform .08s ease;
+    }
+
+    .mini-button:active { transform: translateY(1px); }
+
+    .mini-button.is-active {
+      color: #17140b;
+      border-color: var(--amber);
+      background: var(--amber);
+      box-shadow: 0 0 14px rgba(255, 207, 73, .42);
+    }
+
+    .dial {
+      position: absolute;
+      left: 50%;
+      top: 59%;
+      width: 36%;
+      aspect-ratio: 1;
+      transform: translate(-50%, -50%);
+      border-radius: 50%;
+      background: radial-gradient(circle at 38% 30%, #747875, #303332 58%, #171817);
+      border: 8px solid #191b1a;
+      box-shadow: inset 0 2px 4px rgba(255,255,255,.18), inset 0 -12px 20px rgba(0,0,0,.45), 0 14px 24px rgba(0,0,0,.35);
+      cursor: ns-resize;
+      touch-action: none;
+    }
+
+    .dial::after {
+      content: "";
+      position: absolute;
+      left: 47.5%;
+      top: 8%;
+      width: 5%;
+      height: 42%;
+      border-radius: 99px;
+      background: #f5f5ea;
+      transform-origin: 50% 100%;
+      transform: rotate(var(--dial-angle, -66deg));
+      box-shadow: 0 0 8px rgba(255,255,255,.45);
+    }
+
+    .dial-label {
+      position: absolute;
+      color: #dfe3d7;
+      font-size: 13px;
+      transform: translate(-50%, -50%);
+      white-space: nowrap;
+      pointer-events: none;
+      transition: color .16s ease, text-shadow .16s ease;
+    }
+
+    .dial-label.active {
+      color: var(--amber);
+      text-shadow: 0 0 10px rgba(255, 207, 73, .72);
+    }
+
+    .jack-row {
+      position: absolute;
+      left: 10%;
+      right: 10%;
+      bottom: 4.8%;
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 8px;
+    }
+
+    .jack {
+      position: relative;
+      min-width: 0;
+      display: grid;
+      justify-items: center;
+      gap: 5px;
+      font-size: 12px;
+      color: #dfe3d7;
+      cursor: pointer;
+    }
+
+    .jack-hole {
+      position: relative;
+      width: 46px;
+      height: 46px;
+      border-radius: 50%;
+      background: #0d0d0d;
+      border: 4px solid #555;
+      box-shadow: inset 0 0 0 8px #050505, 0 6px 12px rgba(0,0,0,.4);
+    }
+
+    .jack[data-jack="v"] .jack-hole,
+    .jack[data-jack="ma"] .jack-hole,
+    .jack[data-jack="a"] .jack-hole { border-color: #c92520; }
+
+    .jack.active .jack-hole {
+      outline: 3px solid var(--amber);
+      box-shadow: inset 0 0 0 8px #050505, 0 0 18px rgba(255,207,73,.75);
+    }
+
+    .input-alert {
+      position: absolute;
+      left: 13%;
+      right: 13%;
+      bottom: 18.2%;
+      min-height: 28px;
+      display: grid;
+      place-items: center;
+      border: 1px solid rgba(255, 207, 73, .75);
+      border-radius: 6px;
+      color: var(--amber);
+      font-size: 12px;
+      background: rgba(0,0,0,.2);
+    }
+
+    .input-alert.bad {
+      color: #190b08;
+      background: var(--red);
+      border-color: rgba(255,255,255,.4);
+      animation: pulse .65s ease-in-out infinite alternate;
+    }
+
+    @keyframes pulse { from { filter: brightness(1); } to { filter: brightness(1.25); } }
+
+    .controls {
+      position: absolute;
+      left: 18px;
+      right: 18px;
+      bottom: 16px;
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: 8px;
+    }
+
+    .mode-hint {
+      min-height: 34px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: var(--muted);
+      font-size: 13px;
+      text-align: center;
+      border: 1px solid rgba(255,255,255,.12);
+      border-radius: 6px;
+      background: rgba(0,0,0,.28);
+      padding: 7px 10px;
+    }
+
+    .experiment-board .rail,
+    .experiment-board .trace,
+    .experiment-board .part,
+    .experiment-board .load,
+    .experiment-board .cap-part,
+    .experiment-board .battery,
+    .experiment-board .diode,
+    .experiment-board .silk {
+      display: none;
+    }
+
+    .meter-button.active {
+      border-color: rgba(53,208,127,.86);
+      background: rgba(53,208,127,.16);
+    }
+
+    .toast {
+      position: fixed;
+      left: 50%;
+      bottom: 18px;
+      transform: translateX(-50%) translateY(20px);
+      z-index: 50;
+      max-width: min(620px, calc(100vw - 28px));
+      padding: 9px 12px;
+      border-radius: 6px;
+      background: rgba(15, 16, 14, .92);
+      border: 1px solid rgba(255,255,255,.18);
+      color: var(--text);
+      box-shadow: 0 16px 42px rgba(0,0,0,.38);
+      opacity: 0;
+      transition: opacity .18s ease, transform .18s ease;
+      pointer-events: none;
+      font-size: 13px;
+    }
+
+    .toast.show {
+      opacity: 1;
+      transform: translateX(-50%) translateY(0);
+    }
+
+    @media (max-width: 1040px) {
+      .topbar, .bench { grid-template-columns: 1fr; height: auto; }
+      .bench { min-height: 1280px; grid-template-rows: 650px 650px; }
+      .readouts { grid-template-columns: repeat(2, minmax(120px, 1fr)); }
+      .meter-shell { width: min(82%, 430px); }
+    }
+
+    @media (max-width: 620px) {
+      #multimeter-learning-lab { padding: 8px; }
+      .bench { min-height: 1140px; grid-template-rows: 570px 570px; gap: 10px; }
+      .readouts { grid-template-columns: 1fr 1fr; }
+      .metric strong { font-size: 13px; }
+      .experiment-board { left: 3%; right: 3%; top: 66px; bottom: auto; max-height: calc(100% - 120px); }
+      .jack-hole { width: 38px; height: 38px; }
+      .dial-label { font-size: 11px; }
+      .meter-shell { top: 43%; width: min(62%, 300px); }
+      .brand-strip { gap: 5px; font-size: 8.5px; }
+      .brand-mark { flex-basis: 88px; width: 88px; height: 27px; font-size: 13px; letter-spacing: .5px; }
+    }
+  </style>
+
+  <div class="topbar">
+    <section class="mission">
+      <h1>万用表测量实验台</h1>
+      <div class="mission-row">
+        <div id="missionText" class="mission-text"></div>
+        <select id="lessonSelect" aria-label="选择实验">
+          <option value="dc">直流电压：测电源轨</option>
+          <option value="ac">交流电压：测小信号</option>
+          <option value="res">电阻：测分压电阻</option>
+          <option value="continuity">通断：找短接点</option>
+          <option value="current">电流：串入负载</option>
+          <option value="cap">电容：给电容放电后测量</option>
+          <option value="diode">二极管：测正向压降</option>
+        </select>
+      </div>
+    </section>
+    <section class="readouts">
+      <div class="metric"><span>红表笔</span><strong id="redReadout">未连接</strong></div>
+      <div class="metric"><span>黑表笔</span><strong id="blackReadout">未连接</strong></div>
+      <div class="metric"><span>档位 / 插孔</span><strong id="rangeReadout">DC V / VΩ</strong></div>
+      <div class="metric"><span>状态</span><strong id="stateReadout">准备测量</strong></div>
+    </section>
+  </div>
+
+  <main id="bench" class="bench">
+    <svg id="cableSvg" class="cable-layer" aria-hidden="true"></svg>
+    <section id="boardArea" class="board-area" aria-label="测量对象电路板">
+      <div class="section-header">
+        <span class="tag"><span class="lamp"></span> 被测电路板</span>
+        <span class="tag">点击焊盘或拖动表笔</span>
+      </div>
+      <div id="board" class="experiment-board">
+        <img class="board-photo" src="assets/multimeter-practice-board.webp" alt="万用表测量练习板">
+        <div class="rail plus"></div>
+        <div class="rail ground"></div>
+        <div class="trace" style="left:19%;top:18%;width:44%;transform:rotate(38deg)"></div>
+        <div class="trace" style="left:38%;top:39%;width:28%;transform:rotate(-6deg)"></div>
+        <div class="trace" style="left:55%;top:41%;width:22%;transform:rotate(52deg)"></div>
+        <div class="trace" style="left:24%;top:74%;width:54%;transform:rotate(-8deg)"></div>
+        <div class="battery"><span>3.3V</span></div>
+        <div class="part resistor"></div>
+        <div class="load"></div>
+        <div class="cap-part"></div>
+        <div class="diode"></div>
+        <span class="silk" style="left:12%;top:17%;">VCC BUS</span>
+        <span class="silk" style="left:10%;bottom:15%;">GND BUS</span>
+        <span class="silk" style="left:30%;top:29%;">R1 10k</span>
+        <span class="silk" style="left:63%;top:25%;">LOAD</span>
+        <span class="silk" style="left:42%;top:52%;">C1 100uF</span>
+        <span class="silk" style="left:63%;top:54%;">D1</span>
+      </div>
+      <button id="boardSwitch" type="button" class="board-switch" aria-label="按下板载开关" aria-pressed="false"></button>
+      <div id="redProbe" class="probe red" aria-label="红表笔">
+        <div class="probe-tip"></div><div class="probe-body"></div><div class="probe-tail"></div>
+      </div>
+      <div id="blackProbe" class="probe black" aria-label="黑表笔">
+        <div class="probe-tip"></div><div class="probe-body"></div><div class="probe-tail"></div>
+      </div>
+    </section>
+
+    <section id="meterArea" class="meter-area" aria-label="数字万用表">
+      <div class="section-header">
+        <span class="tag"><span id="meterLamp" class="lamp"></span> 数字万用表</span>
+        <span class="tag" id="tipText">Auto range</span>
+      </div>
+      <div class="meter-shell">
+        <div class="meter-face">
+          <div class="meter-frame"></div>
+          <div class="meter-inner"></div>
+          <div class="brand-strip"><span class="brand-mark">VibeHard</span><span>15B EDU DIGITAL MULTIMETER</span></div>
+          <div class="lcd">
+            <div id="lcdMain" class="lcd-main">0.000</div>
+            <div id="lcdUnit" class="lcd-unit">V<br>DC</div>
+            <div id="lcdSub" class="lcd-sub">Auto</div>
+          </div>
+          <div class="hold-row">
+            <button id="holdBtn" type="button" class="mini-button" aria-pressed="false">HOLD</button>
+            <button id="rangeBtn" type="button" class="mini-button" aria-pressed="false">RANGE</button>
+            <button id="lightBtn" type="button" class="mini-button" aria-pressed="false">LIGHT</button>
+          </div>
+          <span class="dial-label" data-mode="dc" style="left:27%;top:49%;">V⎓</span>
+          <span class="dial-label" data-mode="ac" style="left:34%;top:44.5%;">V~</span>
+          <span class="dial-label" data-mode="res" style="left:50%;top:44.5%;">Ω</span>
+          <span class="dial-label" data-mode="continuity" style="left:66%;top:44.5%;">CONT</span>
+          <span class="dial-label" data-mode="current" style="left:73%;top:49%;">mA</span>
+          <span class="dial-label" data-mode="cap" style="left:66%;top:74%;">CAP</span>
+          <span class="dial-label" data-mode="diode" style="left:34%;top:74%;">DIODE</span>
+          <div id="dial" class="dial"></div>
+          <div id="inputAlert" class="input-alert">Input Alert</div>
+          <div class="jack-row">
+            <div class="jack" data-jack="a"><span>A</span><span class="jack-hole"></span></div>
+            <div class="jack" data-jack="ma"><span>mA µA</span><span class="jack-hole"></span></div>
+            <div class="jack active" data-jack="com"><span>COM</span><span class="jack-hole"></span></div>
+            <div class="jack active" data-jack="v"><span>VΩ</span><span class="jack-hole"></span></div>
+          </div>
+        </div>
+      </div>
+      <div class="controls">
+        <div id="modeHint" class="mode-hint">在旋钮上滚动鼠标滚轮，或按住旋钮上下拖动切换档位</div>
+        <button id="miswireBtn" class="meter-button">误插孔</button>
+      </div>
+    </section>
+  </main>
+  <div id="toast" class="toast"></div>
+
+  <script>
+    (() => {
+      const $ = id => document.getElementById(id);
+      const board = $('board');
+      const boardArea = $('boardArea');
+      const bench = $('bench');
+      const cableSvg = $('cableSvg');
+      const redProbe = $('redProbe');
+      const blackProbe = $('blackProbe');
+
+      const lessons = {
+        dc: '用 TP4 作为地，测量 TP1 输入、TP2 5V 和 TP3 3.3V 电源点。',
+        ac: '测量 TP2 或 TP3 上的交流纹波，比较交流档与直流档读数。',
+        res: '选择 TP5 至 TP10 与对应右端，测量六种不同阻值。',
+        continuity: '用蜂鸣档检查 TP11 与 TP12，学会快速判断线路是否导通。',
+        current: '在 TP29 与 TP30 之间测量 LED 支路电流，红表笔应插 mA 孔。',
+        cap: '给电容放电后，测量 TP23/26、TP24/27 或 TP25/28。',
+        diode: '测量 TP19/20、TP21/22、LED 及晶体管结的正反向压降。'
+      };
+
+      const nodes = [
+        { id: 'TP1', label: 'TP1 输入', x: 10.8, y: 16.6, value: { dc: 9.0 } },
+        { id: 'TP2', label: 'TP2 5V', x: 17.0, y: 16.6, value: { dc: 5.02, ac: .012 } },
+        { id: 'TP3', label: 'TP3 3.3V', x: 23.4, y: 16.6, value: { dc: 3.296, ac: .006 } },
+        { id: 'TP4', label: 'TP4 地', x: 29.6, y: 16.6, value: { dc: 0 } },
+        { id: 'TP5', label: 'TP5 100Ω', x: 40.0, y: 14.7, value: {} },
+        { id: 'TP6', label: 'TP6 470Ω', x: 40.0, y: 19.6, value: {} },
+        { id: 'TP7', label: 'TP7 1kΩ', x: 40.0, y: 24.6, value: {} },
+        { id: 'TP8', label: 'TP8 4.7kΩ', x: 40.0, y: 29.7, value: {} },
+        { id: 'TP9', label: 'TP9 10kΩ', x: 40.0, y: 35.0, value: {} },
+        { id: 'TP10', label: 'TP10 100kΩ', x: 40.0, y: 40.1, value: {} },
+        { id: 'R5B', label: '100Ω 右端', x: 55.2, y: 14.7, value: {} },
+        { id: 'R6B', label: '470Ω 右端', x: 55.2, y: 19.6, value: {} },
+        { id: 'R7B', label: '1kΩ 右端', x: 55.2, y: 24.6, value: {} },
+        { id: 'R8B', label: '4.7kΩ 右端', x: 55.2, y: 29.7, value: {} },
+        { id: 'R9B', label: '10kΩ 右端', x: 55.2, y: 35.0, value: {} },
+        { id: 'R10B', label: '100kΩ 右端', x: 55.2, y: 40.1, value: {} },
+        { id: 'TP11', label: 'TP11', x: 67.0, y: 16.2, value: {} },
+        { id: 'TP12', label: 'TP12', x: 88.1, y: 16.2, value: {} },
+        { id: 'TP13', label: 'TP13', x: 66.9, y: 22.2, value: {} },
+        { id: 'TP14', label: 'TP14', x: 87.9, y: 22.2, value: {} },
+        { id: 'TP15', label: 'TP15', x: 66.9, y: 29.3, value: {} },
+        { id: 'TP16', label: 'TP16', x: 87.9, y: 29.3, value: {} },
+        { id: 'TP17', label: 'TP17', x: 66.9, y: 35.8, value: {} },
+        { id: 'TP18', label: 'TP18', x: 87.9, y: 35.8, value: {} },
+        { id: 'TP19', label: 'TP19 1N4148 A', x: 8.7, y: 53.1, value: {} },
+        { id: 'TP20', label: 'TP20 1N4148 K', x: 27.0, y: 53.1, value: {} },
+        { id: 'TP21', label: 'TP21 1N5819 A', x: 8.7, y: 62.2, value: {} },
+        { id: 'TP22', label: 'TP22 1N5819 K', x: 27.0, y: 62.2, value: {} },
+        { id: 'TP23', label: 'TP23 100nF', x: 33.7, y: 52.9, value: {} },
+        { id: 'TP24', label: 'TP24 10uF', x: 33.7, y: 59.9, value: {} },
+        { id: 'TP25', label: 'TP25 100uF', x: 33.7, y: 66.9, value: {} },
+        { id: 'TP26', label: 'TP26 100nF', x: 50.8, y: 52.9, value: {} },
+        { id: 'TP27', label: 'TP27 10uF', x: 50.7, y: 59.9, value: {} },
+        { id: 'TP28', label: 'TP28 100uF', x: 50.8, y: 66.9, value: {} },
+        { id: 'TP29', label: 'TP29 LED+', x: 56.7, y: 53.3, value: { dc: 3.296 } },
+        { id: 'TP30', label: 'TP30 LED-', x: 75.2, y: 53.4, value: { dc: 1.38 } },
+        { id: 'TP31', label: 'TP31 开关', x: 80.8, y: 53.4, value: {} },
+        { id: 'TP32', label: 'TP32 开关', x: 91.7, y: 53.4, value: {} },
+        { id: 'TP33', label: 'TP33 三极管 B', x: 8.9, y: 80.6, value: {} },
+        { id: 'TP34', label: 'TP34 三极管 C', x: 33.8, y: 73.8, value: {} },
+        { id: 'TP35', label: 'TP35 三极管 E', x: 33.8, y: 83.9, value: {} },
+        { id: 'TP36', label: 'TP36 MOS G', x: 50.4, y: 80.1, value: {} },
+        { id: 'TP37', label: 'TP37 MOS D', x: 69.0, y: 77.9, value: {} },
+        { id: 'TP38', label: 'TP38 MOS S', x: 69.0, y: 83.8, value: {} }
+      ];
+
+      const resistancePairs = {
+        'R5B|TP5': 100,
+        'R6B|TP6': 470,
+        'R7B|TP7': 1000,
+        'R8B|TP8': 4700,
+        'R9B|TP9': 10000,
+        'R10B|TP10': 100000
+      };
+
+      const continuityPairs = {
+        'TP11|TP12': .3,
+        'TP13|TP14': .4,
+        'TP15|TP16': .5,
+        'TP17|TP18': 12.6
+      };
+
+      const capacitancePairs = {
+        'TP23|TP26': .1,
+        'TP24|TP27': 10,
+        'TP25|TP28': 100
+      };
+
+      const diodeDrops = {
+        'TP19>TP20': .612,
+        'TP21>TP22': .365,
+        'TP29>TP30': 1.92,
+        'TP33>TP34': .681,
+        'TP33>TP35': .692,
+        'TP38>TP37': .552
+      };
+
+      const modeMeta = {
+        dc: { unit: 'V\nDC', angle: -58, jack: 'v' },
+        ac: { unit: 'V\nAC', angle: -37, jack: 'v' },
+        res: { unit: 'kΩ', angle: 0, jack: 'v' },
+        continuity: { unit: 'Ω', angle: 37, jack: 'v' },
+        current: { unit: 'mA', angle: 58, jack: 'ma' },
+        cap: { unit: 'µF', angle: 144, jack: 'v' },
+        diode: { unit: 'V', angle: -144, jack: 'v' }
+      };
+
+      const state = {
+        mode: 'dc',
+        lesson: 'dc',
+        red: 'VCC',
+        black: 'GND',
+        redJack: 'v',
+        blackJack: 'com',
+        activeLead: 'red',
+        hold: false,
+        heldReading: null,
+        rangeIndex: 0,
+        backlight: false,
+        switchClosed: false,
+        samplePhase: 0
+      };
+
+      const modeOrder = ['dc', 'ac', 'res', 'continuity', 'current', 'cap', 'diode'];
+
+      const rangeOptions = {
+        dc: ['AUTO', '4 V', '40 V', '400 V'],
+        ac: ['AUTO', '4 V', '40 V', '400 V'],
+        res: ['AUTO', '400 Ω', '4 kΩ', '40 kΩ', '400 kΩ'],
+        continuity: ['AUTO', '400 Ω'],
+        current: ['AUTO', '40 mA', '400 mA'],
+        cap: ['AUTO', '4 µF', '40 µF', '400 µF'],
+        diode: ['AUTO', '4 V']
+      };
+
+      function showToast(text) {
+        const t = $('toast');
+        t.textContent = text;
+        t.classList.add('show');
+        clearTimeout(showToast.timer);
+        showToast.timer = setTimeout(() => t.classList.remove('show'), 1700);
+      }
+
+      function nodeById(id) { return nodes.find(n => n.id === id); }
+
+      function pairKey(a, b) { return [a, b].sort().join('|'); }
+
+      function sampleNoise(scale, seed) {
+        const phase = state.samplePhase;
+        return scale * (Math.sin(phase + seed) * .65 + Math.sin(phase * .37 + seed * 2.1) * .35);
+      }
+
+      function boardPos(n) {
+        const b = board.getBoundingClientRect();
+        const a = boardArea.getBoundingClientRect();
+        return {
+          x: b.left + board.clientLeft - a.left - boardArea.clientLeft + board.clientWidth * n.x / 100,
+          y: b.top + board.clientTop - a.top - boardArea.clientTop + board.clientHeight * n.y / 100
+        };
+      }
+
+      function probeTipOffset(kind) {
+        const angle = (kind === 'red' ? -14 : -8) * Math.PI / 180;
+        return {
+          x: 14 - 14 * Math.cos(angle),
+          y: 18 - 14 * Math.sin(angle)
+        };
+      }
+
+      function probeTipPosition(el, kind) {
+        const offset = probeTipOffset(kind);
+        return {
+          x: parseFloat(el.style.left) + offset.x,
+          y: parseFloat(el.style.top) + offset.y
+        };
+      }
+
+      function placeProbe(el, id, kind) {
+        const n = nodeById(id);
+        const p = boardPos(n);
+        const offset = probeTipOffset(kind);
+        el.style.left = `${p.x - offset.x}px`;
+        el.style.top = `${p.y - offset.y}px`;
+        el.style.transform = kind === 'red' ? 'rotate(-14deg)' : 'rotate(-8deg)';
+      }
+
+      function renderNodes() {
+        nodes.forEach(n => {
+          const btn = document.createElement('button');
+          btn.type = 'button';
+          btn.className = 'node';
+          btn.dataset.id = n.id;
+          btn.setAttribute('aria-label', n.label);
+          btn.innerHTML = `<span class="label">${n.label}</span>`;
+          btn.addEventListener('click', () => connectLead(state.activeLead, n.id, true));
+          boardArea.appendChild(btn);
+        });
+        positionBoardOverlays();
+      }
+
+      function positionBoardOverlays() {
+        document.querySelectorAll('.node').forEach(btn => {
+          const p = boardPos(nodeById(btn.dataset.id));
+          btn.style.left = `${p.x}px`;
+          btn.style.top = `${p.y}px`;
+        });
+        const switchPos = boardPos({ x: 86.3, y: 53.4 });
+        $('boardSwitch').style.left = `${switchPos.x}px`;
+        $('boardSwitch').style.top = `${switchPos.y}px`;
+      }
+
+      function connectLead(lead, id, toast) {
+        state[lead] = id;
+        state.activeLead = lead === 'red' ? 'black' : 'red';
+        placeProbe(lead === 'red' ? redProbe : blackProbe, id, lead);
+        if (toast) showToast(`${lead === 'red' ? '红' : '黑'}表笔接到 ${nodeById(id).label}`);
+        updateUi();
+      }
+
+      function expectedPair() {
+        const r = state.red, b = state.black;
+        if (!r || !b) return false;
+        const key = pairKey(r, b);
+        if (state.mode === 'current') return r === 'TP29' && b === 'TP30';
+        if (state.mode === 'res') return resistancePairs[key] !== undefined;
+        if (state.mode === 'continuity') return continuityPairs[key] !== undefined || key === 'TP31|TP32';
+        if (state.mode === 'cap') return capacitancePairs[key] !== undefined;
+        if (state.mode === 'diode') return diodeDrops[`${r}>${b}`] !== undefined || diodeDrops[`${b}>${r}`] !== undefined;
+        return nodeById(r).value.dc !== undefined && nodeById(b).value.dc !== undefined;
+      }
+
+      function dangerous() {
+        if (!state.red || !state.black) return '';
+        if (state.blackJack !== 'com') return '黑表笔必须插 COM。';
+        const need = modeMeta[state.mode].jack;
+        if (state.redJack !== need) return `当前档位红表笔应插 ${need === 'v' ? 'VΩ' : 'mA/A'} 孔。`;
+        if ((state.mode === 'res' || state.mode === 'continuity' || state.mode === 'cap' || state.mode === 'diode') && liveVoltage()) {
+          return '带电测阻值/通断/电容/二极管，先断电。';
+        }
+        if (state.mode === 'current' && !expectedPair()) return '电流档需要串入负载，不要并在电源两端。';
+        return '';
+      }
+
+      function liveVoltage() {
+        return [state.red, state.black].some(id => ['TP1', 'TP2', 'TP3'].includes(id));
+      }
+
+      function valueText() {
+        const bad = dangerous();
+        if (bad) return { main: 'ALrt', sub: bad, bad: true };
+        const r = state.red, b = state.black;
+        if (!r || !b) {
+          if (['res', 'continuity', 'cap', 'diode'].includes(state.mode)) return { main: 'OL', sub: '表笔悬空，未接入测试点' };
+          if (state.mode === 'current') {
+            const floatingCurrent = Math.max(0, sampleNoise(.008, 6) + .004);
+            return { main: floatingCurrent.toFixed(2), sub: '表笔悬空，未接入回路' };
+          }
+          if (state.mode === 'ac') {
+            const floatingAc = Math.max(0, sampleNoise(.004, 8) + .003);
+            return { main: floatingAc.toFixed(3), sub: '表笔悬空，检测到微弱环境噪声' };
+          }
+          const floatingDc = sampleNoise(.006, 7);
+          return { main: Math.abs(floatingDc) < .0005 ? '0.000' : floatingDc.toFixed(3), sub: '表笔悬空，读数轻微漂移' };
+        }
+        const key = pairKey(r, b);
+        if (state.mode === 'dc') {
+          const rv = nodeById(r).value.dc ?? 0;
+          const bv = nodeById(b).value.dc ?? 0;
+          const base = rv - bv;
+          const noise = sampleNoise(Math.max(Math.abs(base), .4) * .0015, 1);
+          return { main: (base + noise).toFixed(3), sub: expectedPair() ? '直流电压测量' : '该测试点无直流电压模型' };
+        }
+        if (state.mode === 'ac') {
+          const rv = nodeById(r).value.ac ?? 0;
+          const bv = nodeById(b).value.ac ?? 0;
+          const base = Math.abs(rv - bv);
+          return { main: Math.max(0, base + sampleNoise(.0007, 2)).toFixed(3), sub: base > .001 ? '交流纹波测量' : '未检测到交流分量' };
+        }
+        if (state.mode === 'res') {
+          const resistance = resistancePairs[key];
+          if (resistance === undefined) return { main: 'OL', sub: '未跨接同一只电阻' };
+          const measured = resistance * (1 + sampleNoise(.004, resistance / 1000));
+          if (resistance >= 1000) return { main: (measured / 1000).toFixed(2), unit: 'kΩ', sub: '电阻测量' };
+          return { main: measured.toFixed(1), unit: 'Ω', sub: '电阻测量' };
+        }
+        if (state.mode === 'continuity') {
+          if (key === 'TP31|TP32') return state.switchClosed
+            ? { main: Math.max(.1, .2 + sampleNoise(.025, 3)).toFixed(1), sub: '蜂鸣：开关已按下' }
+            : { main: 'OL', sub: '开关处于松开状态' };
+          const ohms = continuityPairs[key];
+          return ohms !== undefined
+            ? { main: Math.max(.1, ohms + sampleNoise(.035, ohms)).toFixed(1), sub: '蜂鸣：导通' }
+            : { main: 'OL', sub: '线路不导通' };
+        }
+        if (state.mode === 'current') return expectedPair()
+          ? { main: Math.max(0, 18.2 + sampleNoise(.18, 4)).toFixed(1), sub: 'LED 支路工作电流' }
+          : { main: '0.00', sub: '未串入 TP29/TP30 支路' };
+        if (state.mode === 'cap') {
+          const capacitance = capacitancePairs[key];
+          return capacitance !== undefined
+            ? { main: (capacitance * (1 + sampleNoise(.004, capacitance))).toFixed(capacitance < 1 ? 3 : 2), sub: '电容容量测量' }
+            : { main: '----', sub: '未跨接同一只电容' };
+        }
+        if (state.mode === 'diode') {
+          const forward = diodeDrops[`${r}>${b}`];
+          if (forward !== undefined) return { main: Math.max(0, forward + sampleNoise(.0025, forward * 4)).toFixed(3), sub: forward > 1 ? 'LED 正向压降' : '半导体结正向压降' };
+          if (diodeDrops[`${b}>${r}`] !== undefined) return { main: 'OL', sub: '反向截止' };
+          return { main: 'OL', sub: '未跨接可测半导体结' };
+        }
+        return { main: '0.000', sub: '准备测量' };
+      }
+
+      function updateCables() {
+        cableSvg.innerHTML = '';
+        const br = bench.getBoundingClientRect();
+        const meterRect = document.querySelector('.meter-shell').getBoundingClientRect();
+        const exitY = meterRect.bottom - br.top + 8;
+        const bendY = Math.min(br.height - 4, exitY + 54);
+        const outsideX = meterRect.left - br.left - 14;
+        cableSvg.setAttribute('viewBox', `0 0 ${br.width} ${br.height}`);
+        cableSvg.setAttribute('preserveAspectRatio', 'none');
+        const make = (lead, color, jackSelector) => {
+          const probeRect = (lead === 'red' ? redProbe : blackProbe).getBoundingClientRect();
+          const jack = document.querySelector(jackSelector).getBoundingClientRect();
+          const a = { x: jack.left - br.left + jack.width / 2, y: jack.top - br.top + jack.height / 2 };
+          const b = { x: probeRect.left - br.left + 138, y: probeRect.top - br.top + 18 };
+          const lane = lead === 'red' ? 8 : -8;
+          const wireBendY = Math.min(br.height - 4, bendY + lane);
+          const wireOutsideX = outsideX + lane;
+          const firstTurnX = a.x - 100;
+          const d = `M ${a.x} ${a.y} C ${a.x} ${a.y + 72}, ${a.x + 10} ${wireBendY}, ${firstTurnX} ${wireBendY} C ${wireOutsideX + 70} ${wireBendY}, ${wireOutsideX + 22} ${exitY + 20}, ${wireOutsideX} ${exitY - 45} C ${wireOutsideX - 30} ${exitY - 132}, ${b.x + 90} ${b.y + 78}, ${b.x} ${b.y}`;
+          return `<path d="${d}" fill="none" stroke="rgba(2,2,2,.96)" stroke-width="10" stroke-linecap="round"/><path d="${d}" fill="none" stroke="${color}" stroke-width="4" stroke-linecap="round"/>`;
+        };
+        cableSvg.innerHTML = make('red', 'rgba(255,90,80,.9)', `[data-jack="${state.redJack}"] .jack-hole`) + make('black', 'rgba(10,10,10,.96)', `[data-jack="${state.blackJack}"] .jack-hole`);
+      }
+
+      function updateUi() {
+        const liveVal = valueText();
+        const val = state.hold && state.heldReading ? state.heldReading : liveVal;
+        const rangeLabel = rangeOptions[state.mode][state.rangeIndex] || 'AUTO';
+        $('missionText').textContent = lessons[state.lesson];
+        $('lcdMain').textContent = val.main;
+        $('lcdUnit').textContent = val.unit || modeMeta[state.mode].unit;
+        $('lcdSub').textContent = liveVal.bad
+          ? `INPUT ALERT · ${rangeLabel}`
+          : `${state.hold ? 'HOLD · ' : ''}${val.sub} · ${rangeLabel}`;
+        document.querySelector('.lcd').classList.toggle('alerting', !!liveVal.bad);
+        $('redReadout').textContent = state.red ? nodeById(state.red).label : '悬空';
+        $('blackReadout').textContent = state.black ? nodeById(state.black).label : '悬空';
+        $('rangeReadout').textContent = `${state.mode.toUpperCase()} ${rangeLabel} / 红:${state.redJack.toUpperCase()} 黑:${state.blackJack.toUpperCase()}`;
+        $('stateReadout').textContent = state.hold ? '读数保持' : (liveVal.bad ? 'Input Alert' : liveVal.sub);
+        $('tipText').textContent = state.activeLead === 'red' ? '下一次点击接红表笔' : '下一次点击接黑表笔';
+        $('dial').style.setProperty('--dial-angle', `${modeMeta[state.mode].angle}deg`);
+        document.querySelectorAll('.dial-label').forEach(label => {
+          label.classList.toggle('active', label.dataset.mode === state.mode);
+        });
+        $('inputAlert').textContent = liveVal.bad ? liveVal.sub : 'Input Alert';
+        $('inputAlert').classList.toggle('bad', !!liveVal.bad);
+        $('meterLamp').style.background = liveVal.bad ? 'var(--red)' : 'var(--green)';
+        $('meterLamp').style.boxShadow = liveVal.bad ? '0 0 14px var(--red)' : '0 0 14px var(--green)';
+        $('holdBtn').classList.toggle('is-active', state.hold);
+        $('holdBtn').setAttribute('aria-pressed', String(state.hold));
+        $('rangeBtn').classList.toggle('is-active', state.rangeIndex > 0);
+        $('rangeBtn').setAttribute('aria-pressed', String(state.rangeIndex > 0));
+        $('lightBtn').classList.toggle('is-active', state.backlight);
+        $('lightBtn').setAttribute('aria-pressed', String(state.backlight));
+        document.querySelector('.lcd').classList.toggle('backlit', state.backlight);
+        $('boardSwitch').classList.toggle('closed', state.switchClosed);
+        $('boardSwitch').setAttribute('aria-pressed', String(state.switchClosed));
+        document.querySelectorAll('.node').forEach(n => {
+          n.classList.toggle('active-red', n.dataset.id === state.red);
+          n.classList.toggle('active-black', n.dataset.id === state.black);
+        });
+        document.querySelectorAll('.jack').forEach(j => j.classList.toggle('active', j.dataset.jack === state.redJack || j.dataset.jack === state.blackJack));
+        updateCables();
+      }
+
+      function setMode(mode, fromLesson) {
+        state.mode = mode;
+        state.activeLead = 'red';
+        state.hold = false;
+        state.heldReading = null;
+        state.rangeIndex = 0;
+        if (!fromLesson) state.lesson = mode;
+        state.redJack = modeMeta[mode].jack;
+        state.blackJack = 'com';
+        if (mode === 'dc') { state.red = 'TP3'; state.black = 'TP4'; }
+        if (mode === 'ac') { state.red = 'TP2'; state.black = 'TP4'; }
+        if (mode === 'res') { state.red = 'TP9'; state.black = 'R9B'; }
+        if (mode === 'continuity') { state.red = 'TP11'; state.black = 'TP12'; }
+        if (mode === 'current') { state.red = 'TP29'; state.black = 'TP30'; }
+        if (mode === 'cap') { state.red = 'TP25'; state.black = 'TP28'; }
+        if (mode === 'diode') { state.red = 'TP19'; state.black = 'TP20'; }
+        placeProbe(redProbe, state.red, 'red');
+        placeProbe(blackProbe, state.black, 'black');
+        updateUi();
+      }
+
+      function stepMode(delta) {
+        const idx = modeOrder.indexOf(state.mode);
+        const next = modeOrder[(idx + delta + modeOrder.length) % modeOrder.length];
+        setMode(next);
+        $('lessonSelect').value = next;
+        showToast(`旋钮切到 ${next.toUpperCase()}`);
+      }
+
+      function setupDialControl() {
+        const dial = $('dial');
+        dial.addEventListener('wheel', e => {
+          e.preventDefault();
+          stepMode(e.deltaY > 0 ? 1 : -1);
+        }, { passive: false });
+
+        let down = false;
+        let lastY = 0;
+        dial.addEventListener('pointerdown', e => {
+          down = true;
+          lastY = e.clientY;
+          dial.setPointerCapture(e.pointerId);
+        });
+        dial.addEventListener('pointermove', e => {
+          if (!down) return;
+          const dy = e.clientY - lastY;
+          if (Math.abs(dy) < 28) return;
+          stepMode(dy > 0 ? 1 : -1);
+          lastY = e.clientY;
+        });
+        dial.addEventListener('pointerup', () => { down = false; });
+      }
+
+      function makeDraggable(el, lead) {
+        let dragging = false;
+        el.addEventListener('pointerdown', e => {
+          dragging = true;
+          state.activeLead = lead;
+          el.classList.add('dragging');
+          const area = boardArea.getBoundingClientRect();
+          const pointerX = e.clientX - area.left - boardArea.clientLeft;
+          const pointerY = e.clientY - area.top - boardArea.clientTop;
+          const offset = probeTipOffset(lead);
+          el.style.left = `${pointerX - offset.x}px`;
+          el.style.top = `${pointerY - offset.y}px`;
+          el.setPointerCapture(e.pointerId);
+          updateUi();
+        });
+        el.addEventListener('pointermove', e => {
+          if (!dragging) return;
+          const area = boardArea.getBoundingClientRect();
+          const offset = probeTipOffset(lead);
+          el.style.left = `${e.clientX - area.left - boardArea.clientLeft - offset.x}px`;
+          el.style.top = `${e.clientY - area.top - boardArea.clientTop - offset.y}px`;
+          updateCables();
+        });
+        el.addEventListener('pointerup', () => {
+          dragging = false;
+          el.classList.remove('dragging');
+          const tip = probeTipPosition(el, lead);
+          let best = null, bestD = Infinity;
+          nodes.forEach(n => {
+            const p = boardPos(n);
+            const d = Math.hypot(p.x - tip.x, p.y - tip.y);
+            if (d < bestD) { best = n; bestD = d; }
+          });
+          if (best && bestD < 34) {
+            connectLead(lead, best.id, true);
+          } else {
+            state[lead] = null;
+            state.activeLead = lead;
+            showToast(`${lead === 'red' ? '红' : '黑'}表笔悬空`);
+            updateUi();
+          }
+        });
+      }
+
+      renderNodes();
+      setupDialControl();
+      $('lessonSelect').addEventListener('change', e => {
+        state.lesson = e.target.value;
+        setMode(e.target.value, true);
+      });
+      $('miswireBtn').addEventListener('click', () => {
+        state.redJack = state.redJack === 'v' ? 'ma' : 'v';
+        showToast('已模拟红表笔插错孔，再看 Input Alert 提示');
+        updateUi();
+      });
+      $('holdBtn').addEventListener('click', () => {
+        if (!state.hold) state.heldReading = valueText();
+        state.hold = !state.hold;
+        if (!state.hold) state.heldReading = null;
+        updateUi();
+      });
+      $('rangeBtn').addEventListener('click', () => {
+        state.rangeIndex = (state.rangeIndex + 1) % rangeOptions[state.mode].length;
+        updateUi();
+      });
+      $('lightBtn').addEventListener('click', () => {
+        state.backlight = !state.backlight;
+        updateUi();
+      });
+      $('boardSwitch').addEventListener('click', () => {
+        state.switchClosed = !state.switchClosed;
+        showToast(state.switchClosed ? '板载开关已按下' : '板载开关已松开');
+        updateUi();
+      });
+      document.querySelectorAll('.jack').forEach(j => j.addEventListener('click', () => {
+        if (j.dataset.jack === 'com') state.blackJack = 'com';
+        else state.redJack = j.dataset.jack;
+        updateUi();
+      }));
+      makeDraggable(redProbe, 'red');
+      makeDraggable(blackProbe, 'black');
+      window.addEventListener('resize', () => {
+        positionBoardOverlays();
+        if (state.red) placeProbe(redProbe, state.red, 'red');
+        if (state.black) placeProbe(blackProbe, state.black, 'black');
+        updateUi();
+      });
+      setMode('dc');
+      window.setInterval(() => {
+        if (document.hidden || state.hold) return;
+        state.samplePhase += .42;
+        updateUi();
+      }, 700);
+    })();
+  </script>
+</div>
+</body>
+</html>
