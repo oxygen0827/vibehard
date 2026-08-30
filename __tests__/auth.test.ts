@@ -1,66 +1,14 @@
-import { describe, it, expect, beforeEach } from "vitest";
-import { login, register, logout, AUTH_COOKIE } from "@/lib/auth";
+import { beforeEach, describe, expect, it, vi } from "vitest";
+import { login, logout, register } from "@/lib/auth";
 
-function getSessionCookie() {
-  return document.cookie.includes(`${AUTH_COOKIE}=`);
+function response(body: unknown, status = 200) {
+  return Promise.resolve(new Response(JSON.stringify(body), { status, headers: { "Content-Type": "application/json" } }));
 }
 
-describe("auth", () => {
-  beforeEach(async () => {
-    await logout();
-  });
-
-  it("拒绝格式错误的邮箱", async () => {
-    const result = await login({ email: "not-an-email", password: "demo1234" });
-    expect(result.ok).toBe(false);
-    expect(result.error).toContain("邮箱");
-    expect(getSessionCookie()).toBe(false);
-  });
-
-  it("拒绝少于 8 位的密码", async () => {
-    const result = await login({ email: "demo@vibehard.ai", password: "short" });
-    expect(result.ok).toBe(false);
-    expect(result.error).toContain("8 位");
-    expect(getSessionCookie()).toBe(false);
-  });
-
-  it("拒绝错误的凭据", async () => {
-    const result = await login({ email: "demo@vibehard.ai", password: "wrong-password" });
-    expect(result.ok).toBe(false);
-    expect(getSessionCookie()).toBe(false);
-  });
-
-  it("演示账号登录成功并写入会话 Cookie", async () => {
-    const result = await login({ email: "demo@vibehard.ai", password: "demo1234" });
-    expect(result.ok).toBe(true);
-    expect(getSessionCookie()).toBe(true);
-  });
-
-  it("拒绝无效邀请码注册", async () => {
-    const result = await register({
-      email: "new@example.com",
-      password: "password123",
-      inviteCode: "INVALID",
-    });
-    expect(result.ok).toBe(false);
-    expect(result.error).toContain("邀请码");
-    expect(getSessionCookie()).toBe(false);
-  });
-
-  it("有效邀请码注册成功并写入会话 Cookie", async () => {
-    const result = await register({
-      email: "new@example.com",
-      password: "password123",
-      inviteCode: "vibe2026",
-    });
-    expect(result.ok).toBe(true);
-    expect(getSessionCookie()).toBe(true);
-  });
-
-  it("登出后清除会话 Cookie", async () => {
-    await login({ email: "demo@vibehard.ai", password: "demo1234" });
-    expect(getSessionCookie()).toBe(true);
-    await logout();
-    expect(getSessionCookie()).toBe(false);
-  });
+describe("auth client", () => {
+  beforeEach(() => vi.stubGlobal("fetch", vi.fn()));
+  it("将登录凭据提交给服务端认证接口", async () => { vi.mocked(fetch).mockReturnValue(response({ user: { id: "u1", email: "demo@vibehard.ai", name: "Demo", role: "member" } })); const result = await login({ email: "demo@vibehard.ai", password: "demo1234" }); expect(result.ok).toBe(true); expect(fetch).toHaveBeenCalledWith(expect.stringContaining("/api/auth/login"), expect.objectContaining({ method: "POST" })); });
+  it("透传服务端登录错误", async () => { vi.mocked(fetch).mockReturnValue(response({ error: "邮箱或密码错误" }, 401)); expect(await login({ email: "demo@vibehard.ai", password: "wrong-pass" })).toEqual({ ok: false, error: "邮箱或密码错误" }); });
+  it("提交邀请码注册", async () => { vi.mocked(fetch).mockReturnValue(response({ user: { id: "u2" } }, 201)); expect((await register({ email: "new@example.com", password: "password123", inviteCode: "VIBE2026" })).ok).toBe(true); expect(fetch).toHaveBeenCalledWith(expect.stringContaining("/api/auth/register"), expect.objectContaining({ method: "POST" })); });
+  it("调用服务端退出接口", async () => { vi.mocked(fetch).mockReturnValue(response({ ok: true })); await logout(); expect(fetch).toHaveBeenCalledWith(expect.stringContaining("/api/auth/logout"), expect.objectContaining({ method: "POST" })); });
 });

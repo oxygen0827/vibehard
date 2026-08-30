@@ -1,0 +1,19 @@
+[Unit]
+Description=VibeHard Agent Platform (Next.js standalone)
+After=network.target postgresql.service
+Wants=postgresql.service
+
+[Service]
+Type=simple
+WorkingDirectory=/opt/vibehard/current/standalone
+EnvironmentFile=/etc/vibehard/platform.env
+Environment=NODE_ENV=production
+Environment=PORT=3210
+Environment=HOSTNAME=0.0.0.0
+ExecStart=/usr/local/bin/node server.js
+Restart=always
+RestartSec=3
+NoNewPrivileges=true
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,17 @@
+[Unit]
+Description=VibeHard Runner Gateway
+After=network.target postgresql.service
+Wants=postgresql.service
+
+[Service]
+Type=simple
+WorkingDirectory=/opt/vibehard/current
+EnvironmentFile=/etc/vibehard/platform.env
+Environment=NODE_ENV=production
+ExecStart=/usr/local/bin/node services/gateway.cjs
+Restart=always
+RestartSec=3
+NoNewPrivileges=true
+
+[Install]
+WantedBy=multi-user.target

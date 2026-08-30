@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
 import {
   LayoutDashboard,
+  Bot,
   FileText,
   Cpu,
   Layers,
@@ -32,7 +33,7 @@ interface NavSection {
 const navSections: NavSection[] = [
   {
     title: "总览",
-    items: [{ href: "/app", label: "工作台", icon: LayoutDashboard }],
+    items: [{ href: "/app", label: "工作台", icon: LayoutDashboard }, { href: "/app/agent", label: "Agent 项目", icon: Bot }],
   },
   {
     title: "硬件研发",
@@ -68,7 +69,7 @@ export function AppSidebar() {
   const pathname = usePathname();
 
   return (
-    <aside className="flex w-56 shrink-0 flex-col border-r border-border/70 bg-card/30 p-4 backdrop-blur-xl">
+    <aside className="hidden w-56 shrink-0 flex-col border-r border-border/70 bg-card/30 p-4 backdrop-blur-xl md:flex">
       <nav className="flex-1 space-y-6 overflow-y-auto">
         {navSections.map((section) => (
           <div key={section.title}>

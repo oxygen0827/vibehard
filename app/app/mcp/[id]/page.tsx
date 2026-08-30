@@ -15,7 +15,7 @@ import {
   BookOpen,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { mcpServers } from "../page";
+import { mcpServers } from "@/lib/mcp/catalog";
 import { cn } from "@/lib/utils";
 
 const toolExamples: Record<string, { name: string; desc: string }[]> = {

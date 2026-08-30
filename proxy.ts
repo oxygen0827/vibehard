@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
-import { AUTH_COOKIE } from "@/lib/auth";
+import { AUTH_COOKIE, readSessionToken } from "@/lib/server/security";
 
 export function proxy(request: NextRequest) {
-  const hasSession = request.cookies.has(AUTH_COOKIE);
+  const hasSession = Boolean(readSessionToken(request.cookies.get(AUTH_COOKIE)?.value));
 
   // 未登录访问工作台 → 重定向到登录页
   if (!hasSession) {

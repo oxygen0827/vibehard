@@ -11,3 +11,8 @@ export function assetPath(p: string) {
   const base = process.env.NEXT_PUBLIC_BASE_PATH ?? ""
   return `${base}${p}`
 }
+
+export function apiPath(p: string) {
+  const base = process.env.NEXT_PUBLIC_BASE_PATH ?? ""
+  return `${base}${p}`
+}

@@ -11,7 +11,11 @@ const eslintConfig = defineConfig([
     ".next/**",
     "out/**",
     "build/**",
+    "dist/**",
     "next-env.d.ts",
+    ".claude/**",
+    ".pnpm-store/**",
+    "vibehard-LLM/**",
     // 第三方静态镜像资源（zutils 工具集），无需 lint:
     "public/zutils/**",
   ]),

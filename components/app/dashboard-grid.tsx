@@ -10,10 +10,21 @@ import {
   MonitorSmartphone,
   Wrench,
   Zap,
+  Bot,
 } from "lucide-react";
 import { Reveal } from "@/components/reveal";
 
 const tools = [
+  {
+    id: "agent",
+    title: "Agent 项目工作台",
+    description: "连接独立 Codex Runner，在隔离工作区中完成真实工程任务，流式查看工具调用、审批与产物。",
+    icon: Bot,
+    color: "text-sky-500",
+    bgColor: "bg-sky-500/10",
+    borderColor: "hover:border-sky-500/35",
+    stats: "Codex Runtime",
+  },
   {
     id: "design",
     title: "硬件方案生成",
