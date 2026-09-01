@@ -1,5 +1,5 @@
 import { randomBytes, randomUUID } from "node:crypto";
-import { and, asc, desc, eq, gt, inArray, lt, max, ne, sql } from "drizzle-orm";
+import { and, asc, count, desc, eq, gt, inArray, lt, max, ne, sql } from "drizzle-orm";
 import { db } from "@/lib/db";
 import {
   agentEvents,
@@ -215,6 +215,36 @@ export async function listModels() {
   if (!db) return DEFAULT_MODELS;
   const configured = await db.select().from(modelProfiles).where(eq(modelProfiles.enabled, true));
   return configured.length ? configured.map((item) => ({ id: `${item.providerId}:${item.model}`, providerId: item.providerId, model: item.model, displayName: item.displayName, kind: item.providerId === "openai" ? "codex" as const : "custom" as const, capabilities: item.capabilities })) : DEFAULT_MODELS;
+}
+
+export async function getAdminOverview() {
+  if (!db) {
+    const activeTurns = memory.turns.filter((turn) => ACTIVE_TURN_STATUSES.includes(turn.status as typeof ACTIVE_TURN_STATUSES[number])).length;
+    return {
+      counts: { users: memory.users.length, projects: memory.projects.length, threads: memory.threads.length, turns: memory.turns.length, activeTurns, pendingApprovals: memory.approvals.filter((item) => item.status === "pending").length },
+      runners: memory.runners.map((runner) => ({ id: runner.id, runnerKey: runner.runnerKey, name: runner.name, status: runner.status, capabilities: runner.capabilities, instanceId: runner.instanceId, lastHeartbeatAt: runner.lastHeartbeatAt, createdAt: runner.createdAt, updatedAt: runner.updatedAt })).sort((a, b) => b.updatedAt.getTime() - a.updatedAt.getTime()),
+      models: DEFAULT_MODELS.map((model) => ({ ...model, enabled: true })),
+      projects: memory.projects.map((project) => ({ ...project, userEmail: memory.users.find((user) => user.id === project.userId)?.email ?? "未知用户" })).sort((a, b) => b.updatedAt.getTime() - a.updatedAt.getTime()).slice(0, 20),
+      auditLogs: [],
+    };
+  }
+
+  const [userCount, projectCount, threadCount, turnCount, activeTurnCount, pendingApprovalCount, runners, configuredModels, recentProjects, recentAuditLogs] = await Promise.all([
+    db.select({ value: count() }).from(users),
+    db.select({ value: count() }).from(projects),
+    db.select({ value: count() }).from(agentThreads),
+    db.select({ value: count() }).from(agentTurns),
+    db.select({ value: count() }).from(agentTurns).where(inArray(agentTurns.status, [...ACTIVE_TURN_STATUSES])),
+    db.select({ value: count() }).from(approvals).where(eq(approvals.status, "pending")),
+    db.select({ id: runnerNodes.id, runnerKey: runnerNodes.runnerKey, name: runnerNodes.name, status: runnerNodes.status, capabilities: runnerNodes.capabilities, instanceId: runnerNodes.instanceId, lastHeartbeatAt: runnerNodes.lastHeartbeatAt, createdAt: runnerNodes.createdAt, updatedAt: runnerNodes.updatedAt }).from(runnerNodes).orderBy(desc(runnerNodes.updatedAt)),
+    db.select({ id: modelProfiles.id, providerId: modelProfiles.providerId, model: modelProfiles.model, displayName: modelProfiles.displayName, capabilities: modelProfiles.capabilities, enabled: modelProfiles.enabled, updatedAt: modelProfiles.updatedAt }).from(modelProfiles).orderBy(desc(modelProfiles.updatedAt)),
+    db.select({ id: projects.id, name: projects.name, workspaceKey: projects.workspaceKey, runnerKey: projects.runnerKey, defaultModel: projects.defaultModel, updatedAt: projects.updatedAt, userEmail: users.email }).from(projects).innerJoin(users, eq(users.id, projects.userId)).orderBy(desc(projects.updatedAt)).limit(20),
+    db.select({ id: auditLogs.id, action: auditLogs.action, metadata: auditLogs.metadata, createdAt: auditLogs.createdAt, userEmail: users.email }).from(auditLogs).leftJoin(users, eq(users.id, auditLogs.userId)).orderBy(desc(auditLogs.createdAt)).limit(30),
+  ]);
+  return {
+    counts: { users: userCount[0]?.value ?? 0, projects: projectCount[0]?.value ?? 0, threads: threadCount[0]?.value ?? 0, turns: turnCount[0]?.value ?? 0, activeTurns: activeTurnCount[0]?.value ?? 0, pendingApprovals: pendingApprovalCount[0]?.value ?? 0 },
+    runners, models: configuredModels.length ? configuredModels : DEFAULT_MODELS.map((model) => ({ ...model, enabled: true })), projects: recentProjects, auditLogs: recentAuditLogs,
+  };
 }
 
 export async function resolveModelProfile(model: string, providerId?: string) {

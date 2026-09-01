@@ -17,6 +17,7 @@ import {
   Wrench,
   Zap,
   Settings,
+  ShieldCheck,
 } from "lucide-react";
 
 interface NavItem {
@@ -62,6 +63,10 @@ const navSections: NavSection[] = [
   {
     title: "扩展生态",
     items: [{ href: "/app/mcp", label: "MCP Server", icon: Zap }],
+  },
+  {
+    title: "平台管理",
+    items: [{ href: "/app/admin", label: "管理概览", icon: ShieldCheck }],
   },
 ];
 
