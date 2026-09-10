@@ -64,6 +64,17 @@ export async function findUserById(id: string) {
   return (await db.select().from(users).where(eq(users.id, id)).limit(1))[0] ?? null;
 }
 
+export async function resetUserPassword(targetUserId: string, passwordHash: string) {
+  if (!db) {
+    const user = memory.users.find((item) => item.id === targetUserId);
+    if (!user) return null;
+    user.passwordHash = passwordHash;
+    user.updatedAt = now();
+    return user;
+  }
+  return (await db.update(users).set({ passwordHash, updatedAt: now() }).where(eq(users.id, targetUserId)).returning())[0] ?? null;
+}
+
 export async function createUser(input: { email: string; passwordHash: string; inviteCode: string; name?: string }) {
   const record = { id: randomUUID(), email: input.email.trim().toLowerCase(), passwordHash: input.passwordHash, name: input.name ?? "VibeHard 用户", role: "member", inviteCode: input.inviteCode, ...timestampFields() };
   if (!db) { memory.users.push(record); return record; }
@@ -226,10 +237,11 @@ export async function getAdminOverview() {
       models: DEFAULT_MODELS.map((model) => ({ ...model, enabled: true })),
       projects: memory.projects.map((project) => ({ ...project, userEmail: memory.users.find((user) => user.id === project.userId)?.email ?? "未知用户" })).sort((a, b) => b.updatedAt.getTime() - a.updatedAt.getTime()).slice(0, 20),
       auditLogs: [],
+      users: memory.users.map((user) => ({ id: user.id, email: user.email, name: user.name, role: user.role, createdAt: user.createdAt })).sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime()),
     };
   }
 
-  const [userCount, projectCount, threadCount, turnCount, activeTurnCount, pendingApprovalCount, runners, configuredModels, recentProjects, recentAuditLogs] = await Promise.all([
+  const [userCount, projectCount, threadCount, turnCount, activeTurnCount, pendingApprovalCount, runners, configuredModels, recentProjects, recentAuditLogs, userList] = await Promise.all([
     db.select({ value: count() }).from(users),
     db.select({ value: count() }).from(projects),
     db.select({ value: count() }).from(agentThreads),
@@ -240,10 +252,11 @@ export async function getAdminOverview() {
     db.select({ id: modelProfiles.id, providerId: modelProfiles.providerId, model: modelProfiles.model, displayName: modelProfiles.displayName, capabilities: modelProfiles.capabilities, enabled: modelProfiles.enabled, updatedAt: modelProfiles.updatedAt }).from(modelProfiles).orderBy(desc(modelProfiles.updatedAt)),
     db.select({ id: projects.id, name: projects.name, workspaceKey: projects.workspaceKey, runnerKey: projects.runnerKey, defaultModel: projects.defaultModel, updatedAt: projects.updatedAt, userEmail: users.email }).from(projects).innerJoin(users, eq(users.id, projects.userId)).orderBy(desc(projects.updatedAt)).limit(20),
     db.select({ id: auditLogs.id, action: auditLogs.action, metadata: auditLogs.metadata, createdAt: auditLogs.createdAt, userEmail: users.email }).from(auditLogs).leftJoin(users, eq(users.id, auditLogs.userId)).orderBy(desc(auditLogs.createdAt)).limit(30),
+    db.select({ id: users.id, email: users.email, name: users.name, role: users.role, createdAt: users.createdAt }).from(users).orderBy(desc(users.createdAt)),
   ]);
   return {
     counts: { users: userCount[0]?.value ?? 0, projects: projectCount[0]?.value ?? 0, threads: threadCount[0]?.value ?? 0, turns: turnCount[0]?.value ?? 0, activeTurns: activeTurnCount[0]?.value ?? 0, pendingApprovals: pendingApprovalCount[0]?.value ?? 0 },
-    runners, models: configuredModels.length ? configuredModels : DEFAULT_MODELS.map((model) => ({ ...model, enabled: true })), projects: recentProjects, auditLogs: recentAuditLogs,
+    runners, models: configuredModels.length ? configuredModels : DEFAULT_MODELS.map((model) => ({ ...model, enabled: true })), projects: recentProjects, auditLogs: recentAuditLogs, users: userList,
   };
 }
 

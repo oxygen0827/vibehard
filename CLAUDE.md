@@ -47,8 +47,8 @@ app/
   layout.tsx          # 根布局，注入 ThemeProvider、Geist 字体、全局 metadata
   page.tsx            # 首页，组装 Hero/Stats/Workflow/CTA/Footer
   globals.css         # Tailwind 入口 + shadcn CSS 变量 + VibeHard 背景装饰
-  login/page.tsx      # 登录页（演示账号 demo@vibehard.ai / demo1234）
-  register/page.tsx   # 邀请码注册页（演示邀请码 VIBE2026）
+  login/page.tsx      # 登录页
+  register/page.tsx   # 邀请码注册页
   app/                # 工作台（受 proxy.ts 会话守卫保护）
     layout.tsx        # 工作台共享布局：AppNav + AppSidebar
     page.tsx          # 工作台首页 DashboardGrid
@@ -102,7 +102,7 @@ vitest-env.d.ts       # Vitest 类型声明
 ## Architecture notes
 
 - **首页为纯静态页面**：`page.tsx` 组合多个 Server/Client 组件，无数据获取逻辑。
-- **认证（当前为前端 Mock）**：`lib/auth.ts` 通过 `vibehard_session` Cookie 管理会话；`proxy.ts`（Next.js 16 的 Proxy 约定，取代 middleware.ts）拦截 `/app/:path*`，无会话时重定向到 `/login`。登录/注册成功后 `router.push("/app")` + `router.refresh()`；AppNav 的"退出"调用 `logout()` 清除 Cookie。演示账号 `demo@vibehard.ai / demo1234`，演示邀请码 `VIBE2026`。接入真实后端时只需替换 `lib/auth.ts` 中的实现。
+- **认证**：`lib/auth.ts` 调用 `/api/auth/*` 服务端接口，服务端使用 PostgreSQL 用户记录、scrypt 密码哈希和签名的 `vibehard_session` HttpOnly Cookie；`proxy.ts`（Next.js 16 的 Proxy 约定，取代 middleware.ts）拦截 `/app/:path*`，无会话时重定向到 `/login`。登录/注册成功后 `router.push("/app")` + `router.refresh()`；AppNav 的"退出"调用 `logout()` 清除 Cookie。生产邀请码通过 `INVITE_CODES` 环境变量配置。
 - **MCP Server 数据**：列表与详情页共用 `app/app/mcp/page.tsx` 中导出的 `mcpServers` mock 数据；详情页通过 `use(params)` 解包动态路由参数。
 - **实用工具箱（zutils 镜像）**：`public/zutils/` 是 zutils.cn 的静态镜像（原版为 Next.js 静态导出），以 iframe 方式嵌入 `/app/tools/[slug]`。已做三处适配：①工具页 HTML 中的 `/_next/` 等绝对路径改写为 `../../` 相对路径；②`public/zutils/_next/static/chunks/webpack-*.js` 中的 webpack publicPath 由 `r.p="/_next/"` 改为 `r.p="/zutils/_next/"`（动态 chunk 加载依赖它）；③原站品牌"小智学长工具集"全部替换为"VibeHard 实用工具箱"（42 个页面 HTML + 2 个 JS chunk，含被标签拆开的 `小智<span>学长</span>` 写法）。镜像内的导航链接已失效化（`href="#"`），外部链接保留。**更新镜像后需要重新执行这三处改写**。该目录为第三方资源，已在 `eslint.config.mjs` 中加入 ignore。
 - **主题系统**：`layout.tsx` 通过 `ThemeProvider` 注入，`html` 带 `suppressHydrationWarning`。切换逻辑在 `theme-toggle.tsx`，通过 `useSyncExternalStore` 避免挂载闪烁。
@@ -134,3 +134,4 @@ pnpm dlx shadcn@latest add <component-name>
   2. `tar czf - -C .next/standalone . | ssh root@47.102.197.71 "tar xzf - -C /opt/vibehard/standalone"`（服务器未装 rsync，用 tar 管道）
   3. `ssh root@47.102.197.71 systemctl restart vibehard`
 - 常用运维：`systemctl status vibehard` / `journalctl -u vibehard -f` 查看服务与日志。
+- **SSH 密钥口令**：本机私钥 `/Users/hushaohong/.ssh/ldcx_vibeboard_deploy` 设置了 Passphrase；该口令已由 macOS 钥匙串托管，SSH 连接/上传时使用 `-o UseKeychain=yes` 自动解锁。不要向用户询问 Passphrase；若需要重新加载，使用 `ssh-add --apple-use-keychain ~/.ssh/ldcx_vibeboard_deploy`。

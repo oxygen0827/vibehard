@@ -3,6 +3,7 @@ import {
   ArrowRight,
   CheckCircle2,
   Cpu,
+  PlayCircle,
   SearchCheck,
 } from "lucide-react";
 
@@ -53,6 +54,13 @@ export function HeroSection() {
             className="inline-flex h-11 w-full items-center justify-center gap-2 rounded-lg border border-border bg-card/95 px-6 text-sm font-semibold text-foreground shadow-[0_10px_28px_rgba(15,23,42,0.08)] transition-all duration-200 hover:border-ring/45 hover:bg-muted active:scale-[0.97] dark:shadow-none sm:w-auto"
           >
             已有账号登录
+          </Link>
+          <Link
+            href="/demo"
+            className="inline-flex h-11 w-full items-center justify-center gap-2 rounded-lg px-5 text-sm font-semibold text-muted-foreground transition-colors duration-200 hover:bg-muted hover:text-foreground active:scale-[0.97] sm:w-auto"
+          >
+            <PlayCircle className="h-4 w-4" />
+            查看全流程演示
           </Link>
         </div>
 

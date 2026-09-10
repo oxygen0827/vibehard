@@ -2,14 +2,29 @@
 
 ## Current deployment
 
-As of 2026-08-30:
+As of 2026-09-09:
 
-- Active release: `/opt/vibehard/releases/20260830-1825`.
-- Previous standalone retained for rollback: `/opt/vibehard/standalone`.
-- Deployment backup: `/opt/vibehard/backups/20260830-1825`.
+- Active frontend release: `/opt/vibehard/releases/20260909-demo-gif/standalone`.
+- Previous frontend release retained for rollback: `/opt/vibehard/releases/20260905-pcb-showcase/standalone`.
+- Previous systemd unit: `/opt/vibehard/releases/20260909-demo-gif/vibehard.service.previous`.
+- Gateway remains on `/opt/vibehard/releases/20260830-1825`; it was not restarted during this frontend release.
 - Platform and Gateway run on `47.102.197.71`.
 - The active Codex Runner runs on the development Mac with workspace root `/Users/hushaohong/vibehard/.runner-workspaces`.
 - The server does not yet have an installed and authenticated Codex CLI, so it does not run the Agent executor.
+
+### PCB and showcase release, 2026-09-05
+
+The server database was checked read-only and still lacks migration `0002` (`runner_nodes.instance_id` is absent). To avoid introducing the pending backend/Runner changes in a visual update, this release was built from foundation commit `96c4991` with the current PCB preview, demo page/media, BOM empty-state fix, login/register copy and homepage demo links overlaid in a separate build directory. It does not include the newer admin overview or Runner hardening commits. The main working tree was not reverted.
+
+Build staging directory: `/tmp/vibehard-release-20260905-jGzLdU`. The published source snapshot and release manifest are retained alongside the server release. `release-v2.tar.gz` SHA-256: `4e8e5084fbc61ff54e39c2f8d4c14b00e8038209d30131b8dced04e2ae1f0d7e`.
+
+The package preserves relative pnpm symlinks, includes `public`, `.next/static` and `@swc/helpers/esm`, and excludes macOS sharp native packages. It was preflighted on loopback port `3211`, then verified on port `3210` and `https://ldcx.tech`: login page, protected PCB page rendering, unauthenticated API rejection, detailed PCB client bundle, demo page and all five MP4 resources. The temporary preview service was stopped. VibeBoard and Gateway process IDs stayed unchanged. No database migration or nginx change was performed.
+
+To roll back, restore the saved unit to `/etc/systemd/system/vibehard.service`, run `systemctl daemon-reload`, then restart only `vibehard.service`. The existing unit uses an explicit release path; there is no `/opt/vibehard/current` symlink.
+
+### Demo GIF release, 2026-09-09
+
+The `/vibehard/demo` page was refreshed to use native animated GIF media for all five workflow recordings. This release was built from the same deployment baseline `96c4991` with only `app/demo`, `public/demo` and `next.config.ts` overlaid, so the production database and Runner/Gateway services were not changed. It was preflighted on port `3211` and then activated on port `3210`; `vibeboard.service` and Gateway PIDs stayed unchanged.
 
 ## Route ownership
 
@@ -19,6 +34,10 @@ As of 2026-08-30:
 - `/zutils/`: existing VibeHard static compatibility route.
 
 The nginx container bind-mounts a single configuration file read-only. A host-side edit that replaces the file inode is not visible after `nginx -s reload`; restart the nginx container once to remount it, after `nginx -t` succeeds.
+
+### SSH access from the development Mac
+
+The deploy key `/Users/hushaohong/.ssh/ldcx_vibeboard_deploy` is passphrase-protected. The passphrase is stored in the developer Mac's macOS Keychain and SSH loads it automatically when `-o UseKeychain=yes` is passed to `ssh`/`scp`. Do not ask the user for the passphrase; if reloading is needed, run `ssh-add --apple-use-keychain /Users/hushaohong/.ssh/ldcx_vibeboard_deploy`.
 
 ## Runtime layout
 

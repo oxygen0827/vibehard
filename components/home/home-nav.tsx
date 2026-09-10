@@ -52,6 +52,12 @@ export function HomeNav() {
 
       <div className="flex items-center gap-2 sm:gap-3">
         <ThemeToggle />
+        <Link
+          href="/demo"
+          className="hidden rounded-lg px-3 py-2 text-[13px] font-semibold text-muted-foreground transition-colors duration-200 hover:text-foreground sm:inline-flex"
+        >
+          流程演示
+        </Link>
         {isLoggedIn ? (
           <Link
             href="/app"

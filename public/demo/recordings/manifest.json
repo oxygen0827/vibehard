@@ -1,0 +1,32 @@
+{
+  "design": {
+    "source": "4.gif",
+    "duration": 8.64,
+    "width": 1600,
+    "height": 900
+  },
+  "datasheets": {
+    "source": "5.gif",
+    "duration": 11.76,
+    "width": 1600,
+    "height": 900
+  },
+  "pcb": {
+    "source": "Sep-09-2026 18-02-48.mp4",
+    "duration": 13.61,
+    "width": 1600,
+    "height": 900
+  },
+  "debug": {
+    "source": "3.gif",
+    "duration": 19.02,
+    "width": 1600,
+    "height": 900
+  },
+  "embedded": {
+    "source": "2.gif",
+    "duration": 6.81,
+    "width": 1600,
+    "height": 900
+  }
+}

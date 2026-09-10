@@ -99,10 +99,6 @@ export default function LoginPage() {
           </Button>
         </form>
 
-        <p className="mt-4 rounded-lg border border-border/60 bg-background/70 px-3 py-2 text-center text-xs text-muted-foreground">
-          演示账号：demo@vibehard.ai / demo1234
-        </p>
-
         <div className="mt-4 text-center">
           <Link
             href="/"

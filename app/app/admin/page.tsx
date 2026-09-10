@@ -11,6 +11,7 @@ type Overview = {
   models: Array<{ id: string; providerId: string; model: string; displayName: string; enabled: boolean; capabilities?: string[] }>;
   projects: Array<{ id: string; name: string; workspaceKey: string; runnerKey: string | null; defaultModel: string; userEmail: string; updatedAt: string }>;
   auditLogs: Array<{ id: string; action: string; userEmail: string | null; createdAt: string; metadata: Record<string, unknown> }>;
+  users: Array<{ id: string; email: string; name: string; role: string; createdAt: string }>;
 };
 
 async function loadOverview() {
@@ -27,6 +28,22 @@ export default function AdminPage() {
   const [data, setData] = useState<Overview | null>(null);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(true);
+  const [passwords, setPasswords] = useState<Record<string, string>>({});
+  const [resetting, setResetting] = useState<string | null>(null);
+  const [resetMessage, setResetMessage] = useState<Record<string, string>>({});
+  const resetPassword = async (userId: string) => {
+    const password = passwords[userId] ?? "";
+    if (password.length < 8) { setResetMessage((current) => ({ ...current, [userId]: "密码至少需要 8 位" })); return; }
+    setResetting(userId); setResetMessage((current) => ({ ...current, [userId]: "" }));
+    try {
+      const response = await fetch(apiPath(`/api/admin/users/${userId}/reset-password`), { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ password }) });
+      const result = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(result.error ?? "重置失败");
+      setPasswords((current) => ({ ...current, [userId]: "" }));
+      setResetMessage((current) => ({ ...current, [userId]: "已重置" }));
+    } catch (reason) { setResetMessage((current) => ({ ...current, [userId]: reason instanceof Error ? reason.message : "重置失败" })); }
+    finally { setResetting(null); }
+  };
   const refresh = () => { setLoading(true); setError(""); void loadOverview().then(setData).catch((reason) => setError(reason instanceof Error ? reason.message : "管理数据加载失败")).finally(() => setLoading(false)); };
   useEffect(() => {
     let active = true;
@@ -48,5 +65,6 @@ export default function AdminPage() {
     </div>
     <div className="mt-6 grid gap-6 xl:grid-cols-[1.15fr_0.85fr]"><section className="rounded-lg border border-border/70 bg-card/40"><div className="border-b border-border/70 p-5"><h2 className="font-semibold">最近项目</h2></div><div className="overflow-x-auto"><table className="w-full text-left text-sm"><thead className="text-xs text-muted-foreground"><tr><th className="px-5 py-3 font-medium">项目</th><th className="px-5 py-3 font-medium">用户</th><th className="px-5 py-3 font-medium">Runner</th><th className="px-5 py-3 font-medium">更新</th></tr></thead><tbody className="divide-y divide-border/60">{data.projects.length === 0 ? <tr><td colSpan={4} className="px-5 py-5 text-muted-foreground">暂无项目</td></tr> : data.projects.map((project) => <tr key={project.id}><td className="max-w-48 truncate px-5 py-3 font-medium">{project.name}</td><td className="max-w-48 truncate px-5 py-3 text-muted-foreground">{project.userEmail}</td><td className="px-5 py-3 font-mono text-xs text-muted-foreground">{project.runnerKey ?? "未绑定"}</td><td className="whitespace-nowrap px-5 py-3 text-xs text-muted-foreground">{date(project.updatedAt)}</td></tr>)}</tbody></table></div></section>
       <section className="rounded-lg border border-border/70 bg-card/40"><div className="border-b border-border/70 p-5"><h2 className="font-semibold">审计日志</h2></div><div className="divide-y divide-border/60">{data.auditLogs.length === 0 ? <p className="p-5 text-sm text-muted-foreground">暂无审计记录</p> : data.auditLogs.slice(0, 10).map((log) => <div key={log.id} className="p-4"><div className="flex items-center justify-between gap-3"><p className="truncate text-xs font-medium">{log.action}</p><time className="shrink-0 text-[10px] text-muted-foreground">{date(log.createdAt)}</time></div><p className="mt-1 truncate text-[11px] text-muted-foreground">{log.userEmail ?? "系统"}</p></div>)}</div></section></div>
+    <section className="mt-6 rounded-lg border border-border/70 bg-card/40"><div className="border-b border-border/70 p-5"><h2 className="font-semibold">用户与密码重置</h2><p className="mt-1 text-xs text-muted-foreground">为用户设置新的临时密码，密码不会显示在响应或日志中。</p></div><div className="divide-y divide-border/60">{data.users.map((user) => <div key={user.id} className="flex flex-wrap items-center gap-3 p-4"><div className="min-w-52 flex-1"><p className="text-sm font-medium">{user.email}</p><p className="mt-1 text-xs text-muted-foreground">{user.name} · {user.role} · {date(user.createdAt)}</p></div><input type="password" value={passwords[user.id] ?? ""} onChange={(event) => setPasswords((current) => ({ ...current, [user.id]: event.target.value }))} placeholder="新密码（至少 8 位）" className="h-9 w-52 rounded-md border border-input bg-background px-3 text-sm" /><Button size="sm" onClick={() => void resetPassword(user.id)} disabled={resetting === user.id}>{resetting === user.id ? "重置中..." : "重置密码"}</Button>{resetMessage[user.id] && <span className="text-xs text-muted-foreground">{resetMessage[user.id]}</span>}</div>)}</div></section>
   </div>;
 }

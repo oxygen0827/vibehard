@@ -1,7 +1,11 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import Link from "next/link";
+import { useEffect, useMemo, useState } from "react";
 import {
+  ArrowRight,
+  FolderKanban,
+  Loader2,
   Package,
   FileDown,
   ShoppingCart,
@@ -13,9 +17,14 @@ import {
 } from "lucide-react";
 import { PageHeader } from "@/components/app/page-header";
 import { Button } from "@/components/ui/button";
-import { cn } from "@/lib/utils";
+import { apiPath, cn } from "@/lib/utils";
 
-/* -------------------- 方案 BOM -------------------- */
+interface Project {
+  id: string;
+  name: string;
+  workspaceKey: string;
+  defaultModel: string;
+}
 
 interface BomItem {
   ref: string;
@@ -44,7 +53,7 @@ const bomItems: BomItem[] = [
   { ref: "C6,C7", item: "滤波电容", model: "10µF ±20%", package: "0805", qty: 2, unitPrice: 0.05, source: "立创商城", smt: "基础库", stock: "充足", verified: true },
 ];
 
-const totalCost = bomItems.reduce((s, b) => s + b.unitPrice * b.qty, 0);
+const totalCost = bomItems.reduce((sum, item) => sum + item.unitPrice * item.qty, 0);
 
 /* -------------------- 物料库 -------------------- */
 
@@ -73,6 +82,36 @@ const stockCategories = ["全部", "核心板库", "传感器库", "电源管理
 export default function BomPage() {
   const [category, setCategory] = useState("全部");
   const [exported, setExported] = useState(false);
+  const [projects, setProjects] = useState<Project[]>([]);
+  const [selectedProjectId, setSelectedProjectId] = useState("");
+  const [projectsLoading, setProjectsLoading] = useState(true);
+  const [projectsError, setProjectsError] = useState("");
+
+  useEffect(() => {
+    let active = true;
+    void fetch(apiPath("/api/projects"), { cache: "no-store" })
+      .then(async (response) => {
+        const data = await response.json().catch(() => ({})) as { projects?: Project[]; error?: string };
+        if (!response.ok) throw new Error(data.error ?? "工程列表加载失败");
+        return data.projects ?? [];
+      })
+      .then((loadedProjects) => {
+        if (!active) return;
+        setProjects(loadedProjects);
+        setSelectedProjectId(loadedProjects[0]?.id ?? "");
+      })
+      .catch((reason) => {
+        if (active) setProjectsError(reason instanceof Error ? reason.message : "工程列表加载失败");
+      })
+      .finally(() => {
+        if (active) setProjectsLoading(false);
+      });
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  const selectedProject = projects.find((project) => project.id === selectedProjectId) ?? null;
 
   const filteredStock = useMemo(
     () => stockItems.filter((s) => category === "全部" || s.category === category),
@@ -88,97 +127,138 @@ export default function BomPage() {
       />
 
       {/* 方案 BOM */}
-      <div className="rounded-xl border border-border/80 bg-card p-5">
-        <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
-          <h3 className="flex items-center gap-2 text-sm font-semibold text-foreground">
-            方案 BOM
-            <span className="rounded-md bg-primary/10 px-2 py-0.5 text-[11px] font-semibold text-primary">
-              温湿度监测节点 v0.1
-            </span>
-          </h3>
-          <div className="flex flex-wrap gap-2">
-            <Button
-              variant="outline"
-              className="gap-2"
-              onClick={() => setExported(true)}
-              disabled={exported}
-            >
-              <FileDown className="h-4 w-4" />
-              {exported ? "已导出 BOM.csv" : "导出 BOM"}
-            </Button>
-            <Button variant="outline" className="gap-2">
-              <ShoppingCart className="h-4 w-4" />
-              立创一键下单
-            </Button>
-            <Button className="gap-2">
-              <Zap className="h-4 w-4" />
-              一键 SMT 贴片
-            </Button>
+      {projectsLoading ? (
+        <div className="flex min-h-64 items-center justify-center rounded-xl border border-border/80 bg-card p-5 text-sm text-muted-foreground">
+          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+          正在加载工程...
+        </div>
+      ) : projectsError ? (
+        <div className="rounded-xl border border-red-500/20 bg-red-500/5 p-6 text-center">
+          <p className="text-sm text-red-500">{projectsError}</p>
+          <p className="mt-2 text-xs text-muted-foreground">请刷新页面后重试。</p>
+        </div>
+      ) : !selectedProject ? (
+        <div className="flex min-h-64 flex-col items-center justify-center rounded-xl border border-dashed border-border/80 bg-card/60 px-6 py-12 text-center">
+          <FolderKanban className="h-10 w-10 text-primary/70" />
+          <h2 className="mt-4 text-base font-semibold text-foreground">暂无工程，暂时没有 BOM</h2>
+          <p className="mt-2 max-w-md text-sm leading-6 text-muted-foreground">
+            先创建一个工程并生成方案，当前工程的物料清单会显示在这里。
+          </p>
+          <Link
+            href="/app/agent"
+            className="mt-5 inline-flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90"
+          >
+            去创建工程
+            <ArrowRight className="h-4 w-4" />
+          </Link>
+        </div>
+      ) : (
+        <div className="rounded-xl border border-border/80 bg-card p-5">
+          <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+            <h3 className="flex items-center gap-2 text-sm font-semibold text-foreground">
+              当前工程 BOM
+              <select
+                aria-label="选择工程"
+                value={selectedProject.id}
+                onChange={(event) => {
+                  setSelectedProjectId(event.target.value);
+                  setExported(false);
+                }}
+                className="max-w-56 truncate rounded-md border border-border bg-background px-2 py-1 text-[11px] font-medium text-primary outline-none"
+              >
+                {projects.map((project) => (
+                  <option key={project.id} value={project.id}>{project.name}</option>
+                ))}
+              </select>
+            </h3>
+            <div className="flex flex-wrap gap-2">
+              <Button
+                variant="outline"
+                className="gap-2"
+                onClick={() => setExported(true)}
+                disabled={exported}
+              >
+                <FileDown className="h-4 w-4" />
+                {exported ? "已导出 BOM.csv" : "导出 BOM"}
+              </Button>
+              <Button variant="outline" className="gap-2">
+                <ShoppingCart className="h-4 w-4" />
+                立创一键下单
+              </Button>
+              <Button className="gap-2">
+                <Zap className="h-4 w-4" />
+                一键 SMT 贴片
+              </Button>
+            </div>
           </div>
-        </div>
 
-        <div className="overflow-x-auto rounded-lg border border-border/60">
-          <table className="w-full min-w-[820px] text-sm">
-            <thead>
-              <tr className="border-b border-border/60 bg-background/70 text-xs text-muted-foreground">
-                <th className="px-3 py-2 text-left font-medium">位号</th>
-                <th className="px-3 py-2 text-left font-medium">物料</th>
-                <th className="px-3 py-2 text-left font-medium">型号 / 封装</th>
-                <th className="px-3 py-2 text-right font-medium">数量</th>
-                <th className="px-3 py-2 text-right font-medium">单价</th>
-                <th className="px-3 py-2 text-right font-medium">小计</th>
-                <th className="px-3 py-2 text-left font-medium">来源</th>
-                <th className="px-3 py-2 text-right font-medium">库存</th>
-              </tr>
-            </thead>
-            <tbody>
-              {bomItems.map((b) => (
-                <tr key={b.ref} className="border-b border-border/40 last:border-0">
-                  <td className="px-3 py-2 font-mono text-xs text-muted-foreground">{b.ref}</td>
-                  <td className="px-3 py-2 text-foreground">{b.item}</td>
-                  <td className="px-3 py-2">
-                    <span className="font-mono text-xs font-medium text-foreground">{b.model}</span>
-                    <span className="ml-1.5 font-mono text-[11px] text-muted-foreground">{b.package}</span>
-                  </td>
-                  <td className="px-3 py-2 text-right text-muted-foreground">{b.qty}</td>
-                  <td className="px-3 py-2 text-right text-muted-foreground">¥{b.unitPrice.toFixed(2)}</td>
-                  <td className="px-3 py-2 text-right font-medium text-foreground">
-                    ¥{(b.unitPrice * b.qty).toFixed(2)}
-                  </td>
-                  <td className="px-3 py-2">
-                    {b.source === "库内" ? (
-                      <span className="inline-flex items-center gap-1 rounded bg-emerald-500/10 px-1.5 py-0.5 text-[11px] font-semibold text-emerald-500">
-                        <ShieldCheck className="h-3 w-3" />
-                        库内·已验证
-                      </span>
-                    ) : (
-                      <span className="inline-flex items-center gap-1 rounded bg-blue-500/10 px-1.5 py-0.5 text-[11px] font-semibold text-blue-500">
-                        <Store className="h-3 w-3" />
-                        立创{b.smt ? `·${b.smt}` : ""}
-                      </span>
-                    )}
-                  </td>
-                  <td className="px-3 py-2 text-right text-xs text-muted-foreground">{b.stock}</td>
+          <div className="overflow-x-auto rounded-lg border border-border/60">
+            <table className="w-full min-w-[820px] text-sm">
+              <thead>
+                <tr className="border-b border-border/60 bg-background/70 text-xs text-muted-foreground">
+                  <th className="px-3 py-2 text-left font-medium">位号</th>
+                  <th className="px-3 py-2 text-left font-medium">物料</th>
+                  <th className="px-3 py-2 text-left font-medium">型号 / 封装</th>
+                  <th className="px-3 py-2 text-right font-medium">数量</th>
+                  <th className="px-3 py-2 text-right font-medium">单价</th>
+                  <th className="px-3 py-2 text-right font-medium">小计</th>
+                  <th className="px-3 py-2 text-left font-medium">来源</th>
+                  <th className="px-3 py-2 text-right font-medium">库存</th>
                 </tr>
-              ))}
-              <tr className="bg-background/70">
-                <td colSpan={5} className="px-3 py-2.5 text-right text-sm font-medium text-muted-foreground">
-                  单板物料合计（不含 PCB 板费与贴片费）
-                </td>
-                <td className="px-3 py-2.5 text-right text-sm font-bold text-primary">
-                  ¥{totalCost.toFixed(2)}
-                </td>
-                <td colSpan={2} />
-              </tr>
-            </tbody>
-          </table>
-        </div>
+              </thead>
+              <tbody>
+                {bomItems.map((item) => (
+                  <tr key={item.ref} className="border-b border-border/40 last:border-0">
+                    <td className="px-3 py-2 font-mono text-xs text-muted-foreground">{item.ref}</td>
+                    <td className="px-3 py-2 text-foreground">{item.item}</td>
+                    <td className="px-3 py-2">
+                      <span className="font-mono text-xs font-medium text-foreground">{item.model}</span>
+                      <span className="ml-1.5 font-mono text-[11px] text-muted-foreground">{item.package}</span>
+                    </td>
+                    <td className="px-3 py-2 text-right text-muted-foreground">{item.qty}</td>
+                    <td className="px-3 py-2 text-right text-muted-foreground">¥{item.unitPrice.toFixed(2)}</td>
+                    <td className="px-3 py-2 text-right font-medium text-foreground">
+                      ¥{(item.unitPrice * item.qty).toFixed(2)}
+                    </td>
+                    <td className="px-3 py-2">
+                      {item.source === "库内" ? (
+                        <span className="inline-flex items-center gap-1 rounded bg-emerald-500/10 px-1.5 py-0.5 text-[11px] font-semibold text-emerald-500">
+                          <ShieldCheck className="h-3 w-3" />
+                          库内·已验证
+                        </span>
+                      ) : (
+                        <span className="inline-flex items-center gap-1 rounded bg-blue-500/10 px-1.5 py-0.5 text-[11px] font-semibold text-blue-500">
+                          <Store className="h-3 w-3" />
+                          立创{item.smt ? `·${item.smt}` : ""}
+                        </span>
+                      )}
+                    </td>
+                    <td className="px-3 py-2 text-right text-xs text-muted-foreground">{item.stock}</td>
+                  </tr>
+                ))}
+                <tr className="bg-background/70">
+                  <td colSpan={5} className="px-3 py-2.5 text-right text-sm font-medium text-muted-foreground">
+                    单板物料合计（不含 PCB 板费与贴片费）
+                  </td>
+                  <td className="px-3 py-2.5 text-right text-sm font-bold text-primary">
+                    ¥{totalCost.toFixed(2)}
+                  </td>
+                  <td colSpan={2} />
+                </tr>
+              </tbody>
+            </table>
+          </div>
 
-        <p className="mt-3 flex items-start gap-1.5 text-xs text-muted-foreground">
-          <Info className="mt-0.5 h-3.5 w-3.5 shrink-0" />
-          选型规则：库内已验证物料优先；库外器件经立创商城 API 按分类调用，SMT 优先基础库 → 推荐库 → 扩展库
-        </p>
-      </div>
+          <p className="mt-3 flex items-start gap-1.5 text-xs text-muted-foreground">
+            <Info className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+            当前展示的是该工程的方案 BOM；库内已验证物料优先，库外器件按基础库 → 推荐库 → 扩展库匹配
+          </p>
+        </div>
+      )}
+
+      <p className="mt-3 text-xs text-muted-foreground">
+        当前工程 BOM 与下方全局物料库相互独立；物料库中的器件不会自动计入工程 BOM。
+      </p>
 
       {/* 物料库 */}
       <div className="mt-8">
