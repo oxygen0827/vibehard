@@ -91,16 +91,17 @@ export default function DemoPage() {
           <section id={chapter.id} key={chapter.id} className={styles.chapter} data-tone={chapter.slug} aria-labelledby={`${chapter.id}-title`}>
             <div className={styles.container}>
               <div className={styles.chapterHeading}>
-                <div>
-                  <p className={styles.kicker}><Icon size={17} />{chapter.kicker}</p>
-                  <h2 id={`${chapter.id}-title`}>{chapter.title}</h2>
-                </div>
+                <p className={styles.kicker}><Icon size={17} />{chapter.kicker}</p>
+                <h2 id={`${chapter.id}-title`}>{chapter.title}</h2>
                 <p className={styles.description}>{chapter.description}</p>
               </div>
               <DemoPlayer slug={chapter.slug} label={chapter.label} index={index + 1} />
               <div className={styles.chapterIntroduction}>
-                <span>模块简介</span>
-                <p>{chapter.introduction}</p>
+                <span aria-hidden="true" />
+                <div>
+                  <p className={styles.introductionLabel}>模块简介</p>
+                  <p>{chapter.introduction}</p>
+                </div>
               </div>
               <div className={styles.chapterDetails}>
                 <p>{chapter.specimen}</p>

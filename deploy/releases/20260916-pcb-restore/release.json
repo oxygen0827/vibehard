@@ -1,0 +1,19 @@
+{
+  "release": "20260916-pcb-restore",
+  "baseCommit": "96c4991",
+  "basePath": "/vibehard",
+  "previousRelease": "20260910-demo-copy",
+  "sourceOverlays": [
+    "app/demo",
+    "public/demo",
+    "next.config.ts",
+    "app/app/pcb",
+    "components/pcb"
+  ],
+  "pcbPreview": "TH-NODE / REV 0.2",
+  "databaseMigration": false,
+  "standaloneArchiveSha256": "be09c5520e5e347b839cc948ea554a4adcc82f8b533d3ea43ce4a40ebd459bdd",
+  "sourceArchiveSha256": "fd5d98212b89c72bafea4c17dc5c55d1db6b4d3be2285ee40ea195fafb365cb8",
+  "verificationScript": "scripts/verify-frontend-release.mjs",
+  "sourceArchiveLocation": "/opt/vibehard/releases/20260916-pcb-restore/vibehard-20260916-pcb-restore-source.tar.gz"
+}

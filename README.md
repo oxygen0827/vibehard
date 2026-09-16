@@ -6,17 +6,19 @@ VibeHard 是面向嵌入式与智能硬件研发的项目工作台。平台把�
 
 ## 当前状态
 
-基础版 P0 已在 2026-08-30 部署到 [https://ldcx.tech/vibehard/](https://ldcx.tech/vibehard/)。仓库当前分支在该基线上增加了协议校验、Runner journal、并发状态机和安全修复；上线此版本前必须先应用 `drizzle/0002_lucky_daimon_hellstrom.sql`。
+截至 2026-09-16，[线上平台](https://ldcx.tech/vibehard/)已发布新版 PCB v0.2 示例预览，并保留最新 Demo 排版和五段 GIF。线上使用 `96c4991` 基线加前端覆盖文件，不等同于当前分支的完整后端。当前分支中的协议校验、Runner journal、并发状态机等后端改动上线前，仍需先应用 `drizzle/0002_lucky_daimon_hellstrom.sql`。
+
+**当前对话不可用：Mac mini 的 VibeHard Runner 未运行。** 最后心跳为 2026-08-31 19:21:39（北京时间），数据库残留的 `online` 状态不代表仍在线。尚未恢复 Runner，也未完成真实对话验收。详见[当前状态与交接](docs/current-status.md)。
 
 - 现有 WebHUD/VibeBoard 继续占用 `/` 和 `/api`，VibeHard 部署没有修改它的 UI、服务或数据。
 - Next.js 平台运行在服务器 `47.102.197.71:3210`，由 `vibehard.service` 管理。
 - PostgreSQL 15 运行在同一服务器，只监听本机地址，VibeHard 使用独立数据库和用户。
 - Runner Gateway 由 `vibehard-gateway.service` 管理，只监听 Docker 桥接地址 `172.17.0.1:8787`，公网只能通过 `wss://ldcx.tech/vibehard/runner` 访问。
-- 当前 Codex Runner 运行在开发 Mac 上，使用本机已认证的 Codex CLI；Mac 关机、休眠或断网时，平台仍可访问，但 Agent 任务暂时不能执行。
+- Codex Runner 的执行机配置为开发 Mac mini，目前未运行；Mac 关机、休眠、断网或 Runner 停止时，平台仍可访问，但 Agent 任务不能执行。
 - 当前 Runner 工作区位于执行机上的 `/Users/hushaohong/vibehard/.runner-workspaces/`。将 Runner 迁移到服务器后，工作区也必须迁到服务器磁盘，不会自动与 Mac 同步。
 - `/app/agent` 已接入真实项目、thread、turn、事件流和 Codex Runner。方案生成、原理图、资料解析、调试、PCB、嵌入式开发等旧页面第一阶段仍保留原 UI，尚未全部接入 Agent Task API。
 
-生产部署边界、目录和回滚方式见 [`docs/deployment-ldcx.md`](docs/deployment-ldcx.md)。
+文档入口见 [docs/README.md](docs/README.md)，脚本用途见 [scripts/README.md](scripts/README.md)。生产部署边界、目录和回滚方式见 [docs/deployment-ldcx.md](docs/deployment-ldcx.md)。
 
 ## 系统架构
 

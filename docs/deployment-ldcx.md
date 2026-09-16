@@ -2,14 +2,14 @@
 
 ## Current deployment
 
-As of 2026-09-09:
+As of 2026-09-16:
 
-- Active frontend release: `/opt/vibehard/releases/20260909-demo-gif/standalone`.
-- Previous frontend release retained for rollback: `/opt/vibehard/releases/20260905-pcb-showcase/standalone`.
-- Previous systemd unit: `/opt/vibehard/releases/20260909-demo-gif/vibehard.service.previous`.
+- Active frontend release: `/opt/vibehard/releases/20260916-pcb-restore/standalone`.
+- Previous frontend release retained for rollback: `/opt/vibehard/releases/20260910-demo-copy/standalone` (contains the old PCB preview).
+- Previous systemd unit: `/opt/vibehard/releases/20260916-pcb-restore/vibehard.service.previous`.
 - Gateway remains on `/opt/vibehard/releases/20260830-1825`; it was not restarted during this frontend release.
 - Platform and Gateway run on `47.102.197.71`.
-- The active Codex Runner runs on the development Mac with workspace root `/Users/hushaohong/vibehard/.runner-workspaces`.
+- The Codex Runner is configured for the development Mac with workspace root `/Users/hushaohong/vibehard/.runner-workspaces`, but was not running at the 2026-09-16 status check. The last heartbeat was 2026-08-31 19:21:39 +08:00; the stored `online` flag is stale. See [current-status.md](current-status.md).
 - The server does not yet have an installed and authenticated Codex CLI, so it does not run the Agent executor.
 
 ### PCB and showcase release, 2026-09-05
@@ -25,6 +25,30 @@ To roll back, restore the saved unit to `/etc/systemd/system/vibehard.service`, 
 ### Demo GIF release, 2026-09-09
 
 The `/vibehard/demo` page was refreshed to use native animated GIF media for all five workflow recordings. This release was built from the same deployment baseline `96c4991` with only `app/demo`, `public/demo` and `next.config.ts` overlaid, so the production database and Runner/Gateway services were not changed. It was preflighted on port `3211` and then activated on port `3210`; `vibeboard.service` and Gateway PIDs stayed unchanged.
+
+### Demo copy layout release, 2026-09-10
+
+The five module descriptions on `/vibehard/demo` were moved beneath their section titles and reduced in size. The lower module-introduction blocks were also restyled with clearer label, copy and metadata hierarchy. This release was built from baseline `96c4991` with only `app/demo`, `public/demo` and `next.config.ts` overlaid, so it remains compatible with the existing production database.
+
+The standalone package was preflighted locally and on server loopback port `3211`, then activated on port `3210`. The public page and all five GIF resources returned HTTP 200, the new copy was present in the rendered HTML, and the root VibeBoard route remained available. `vibeboard.service`, Gateway and nginx container PIDs stayed unchanged. No database migration, nginx change or non-VibeHard service restart was performed. The temporary preview process and uploaded archive were removed after verification. Package SHA-256: `af03d41661a59e1c1779312e9eafcfa24a18a7daf3538991e565d9e7e22f90da`.
+
+### PCB preview restoration, 2026-09-16
+
+The September 9 and 10 Demo-only builds omitted the PCB overlay previously published on September 5, reverting `/vibehard/app/pcb` to the old preview. This release restores the detailed TH-NODE v0.2 example with assembly/routing views, copper and silkscreen visibility, zoom/pan and PNG export. This remains an example preview; it does not add EDA generation or production Gerber export.
+
+The build uses baseline `96c4991` with the full current overlay: `app/demo`, `public/demo`, `next.config.ts`, `app/app/pcb` and `components/pcb`. Preserve this full list in subsequent visual releases. The source snapshot, `RELEASE.json`, verification script, activation script and previous systemd unit are retained in `/opt/vibehard/releases/20260916-pcb-restore/`. No database migration was required.
+
+Six existing PCB/Demo tests and the production build passed. `scripts/verify-frontend-release.mjs` passed against the local standalone, server preview, active service and public domain. It verifies a short-lived fictional user's PCB page render, the detailed drawing code in the assets actually referenced by that page, the unauthenticated redirect/API guard, and all five GIF hashes. The Demo's rendered body markup also matched production before and after the switch. VibeBoard, Gateway and nginx process IDs remained unchanged. The temporary preview service was stopped after verification.
+
+Standalone archive SHA-256: `be09c5520e5e347b839cc948ea554a4adcc82f8b533d3ea43ce4a40ebd459bdd`. Source archive SHA-256: `fd5d98212b89c72bafea4c17dc5c55d1db6b4d3be2285ee40ea195fafb365cb8`.
+
+On the server, verify the active release without exposing credentials:
+
+```bash
+node --env-file=/etc/vibehard/platform.env \
+  /opt/vibehard/releases/20260916-pcb-restore/verify-frontend-release.mjs \
+  https://ldcx.tech /opt/vibehard/releases/20260916-pcb-restore/standalone
+```
 
 ## Route ownership
 

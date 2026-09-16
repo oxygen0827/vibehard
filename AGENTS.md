@@ -10,8 +10,11 @@ This block is written and re-added by `next dev` — verify at `node_modules/nex
 
 ## Deployment notes (production)
 
+- Read `docs/current-status.md` for the latest verified runtime state and pending work; `docs/README.md` indexes the project documentation. Do not infer Runner availability from a stored `online` flag without checking heartbeat freshness and the live connection.
 - Deployment host: `root@47.102.197.71`; VibeHard base path: `/vibehard`.
 - SSH key: `/Users/hushaohong/.ssh/ldcx_vibeboard_deploy` is passphrase-protected.
 - On this development Mac the passphrase is stored in the macOS Keychain. Use `-o UseKeychain=yes` on `ssh`/`scp` so it unlocks automatically.
 - Do not ask the user for the passphrase. If a prompt still appears, run `ssh-add --apple-use-keychain /Users/hushaohong/.ssh/ldcx_vibeboard_deploy`.
 - Do not restart `vibeboard.service`, the nginx container, or the Gateway unless the task explicitly requires it.
+- Frontend releases must preserve the complete published source overlay listed in the active release's `RELEASE.json` and `docs/deployment-ldcx.md`. When building from `96c4991`, include both the current Demo (`app/demo`, `public/demo`, `next.config.ts`) and PCB preview (`app/app/pcb`, `components/pcb`); a Demo-only overlay previously reverted the PCB page.
+- Before and after activation, run `scripts/verify-frontend-release.mjs` against the actual release. It checks the protected PCB page and its referenced renderer bundle as well as Demo assets; checking only `/demo` is insufficient.
