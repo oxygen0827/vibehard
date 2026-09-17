@@ -10,6 +10,8 @@ VibeHard 是面向嵌入式与智能硬件研发的项目工作台。平台把�
 
 **当前对话不可用：Mac mini 的 VibeHard Runner 未运行。** 最后心跳为 2026-08-31 19:21:39（北京时间），数据库残留的 `online` 状态不代表仍在线。尚未恢复 Runner，也未完成真实对话验收。详见[当前状态与交接](docs/current-status.md)。
 
+2026-09-17 已准备云端非 root Runner、隔离工具链和工程下载功能，候选版本与数据库副本检查通过；正在等待用户提供独立模型 API 配置，尚未切换正式服务。部署边界见 [云端 Runner 说明](deploy/runner/README.md)。
+
 - 现有 WebHUD/VibeBoard 继续占用 `/` 和 `/api`，VibeHard 部署没有修改它的 UI、服务或数据。
 - Next.js 平台运行在服务器 `47.102.197.71:3210`，由 `vibehard.service` 管理。
 - PostgreSQL 15 运行在同一服务器，只监听本机地址，VibeHard 使用独立数据库和用户。

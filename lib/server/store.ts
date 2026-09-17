@@ -96,7 +96,7 @@ export async function createProject(userId: string, input: { name: string; works
   return project;
 }
 
-async function ownedProject(userId: string, projectId: string) {
+export async function ownedProject(userId: string, projectId: string) {
   if (!db) return memory.projects.find((project) => project.id === projectId && project.userId === userId) ?? null;
   return (await db.select().from(projects).where(and(eq(projects.id, projectId), eq(projects.userId, userId))).limit(1))[0] ?? null;
 }

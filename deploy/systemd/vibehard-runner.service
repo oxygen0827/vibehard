@@ -1,0 +1,36 @@
+[Unit]
+Description=VibeHard cloud Codex Runner
+After=network-online.target vibehard-gateway.service
+Wants=network-online.target
+ConditionPathExists=/etc/vibehard/model.env
+ConditionPathExists=/etc/vibehard/codex/config.toml
+
+[Service]
+Type=simple
+User=vibehard-runner
+Group=vibehard-runner
+WorkingDirectory=/opt/vibehard/cloud-runner
+EnvironmentFile=/etc/vibehard/runner.env
+EnvironmentFile=/etc/vibehard/model.env
+Environment=NODE_ENV=production
+ExecStart=/opt/vibehard/toolchain/bin/node /opt/vibehard/cloud-runner/runner.cjs
+Restart=always
+RestartSec=5
+KillMode=control-group
+TimeoutStopSec=20
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+PrivateTmp=true
+PrivateDevices=true
+ReadWritePaths=/var/lib/vibehard-runner
+UMask=0077
+MemoryMax=2G
+MemorySwapMax=0
+CPUQuota=150%
+TasksMax=128
+LimitNOFILE=2048
+LimitFSIZE=268435456
+
+[Install]
+WantedBy=multi-user.target

@@ -62,6 +62,7 @@ export function AgentWorkbench() {
   const [events, setEvents] = useState<AgentEvent[]>([]);
   const [approvals, setApprovals] = useState<Approval[]>([]);
   const [artifacts, setArtifacts] = useState<Artifact[]>([]);
+  const [downloading, setDownloading] = useState(false);
   const [input, setInput] = useState("");
   const [newProject, setNewProject] = useState("");
   const [modelProfileId, setModelProfileId] = useState("");
@@ -228,6 +229,25 @@ export function AgentWorkbench() {
     }
   };
 
+  const downloadProject = async () => {
+    if (!projectId || downloading) return;
+    setDownloading(true);
+    try {
+      const response = await fetch(apiPath(`/api/projects/${projectId}/download`));
+      if (!response.ok) {
+        const data = await response.json();
+        throw new Error(data.error || "工程下载失败");
+      }
+      const url = URL.createObjectURL(await response.blob());
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = `vibehard-${projectId}.zip`;
+      link.click();
+      setTimeout(() => URL.revokeObjectURL(url), 1000);
+    } catch (reason) { setError(reason instanceof Error ? reason.message : "工程下载失败"); }
+    finally { setDownloading(false); }
+  };
+
   const decide = async (approvalId: string, decision: "approve" | "reject") => {
     if (deciding.includes(approvalId)) return;
     setDeciding((current) => [...current, approvalId]);
@@ -284,7 +304,7 @@ export function AgentWorkbench() {
         const pending = deciding.includes(approval.id);
         return <div key={approval.id} className="rounded-md border border-amber-500/30 bg-amber-500/5 p-3"><div className="flex items-start gap-2"><AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-amber-500" /><div className="min-w-0"><p className="text-xs font-semibold text-foreground">{approval.risk === "write" ? "写入工作区" : "执行命令"}</p><p className="mt-1 break-words text-xs leading-5 text-muted-foreground">{approval.description}</p>{details.command !== undefined && <p className="mt-2 break-all rounded bg-muted p-2 font-mono text-[10px]">{String(details.command)}</p>}{details.cwd !== undefined && <p className="mt-2 break-all font-mono text-[10px] text-muted-foreground">目录: {String(details.cwd)}</p>}{details.targetPath !== undefined && <p className="mt-1 break-all font-mono text-[10px] text-muted-foreground">路径: {String(details.targetPath)}</p>}</div></div><div className="mt-3 flex gap-2"><Button size="sm" className="h-7 flex-1 gap-1 text-xs" onClick={() => void decide(approval.id, "approve")} disabled={pending}>{pending ? <Loader2 className="h-3 w-3 animate-spin" /> : <Check className="h-3 w-3" />}允许</Button><Button size="sm" variant="outline" className="h-7 flex-1 gap-1 text-xs" onClick={() => void decide(approval.id, "reject")} disabled={pending}><CircleStop className="h-3 w-3" />拒绝</Button></div></div>;
       })}</div>}
-      <div className="my-5 border-t border-border/70" /><p className="mb-3 text-xs font-semibold uppercase text-muted-foreground">产物</p>{artifacts.length === 0 ? <p className="text-xs text-muted-foreground">暂无产物</p> : <div className="space-y-2">{artifacts.map((artifact) => <div key={artifact.id} className="rounded-md border border-border/70 p-2"><p className="truncate text-xs font-medium">{artifact.name}</p><p className="mt-1 truncate font-mono text-[10px] text-muted-foreground">{artifact.path}</p></div>)}</div>}
+      <div className="my-5 border-t border-border/70" /><div className="mb-3 flex items-center justify-between gap-2"><p className="text-xs font-semibold uppercase text-muted-foreground">产物</p><Button variant="outline" size="sm" disabled={!projectId || downloading} onClick={() => void downloadProject()}>{downloading ? "打包中…" : "下载工程"}</Button></div>{artifacts.length === 0 ? <p className="text-xs text-muted-foreground">暂无产物</p> : <div className="space-y-2">{artifacts.map((artifact) => <div key={artifact.id} className="rounded-md border border-border/70 p-2"><p className="truncate text-xs font-medium">{artifact.name}</p><p className="mt-1 truncate font-mono text-[10px] text-muted-foreground">{artifact.path}</p></div>)}</div>}
     </aside>
   </div>;
 }

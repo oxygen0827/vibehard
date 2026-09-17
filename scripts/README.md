@@ -8,6 +8,7 @@
 | `build-services.mjs` | 构建 Gateway、Runner、数据库迁移 bundle |
 | `migrate.ts` | 执行数据库迁移；只针对明确指定且已备份的目标数据库运行 |
 | `verify-frontend-release.mjs` | 只读检查登录保护、PCB v0.2 页面及其实际引用的绘图代码、Demo 文案和五个 GIF 哈希 |
+| `verify-cloud-preflight.mjs` | 仅限独立测试数据库／3211 与 8788 端口，创建测试账户和项目，模拟 Runner 验证消息链路与 ZIP 下载；不验证模型推理，拒绝连接正式库 |
 | `generate-demo-gifs.mjs` | 早期 Demo 动图生成工具，保留用于追溯 |
 | `prepare-live-demo-gifs.mjs` | 产品实录 GIF 处理工具 |
 | `prepare-pcb-reference-gif.mjs` | PCB 参考素材动图处理工具 |

@@ -78,6 +78,13 @@ async function handleCommand(socket: WebSocket, message: GatewayToRunnerMessage)
   }
 
   if (message.type === "task.start") {
+    const maxConcurrent = Math.max(1, Number(process.env.RUNNER_MAX_CONCURRENT_TASKS ?? 1) || 1);
+    if (sessions.size >= maxConcurrent) {
+      journal.markSeen(commandId);
+      sendEvent(taskEvent(message, "task.failed", { message: "云端执行器正忙，请稍后重新发送任务" }));
+      acknowledgeCommand(socket, commandId);
+      return;
+    }
     const currentTaskId = activeThreads.get(message.threadId);
     if (currentTaskId && currentTaskId !== message.taskId) {
       journal.markSeen(commandId);
