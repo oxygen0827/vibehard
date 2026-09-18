@@ -11,7 +11,7 @@ As of 2026-09-18:
 - Platform and Gateway run on `47.102.197.71`.
 - `cloud-runner` is the default production node and stores workspaces in `/var/lib/vibehard-runner/workspaces`.
 - `device-runner` runs on the Mac mini for USB, serial and flashing tasks; its workspace root is `/Users/hushaohong/vibehard/.runner-workspaces`.
-- The server does not yet have an installed and authenticated Codex CLI, so it does not run the Agent executor.
+- The server runs the pinned Codex CLI 0.149.1 through the unprivileged `vibehard-runner` service and bubblewrap wrapper. A fresh 2026-09-18 19:02 check found healthy services and heartbeats but repeated provider-network reconnects and a five-minute production-task timeout; treat executor availability as degraded until the full verification passes again.
 
 ### PCB and showcase release, 2026-09-05
 

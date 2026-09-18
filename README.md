@@ -6,17 +6,21 @@ VibeHard 是面向嵌入式与智能硬件研发的项目工作台。平台把�
 
 ## 当前状态
 
-截至 2026-09-16，[线上平台](https://ldcx.tech/vibehard/)已发布新版 PCB v0.2 示例预览，并保留最新 Demo 排版和五段 GIF。线上使用 `96c4991` 基线加前端覆盖文件，不等同于当前分支的完整后端。当前分支中的协议校验、Runner journal、并发状态机等后端改动上线前，仍需先应用 `drizzle/0002_lucky_daimon_hellstrom.sql`。
+截至 2026-09-18 19:02（北京时间），[线上平台](https://ldcx.tech/vibehard/)运行在完整的 `20260918-cloud-runner` 发布版，数据库迁移 `0002_lucky_daimon_hellstrom` 已应用。平台、Gateway 和云端 Runner 服务均为 `active/running`；`cloud-runner` 与 Mac mini 上的 `device-runner` 心跳正常。
 
-**当前云端对话可用。** 2026-09-18 已上线非 root 云端 Runner，真实完成 `gpt-5.6-sol` 回复、文件生成、审批、GCC 编译、程序运行和工程 ZIP 下载验收。Mac mini 设备 Runner 也已上线，用于后续 USB、串口和烧录；小电脑实机尚未接入。详见[当前状态与交接](docs/current-status.md)和[云端 Runner 说明](deploy/runner/README.md)。
+**网页和执行基础设施可用，但当前不能把云端模型对话标记为可用。** 当天早些时候的生产验收曾真实完成 `gpt-5.6-sol` 回复、文件生成、审批、GCC 编译、程序运行和工程 ZIP 下载；19:00 前后的重新实测中，浏览器任务连续显示 `Reconnecting... waiting for network`，正式生产构建验收也在 5 分钟后超时。平台登录、项目/会话创建、SSE、任务中断和 Runner 心跳均正常，故障点位于 Runner 发起模型请求后的上游网络/provider 链路。修复后必须重新跑完整生产验收，不能只依据 `online` 状态判断可用。
+
+本次浏览器实测还确认：公开首页、Demo、主题切换、登录/退出、普通成员管理页权限、PCB 示例生成、装配/布线切换和缩放均正常；PCB PNG 能生成并触发浏览器下载许可。PCB 仍是固定示例，Gerber 禁用。首页工作台的“本周使用、项目数、最近项目”等为展示数据，不代表生产数据库；原理图、方案、资料和嵌入式等旧页面也多数仍是演示 UI。
+
+新建项目选择 `cloud-runner` / `device-runner` 的代码和发布包已经准备好，但生产仍运行 `20260918-cloud-runner`，网页中尚未显示执行器选择器。小电脑实机尚未接入。详见[当前状态与交接](docs/current-status.md)和[云端 Runner 说明](deploy/runner/README.md)。
 
 - 现有 WebHUD/VibeBoard 继续占用 `/` 和 `/api`，VibeHard 部署没有修改它的 UI、服务或数据。
 - Next.js 平台运行在服务器 `47.102.197.71:3210`，由 `vibehard.service` 管理。
 - PostgreSQL 15 运行在同一服务器，只监听本机地址，VibeHard 使用独立数据库和用户。
 - Runner Gateway 由 `vibehard-gateway.service` 管理，只监听 Docker 桥接地址 `172.17.0.1:8787`，公网只能通过 `wss://ldcx.tech/vibehard/runner` 访问。
 - 默认 Codex Runner 运行在云服务器；Mac 关机不影响普通对话、生成和云端编译。需要 USB、串口或烧录的任务使用 Mac mini 设备 Runner，Mac 离线时这类任务不可执行。
-- 当前 Runner 工作区位于执行机上的 `/Users/hushaohong/vibehard/.runner-workspaces/`。将 Runner 迁移到服务器后，工作区也必须迁到服务器磁盘，不会自动与 Mac 同步。
-- `/app/agent` 已接入真实项目、thread、turn、事件流和 Codex Runner。方案生成、原理图、资料解析、调试、PCB、嵌入式开发等旧页面第一阶段仍保留原 UI，尚未全部接入 Agent Task API。
+- 云端 Runner 工作区位于服务器 `/var/lib/vibehard-runner/workspaces/`；设备 Runner 工作区位于 Mac mini 的 `/Users/hushaohong/vibehard/.runner-workspaces/`。两端工作区不会自动同步。
+- `/app/agent` 已接入真实项目、thread、turn、事件流和 Codex Runner；当前模型链路有超时故障。方案生成、原理图、资料解析、调试、PCB、嵌入式开发等旧页面第一阶段仍保留演示 UI，尚未全部接入 Agent Task API。
 
 文档入口见 [docs/README.md](docs/README.md)，脚本用途见 [scripts/README.md](scripts/README.md)。生产部署边界、目录和回滚方式见 [docs/deployment-ldcx.md](docs/deployment-ldcx.md)。
 
@@ -216,8 +220,8 @@ pnpm runner:test
 
 ## 下一步
 
-1. 将生产 Runner 从开发 Mac 迁移到已安装并认证 Codex 的长期在线服务器。
-2. 增加 Runner 凭据撤销/轮换管理界面、任务超时和排队策略。
-3. 把方案生成、原理图识别、资料解析和调试页面统一接入 Agent Task API。
-4. 补齐产物下载、审批超时、重试、监控和告警。
-5. 完善 Linux 容器 wrapper，以及串口、J-Link、OpenOCD、ESP-IDF 等设备授权和锁。
+1. 定位云端 Runner 到 `tokenadvent / gpt-5.6-sol` 的持续重连与超时，重新通过真实回复、文件写入、审批、GCC、运行和 ZIP 下载验收。
+2. 发布项目执行器选择页面，分别验证 `cloud-runner` 与 `device-runner` 路由。
+3. 导入“小电脑”基础工程、知识库、构建/烧录/日志命令，完成真实 USB 设备闭环。
+4. 把方案生成、原理图识别、资料解析和调试页面统一接入 Agent Task API，并移除或明确标注展示数据。
+5. 增加 Runner 凭据撤销/轮换、任务超时与排队、监控告警、设备授权和互斥锁。
