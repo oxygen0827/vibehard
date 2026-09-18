@@ -212,7 +212,10 @@ export class CodexSession {
         if (!this.terminalEmitted) this.fail(error);
         this.process = null;
       });
-      await this.request("initialize", { clientInfo: { name: "vibehard_runner", title: "VibeHard Runner", version: "0.1.0" } });
+      await this.request("initialize", {
+        clientInfo: { name: "vibehard_runner", title: "VibeHard Runner", version: "0.1.0" },
+        capabilities: { experimentalApi: true },
+      });
       this.send({ method: "initialized", params: {} });
       if (task.codexThreadId) {
         this.threadId = task.codexThreadId;

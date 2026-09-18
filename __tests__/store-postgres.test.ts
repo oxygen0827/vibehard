@@ -26,7 +26,7 @@ describeWithDatabase("PostgreSQL state transitions", () => {
     const project = await createProject(user.id, { name: "Postgres project", workspaceKey: `postgres-${suffix}` });
     const thread = await createThread(user.id, project.id, "Postgres thread");
     if (!thread) throw new Error("thread was not created");
-    const turn = await createTurn(user.id, thread.id, "Run integration test", "gpt-5.6-terra", "openai");
+    const turn = await createTurn(user.id, thread.id, "Run integration test", "gpt-5.6-sol", "tokenadvent");
     if (!turn) throw new Error("turn was not created");
 
     const runnerEvent = (type: RunnerEvent["event"]["type"], data: Record<string, unknown>): RunnerEvent => ({
@@ -38,7 +38,7 @@ describeWithDatabase("PostgreSQL state transitions", () => {
       event: { eventId: crypto.randomUUID(), sequence: 0, timestamp: new Date().toISOString(), type, data },
     });
 
-    await ingestRunnerEvent(runnerEvent("task.started", { model: "gpt-5.6-terra" }));
+    await ingestRunnerEvent(runnerEvent("task.started", { model: "gpt-5.6-sol" }));
     const approvalId = crypto.randomUUID();
     await ingestRunnerEvent(runnerEvent("approval.requested", { approvalId, tool: "command", risk: "command", description: "Run tests", command: "pnpm test" }));
 

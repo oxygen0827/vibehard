@@ -8,15 +8,13 @@ VibeHard 是面向嵌入式与智能硬件研发的项目工作台。平台把�
 
 截至 2026-09-16，[线上平台](https://ldcx.tech/vibehard/)已发布新版 PCB v0.2 示例预览，并保留最新 Demo 排版和五段 GIF。线上使用 `96c4991` 基线加前端覆盖文件，不等同于当前分支的完整后端。当前分支中的协议校验、Runner journal、并发状态机等后端改动上线前，仍需先应用 `drizzle/0002_lucky_daimon_hellstrom.sql`。
 
-**当前对话不可用：Mac mini 的 VibeHard Runner 未运行。** 最后心跳为 2026-08-31 19:21:39（北京时间），数据库残留的 `online` 状态不代表仍在线。尚未恢复 Runner，也未完成真实对话验收。详见[当前状态与交接](docs/current-status.md)。
-
-2026-09-17 已准备云端非 root Runner、隔离工具链和工程下载功能，候选版本与数据库副本检查通过；正在等待用户提供独立模型 API 配置，尚未切换正式服务。部署边界见 [云端 Runner 说明](deploy/runner/README.md)。
+**当前云端对话可用。** 2026-09-18 已上线非 root 云端 Runner，真实完成 `gpt-5.6-sol` 回复、文件生成、审批、GCC 编译、程序运行和工程 ZIP 下载验收。Mac mini 设备 Runner 也已上线，用于后续 USB、串口和烧录；小电脑实机尚未接入。详见[当前状态与交接](docs/current-status.md)和[云端 Runner 说明](deploy/runner/README.md)。
 
 - 现有 WebHUD/VibeBoard 继续占用 `/` 和 `/api`，VibeHard 部署没有修改它的 UI、服务或数据。
 - Next.js 平台运行在服务器 `47.102.197.71:3210`，由 `vibehard.service` 管理。
 - PostgreSQL 15 运行在同一服务器，只监听本机地址，VibeHard 使用独立数据库和用户。
 - Runner Gateway 由 `vibehard-gateway.service` 管理，只监听 Docker 桥接地址 `172.17.0.1:8787`，公网只能通过 `wss://ldcx.tech/vibehard/runner` 访问。
-- Codex Runner 的执行机配置为开发 Mac mini，目前未运行；Mac 关机、休眠、断网或 Runner 停止时，平台仍可访问，但 Agent 任务不能执行。
+- 默认 Codex Runner 运行在云服务器；Mac 关机不影响普通对话、生成和云端编译。需要 USB、串口或烧录的任务使用 Mac mini 设备 Runner，Mac 离线时这类任务不可执行。
 - 当前 Runner 工作区位于执行机上的 `/Users/hushaohong/vibehard/.runner-workspaces/`。将 Runner 迁移到服务器后，工作区也必须迁到服务器磁盘，不会自动与 Mac 同步。
 - `/app/agent` 已接入真实项目、thread、turn、事件流和 Codex Runner。方案生成、原理图、资料解析、调试、PCB、嵌入式开发等旧页面第一阶段仍保留原 UI，尚未全部接入 Agent Task API。
 

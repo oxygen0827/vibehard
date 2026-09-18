@@ -13,6 +13,7 @@ WorkingDirectory=/opt/vibehard/cloud-runner
 EnvironmentFile=/etc/vibehard/runner.env
 EnvironmentFile=/etc/vibehard/model.env
 Environment=NODE_ENV=production
+Environment=HOME=/var/lib/vibehard-runner
 ExecStart=/opt/vibehard/toolchain/bin/node /opt/vibehard/cloud-runner/runner.cjs
 Restart=always
 RestartSec=5

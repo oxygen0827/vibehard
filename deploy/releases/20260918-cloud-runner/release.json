@@ -1,0 +1,13 @@
+{
+  "release": "20260918-cloud-runner",
+  "previousFrontend": "/opt/vibehard/releases/20260916-pcb-restore/standalone",
+  "previousGateway": "/opt/vibehard/releases/20260830-1825",
+  "basePath": "/vibehard",
+  "databaseMigration": "0002_lucky_daimon_hellstrom",
+  "defaultRunner": "cloud-runner",
+  "modelProvider": "tokenadvent",
+  "model": "gpt-5.6-sol",
+  "standaloneArchiveSha256": "0db4f0d009d71ddf2b944a41aa98f122956d508848ec1f838d2311e5130a1eff",
+  "preservedFrontend": ["app/demo", "public/demo", "app/app/pcb", "components/pcb"],
+  "preflight": ["real model response", "approved file write", "approved GCC build", "binary execution", "project ZIP download", "PCB and Demo regression verification"]
+}

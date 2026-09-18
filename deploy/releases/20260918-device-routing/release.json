@@ -1,0 +1,8 @@
+{
+  "release": "20260918-device-routing",
+  "previousPlatform": "/opt/vibehard/releases/20260918-cloud-runner/standalone",
+  "scope": ["authenticated Runner list API", "project Runner validation", "project execution-target selector"],
+  "standaloneArchiveSha256": "63b8f4541c46711bc9e2106d92a8e4a7840111e5da90848b761ee2389bf3e1c3",
+  "servicesRestarted": ["vibehard.service"],
+  "servicesPreserved": ["vibehard-gateway.service", "vibehard-runner.service", "vibeboard.service", "nginx", "tech.ldcx.vibehard-device-runner"]
+}

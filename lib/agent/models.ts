@@ -9,11 +9,11 @@ export interface ModelProfile {
 
 export const DEFAULT_MODELS: ModelProfile[] = [
   {
-    id: "openai:gpt-5.6-terra",
-    providerId: "openai",
-    model: "gpt-5.6-terra",
-    displayName: "Codex Terra",
-    kind: "codex",
-    capabilities: ["tools", "reasoning", "vision"],
+    id: "tokenadvent:gpt-5.6-sol",
+    providerId: "tokenadvent",
+    model: "gpt-5.6-sol",
+    displayName: "GPT-5.6 Sol",
+    kind: "custom",
+    capabilities: ["tools", "reasoning"],
   },
 ];

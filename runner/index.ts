@@ -10,6 +10,8 @@ import { RunnerJournal } from "./state";
 
 const runnerKey = process.env.RUNNER_ID ?? "local-runner";
 const runnerInstanceId = randomUUID();
+const runnerCapabilities = (process.env.RUNNER_CAPABILITIES ?? "codex,workspace-read,workspace-write-approval")
+  .split(",").map((item) => item.trim()).filter(Boolean).slice(0, 50);
 let gatewayUrl = process.env.RUNNER_GATEWAY_URL ?? "ws://127.0.0.1:8787/runner";
 let secret = process.env.RUNNER_SHARED_SECRET ?? "";
 let codexVersion: string | undefined;
@@ -145,7 +147,7 @@ function connect() {
   let heartbeat: NodeJS.Timeout | undefined;
   let messageQueue = Promise.resolve();
   socket.on("open", () => {
-    socket.send(JSON.stringify({ ...envelope(), type: "runner.hello", runnerKey, instanceId: runnerInstanceId, capabilities: ["codex", "workspace-read", "workspace-write-approval"], codexVersion, secret }));
+    socket.send(JSON.stringify({ ...envelope(), type: "runner.hello", runnerKey, instanceId: runnerInstanceId, capabilities: runnerCapabilities, codexVersion, secret }));
     heartbeat = setInterval(() => {
       if (socket.readyState === WebSocket.OPEN) socket.send(JSON.stringify({ ...envelope(), type: "heartbeat", runnerKey }));
     }, 15_000);
@@ -209,7 +211,7 @@ async function bootstrap() {
     const platformUrl = process.env.RUNNER_PLATFORM_URL ?? "http://127.0.0.1:3000";
     const registrationToken = process.env.RUNNER_REGISTRATION_TOKEN;
     if (!registrationToken) throw new Error("RUNNER_SHARED_SECRET, stored credentials, or RUNNER_REGISTRATION_TOKEN must be configured");
-    const response = await fetch(`${platformUrl}/api/runners/register`, { method: "POST", headers: { Authorization: `Bearer ${registrationToken}`, "Content-Type": "application/json" }, body: JSON.stringify({ runnerKey, name: process.env.RUNNER_NAME ?? "VibeHard Codex Runner", capabilities: ["codex", "workspace-read", "workspace-write-approval"] }) });
+    const response = await fetch(`${platformUrl}/api/runners/register`, { method: "POST", headers: { Authorization: `Bearer ${registrationToken}`, "Content-Type": "application/json" }, body: JSON.stringify({ runnerKey, name: process.env.RUNNER_NAME ?? "VibeHard Codex Runner", capabilities: runnerCapabilities }) });
     if (!response.ok) throw new Error(`Runner registration failed: ${response.status}`);
     const registered = await response.json() as { secret: string; gatewayUrl?: string };
     secret = registered.secret;

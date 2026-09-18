@@ -1,0 +1,8 @@
+model = "gpt-5.6-sol"
+model_provider = "tokenadvent"
+
+[model_providers.tokenadvent]
+name = "TokenAdvent"
+base_url = "https://tokenadvent.com/v1"
+env_key = "CLOUD_MODEL_API_KEY"
+wire_api = "responses"

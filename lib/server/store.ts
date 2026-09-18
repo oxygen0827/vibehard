@@ -53,6 +53,10 @@ export class ThreadBusyError extends Error {
   constructor() { super("当前会话已有任务正在运行，请等待完成或先中断"); }
 }
 
+export class RunnerUnavailableError extends Error {
+  constructor() { super("选择的执行器不存在或当前离线"); }
+}
+
 export async function findUserByEmail(email: string) {
   const normalized = email.trim().toLowerCase();
   if (!db) return memory.users.find((user) => user.email === normalized) ?? null;
@@ -87,6 +91,12 @@ export async function listProjects(userId: string) {
 }
 
 export async function createProject(userId: string, input: { name: string; workspaceKey: string; model?: string; runnerKey?: string }) {
+  if (input.runnerKey) {
+    const available = !db
+      ? memory.runners.some((runner) => runner.runnerKey === input.runnerKey && ["online", "busy"].includes(runner.status))
+      : Boolean((await db.select({ id: runnerNodes.id }).from(runnerNodes).where(and(eq(runnerNodes.runnerKey, input.runnerKey), inArray(runnerNodes.status, ["online", "busy"]))).limit(1))[0]);
+    if (!available) throw new RunnerUnavailableError();
+  }
   const projectId = randomUUID();
   const workspaceKey = `${userId}/${projectId}-${input.workspaceKey}`;
   const record = { id: projectId, userId, name: input.name, workspaceKey, runnerKey: input.runnerKey ?? process.env.DEFAULT_RUNNER_KEY ?? "local-runner", defaultModel: input.model ?? DEFAULT_MODELS[0].model, ...timestampFields() };
@@ -94,6 +104,12 @@ export async function createProject(userId: string, input: { name: string; works
   const project = (await db.insert(projects).values(record).returning())[0];
   await db.insert(auditLogs).values({ userId, projectId: project.id, action: "project.created", metadata: { workspaceKey: project.workspaceKey } });
   return project;
+}
+
+export async function listAvailableRunners() {
+  const visible = (runner: typeof runnerNodes.$inferSelect) => ({ runnerKey: runner.runnerKey, name: runner.name, status: runner.status, capabilities: runner.capabilities, lastHeartbeatAt: runner.lastHeartbeatAt });
+  if (!db) return memory.runners.filter((runner) => ["online", "busy"].includes(runner.status)).map(visible);
+  return (await db.select().from(runnerNodes).where(inArray(runnerNodes.status, ["online", "busy"])).orderBy(asc(runnerNodes.name))).map(visible);
 }
 
 export async function ownedProject(userId: string, projectId: string) {

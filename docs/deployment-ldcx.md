@@ -2,14 +2,15 @@
 
 ## Current deployment
 
-As of 2026-09-16:
+As of 2026-09-18:
 
-- Active frontend release: `/opt/vibehard/releases/20260916-pcb-restore/standalone`.
-- Previous frontend release retained for rollback: `/opt/vibehard/releases/20260910-demo-copy/standalone` (contains the old PCB preview).
-- Previous systemd unit: `/opt/vibehard/releases/20260916-pcb-restore/vibehard.service.previous`.
-- Gateway remains on `/opt/vibehard/releases/20260830-1825`; it was not restarted during this frontend release.
+- Active platform release: `/opt/vibehard/releases/20260918-cloud-runner/standalone`.
+- Active Gateway release: `/opt/vibehard/releases/20260918-cloud-runner`.
+- Previous platform and Gateway units are retained inside `/opt/vibehard/releases/20260918-cloud-runner/`.
+- Cloud Runner service bundle: `/opt/vibehard/cloud-runner/runner.cjs`; its versioned source is in the active release.
 - Platform and Gateway run on `47.102.197.71`.
-- The Codex Runner is configured for the development Mac with workspace root `/Users/hushaohong/vibehard/.runner-workspaces`, but was not running at the 2026-09-16 status check. The last heartbeat was 2026-08-31 19:21:39 +08:00; the stored `online` flag is stale. See [current-status.md](current-status.md).
+- `cloud-runner` is the default production node and stores workspaces in `/var/lib/vibehard-runner/workspaces`.
+- `device-runner` runs on the Mac mini for USB, serial and flashing tasks; its workspace root is `/Users/hushaohong/vibehard/.runner-workspaces`.
 - The server does not yet have an installed and authenticated Codex CLI, so it does not run the Agent executor.
 
 ### PCB and showcase release, 2026-09-05
@@ -49,6 +50,16 @@ node --env-file=/etc/vibehard/platform.env \
   /opt/vibehard/releases/20260916-pcb-restore/verify-frontend-release.mjs \
   https://ldcx.tech /opt/vibehard/releases/20260916-pcb-restore/standalone
 ```
+
+### Cloud Runner release, 2026-09-18
+
+Release `/opt/vibehard/releases/20260918-cloud-runner` deploys the complete platform branch, Gateway protocol hardening, cloud Runner, project ZIP downloads and the existing PCB/Demo frontend. Database backup `/opt/vibehard/backups/20260918-before-cloud/platform.dump` was created immediately before applying migration `0002_lucky_daimon_hellstrom`.
+
+The cloud Runner uses the unprivileged `vibehard-runner` account, bubblewrap filesystem/process isolation, a 2 GB memory limit, 150% CPU quota and a 15-minute per-Codex-process timeout. Provider credentials are root-only and are allowlisted into Codex without exposing platform or database secrets.
+
+Preflight and production verification covered real `tokenadvent / gpt-5.6-sol` responses, approved file changes, GCC compilation, binary execution and authenticated ZIP downloads. The production verification project was deleted from the business database after success; its workspace is retained root-only under the release evidence directory. The public PCB/Demo regression check passed. VibeBoard and nginx were not restarted.
+
+The Mac mini `device-runner` is installed as LaunchAgent `tech.ldcx.vibehard-device-runner`. Its local configuration lives under `/Users/hushaohong/Library/Application Support/VibeHardRunner` with mode 600 secrets. It is online but has not yet been validated against the physical product.
 
 ## Route ownership
 

@@ -4,7 +4,10 @@ const send = (message) => process.stdout.write(`${JSON.stringify(message)}\n`);
 const mode = process.env.FAKE_CODEX_MODE ?? "complete";
 lines.on("line", (line) => {
   const message = JSON.parse(line);
-  if (message.method === "initialize") send({ id: message.id, result: { userAgent: "fake" } });
+  if (message.method === "initialize") {
+    if (message.params?.capabilities?.experimentalApi !== true) send({ id: message.id, error: { message: "experimentalApi capability required" } });
+    else send({ id: message.id, result: { userAgent: "fake" } });
+  }
   if (message.method === "thread/start") send({ id: message.id, result: { thread: { id: "thread_fake" } } });
   if (message.method === "thread/resume") send({ id: message.id, result: { thread: { id: message.params.threadId } } });
   if (message.method === "turn/start") {

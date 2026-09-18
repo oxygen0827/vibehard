@@ -7,12 +7,13 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { apiPath } from "@/lib/utils";
 
-type Project = { id: string; name: string; workspaceKey: string; defaultModel: string };
+type Project = { id: string; name: string; workspaceKey: string; defaultModel: string; runnerKey?: string | null };
 type Thread = { id: string; title: string; codexThreadId?: string | null };
 type AgentEvent = { eventId: string; sequence: number; type: string; data: Record<string, unknown>; timestamp: string };
 type Approval = { id: string; tool: string; risk: string; description: string; details?: Record<string, unknown>; status: string };
 type Model = { id: string; providerId: string; model: string; displayName: string; kind: string };
 type Artifact = { id: string; name: string; kind: string; path: string };
+type Runner = { runnerKey: string; name: string; status: string; capabilities: string[] };
 type ThreadOverview = { events: AgentEvent[]; approvals: Approval[]; artifacts: Artifact[] };
 type ConnectionState = "idle" | "connecting" | "connected" | "reconnecting";
 
@@ -57,6 +58,7 @@ export function AgentWorkbench() {
   const [projects, setProjects] = useState<Project[]>([]);
   const [threads, setThreads] = useState<Thread[]>([]);
   const [models, setModels] = useState<Model[]>([]);
+  const [runners, setRunners] = useState<Runner[]>([]);
   const [projectId, setProjectId] = useState("");
   const [threadId, setThreadId] = useState("");
   const [events, setEvents] = useState<AgentEvent[]>([]);
@@ -65,6 +67,7 @@ export function AgentWorkbench() {
   const [downloading, setDownloading] = useState(false);
   const [input, setInput] = useState("");
   const [newProject, setNewProject] = useState("");
+  const [newRunnerKey, setNewRunnerKey] = useState("");
   const [modelProfileId, setModelProfileId] = useState("");
   const [loading, setLoading] = useState(true);
   const [sending, setSending] = useState(false);
@@ -74,11 +77,13 @@ export function AgentWorkbench() {
 
   useEffect(() => {
     let active = true;
-    void Promise.all([json<{ projects: Project[] }>("/api/projects"), json<{ models: Model[] }>("/api/models")])
-      .then(([projectResponse, modelResponse]) => {
+    void Promise.all([json<{ projects: Project[] }>("/api/projects"), json<{ models: Model[] }>("/api/models"), json<{ runners: Runner[] }>("/api/runners")])
+      .then(([projectResponse, modelResponse, runnerResponse]) => {
         if (!active) return;
         setProjects(projectResponse.projects);
         setModels(modelResponse.models);
+        setRunners(runnerResponse.runners);
+        setNewRunnerKey(runnerResponse.runners.find((item) => item.runnerKey === "cloud-runner")?.runnerKey ?? runnerResponse.runners[0]?.runnerKey ?? "");
         const firstProject = projectResponse.projects[0];
         setProjectId(firstProject?.id ?? "");
         setModelProfileId(modelResponse.models.find((item) => item.model === firstProject?.defaultModel)?.id ?? modelResponse.models[0]?.id ?? "");
@@ -191,7 +196,7 @@ export function AgentWorkbench() {
     if (!newProject.trim()) return;
     try {
       const slug = newProject.trim().toLowerCase().replace(/[^a-z0-9_-]+/g, "-").replace(/^-+|-+$/g, "") || `project-${Date.now().toString(36)}`;
-      const response = await json<{ project: Project }>("/api/projects", { method: "POST", body: JSON.stringify({ name: newProject, workspaceKey: slug }) });
+      const response = await json<{ project: Project }>("/api/projects", { method: "POST", body: JSON.stringify({ name: newProject, workspaceKey: slug, runnerKey: newRunnerKey || undefined }) });
       setProjects((current) => [response.project, ...current]);
       selectProject(response.project);
       setNewProject("");
@@ -279,7 +284,8 @@ export function AgentWorkbench() {
   return <div className="grid min-h-full gap-0 lg:grid-cols-[240px_minmax(0,1fr)_300px]">
     <aside className="border-r border-border/70 bg-card/40 p-4">
       <div className="mb-4 flex items-center justify-between"><span className="text-xs font-semibold uppercase text-muted-foreground">项目</span><Button size="icon" variant="ghost" className="h-7 w-7" title="新建项目" onClick={createProject}><Plus className="h-4 w-4" /></Button></div>
-      <div className="mb-3 flex gap-2"><Input value={newProject} onChange={(event) => setNewProject(event.target.value)} onKeyDown={(event) => event.key === "Enter" && void createProject()} placeholder="项目名称" className="h-8 text-xs" /></div>
+      <div className="mb-2 flex gap-2"><Input value={newProject} onChange={(event) => setNewProject(event.target.value)} onKeyDown={(event) => event.key === "Enter" && void createProject()} placeholder="项目名称" className="h-8 text-xs" /></div>
+      <select aria-label="项目执行器" value={newRunnerKey} onChange={(event) => setNewRunnerKey(event.target.value)} className="mb-3 h-8 w-full rounded-md border border-border bg-background px-2 text-xs" disabled={!runners.length}><option value="">暂无可用执行器</option>{runners.map((runner) => <option key={runner.runnerKey} value={runner.runnerKey}>{runner.name}{runner.capabilities.includes("usb-device") ? " · USB 设备" : " · 云端"}</option>)}</select>
       <div className="space-y-1">{projects.map((project) => <button key={project.id} onClick={() => selectProject(project)} className={`flex w-full items-center gap-2 rounded-md px-2.5 py-2 text-left text-sm ${project.id === projectId ? "bg-primary/10 text-primary" : "text-muted-foreground hover:bg-muted"}`}><FolderKanban className="h-4 w-4" /><span className="truncate">{project.name}</span></button>)}</div>
       {projects.length === 0 && <p className="text-xs text-muted-foreground">还没有项目</p>}
     </aside>

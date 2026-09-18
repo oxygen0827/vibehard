@@ -47,7 +47,7 @@ const accepted = new Promise((resolve, reject) => {
 const watchdog = setTimeout(() => { console.error("Preflight timed out"); process.exit(1); }, 30000);
 try {
   await accepted;
-  const turnResponse = await request(`/api/threads/${thread.id}/turns`, { method: "POST", body: JSON.stringify({ input: "Transport test only", model: "gpt-5.6-terra", providerId: "openai" }) });
+  const turnResponse = await request(`/api/threads/${thread.id}/turns`, { method: "POST", body: JSON.stringify({ input: "Transport test only", model: "gpt-5.6-sol", providerId: "tokenadvent" }) });
   assert.equal(turnResponse.status, 202);
   let completed = false;
   for (let i = 0; i < 30; i++) {

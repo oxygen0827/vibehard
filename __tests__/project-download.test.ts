@@ -6,7 +6,7 @@ import { NextRequest } from "next/server";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { projectArchive } from "@/lib/server/project-download";
 import { GET } from "@/app/api/projects/[id]/download/route";
-import { createProject, createUser } from "@/lib/server/store";
+import { createProject, createUser, registerRunner } from "@/lib/server/store";
 import { AUTH_COOKIE, createSessionToken } from "@/lib/server/security";
 
 const temporary: string[] = [];
@@ -19,6 +19,7 @@ async function fixture() {
   const { realpath } = await import("node:fs/promises");
   const root = await realpath(directory);
   const user = await createUser({ email: `${crypto.randomUUID()}@example.invalid`, passwordHash: "test", inviteCode: "TEST" });
+  await registerRunner({ runnerKey: "cloud-runner", name: "Test cloud Runner", capabilities: ["codex"] });
   const project = await createProject(user.id, { name: "Download test", workspaceKey: "firmware", runnerKey: "cloud-runner" });
   const workspace = path.join(root, project.workspaceKey);
   await mkdir(workspace, { recursive: true });
