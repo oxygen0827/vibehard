@@ -4,7 +4,7 @@
 
 - Phase: 云端 Agent 平台内测与设备闭环准备
 - Active focus: 修复模型 provider 超时；建立三人协作与项目知识导入规范
-- Last updated: 2026-09-18 19:12 CST
+- Last updated: 2026-09-18 19:21 CST
 
 ## 构建
 
@@ -24,7 +24,6 @@
 
 - `cloud-runner` 心跳正常不等于模型可用；provider/出口链路当前超时。
 - 生产默认并发为 1，未经队列与配额控制的大批量导入/任务会阻塞其他用户。
-- 服务器存在仍在运行的 `vibehard-device-routing-preflight.service`，约占 100 MB RSS。
 - `/opt/vibehard/releases` 约 1.3 GB，旧 release 与 `/opt/vibehard/incoming` 尚无明确保留/清理策略。
 - 当前没有受控的项目知识上传 API；禁止把旧 `incoming` 目录当作团队公共投递箱。
 
@@ -37,7 +36,6 @@
 ## 下一步
 
 1. 修复 provider 网络链路并重跑完整生产验收。
-2. 停止并清理不再需要的 device-routing 预检服务（需明确运维授权）。
-3. 实现按项目 ID 解析 workspace 的受控文档导入工具或 API。
-4. 发布执行器选择页面并验证云端/设备路由。
-5. 导入小电脑基础工程，完成编译、烧录、重启和日志回传。
+2. 实现按项目 ID 解析 workspace 的受控文档导入工具或 API。
+3. 发布执行器选择页面并验证云端/设备路由。
+4. 导入小电脑基础工程，完成编译、烧录、重启和日志回传。

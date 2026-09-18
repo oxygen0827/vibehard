@@ -2,6 +2,13 @@
 
 最新更新：2026-09-18，北京时间。以下核查结果分别标注时间，不代表持续监控。
 
+## 2026-09-18 19:21 预检服务清理
+
+- `vibehard-device-routing-preflight.service` 是运行于 `/run/systemd/transient` 的临时 unit，只监听 `127.0.0.1:3211`，没有 `WantedBy`、`RequiredBy` 或反向依赖。
+- 已停止该 transient unit；systemd 随即将其回收为 `not-found / inactive / dead`，3211 不再监听。
+- 候选发布 `/opt/vibehard/releases/20260918-device-routing` 保留，后续正式发布执行器选择页面时仍可复用。
+- 清理后 `vibehard.service`、`vibehard-gateway.service`、`vibehard-runner.service` 均为 active，3210 登录页返回 200，`cloud-runner` 与 `device-runner` 心跳正常。
+
 ## 2026-09-18 19:02 生产网页复测
 
 本次从真实浏览器和生产验收脚本重新检查当前版本，结论覆盖本页更早的同日验收记录：

@@ -25,7 +25,7 @@ type(scope): summary
 
 ## 云端交付边界
 
-- 完整规则见 `docs/team-cloud-delivery.md`；开始交付前必须阅读。
+- 普通开发只需提交独立分支和 PR；涉及生产发布或项目知识导入时，才必须阅读 `docs/team-cloud-delivery.md`。
 - 平台代码和文档通过 Git 分支、评审、版本化 release 发布，不直接修改 `/opt/vibehard/releases/*`。
 - 项目知识只能进入目标项目自己的 workspace；交付时写项目 ID 和相对路径，不猜测服务器绝对路径。
 - 禁止向 `/etc/vibehard`、`/opt/vibehard/cloud-runner`、`/var/lib/vibehard-runner/codex` 或 `/opt/vibehard/incoming` 投递团队文档。
@@ -43,7 +43,7 @@ type(scope): summary
 ## AI 使用规则
 
 - 开始工作前读取 `.ai/TEAM_RULES.md` 和 `.ai/PROJECT_STATUS.md`。
-- 涉及云端交付时读取 `docs/team-cloud-delivery.md`。
+- 涉及生产发布或项目知识导入时读取 `docs/team-cloud-delivery.md`。
 - 面向硬件或生产代码编辑前，先生成任务确认说明。
 - 每个任务后更新 `.ai/TASK_LOG.md`。
 - 让 `.ai/PROJECT_STATUS.md` 保持足够新，便于交接。

@@ -11,7 +11,7 @@ This block is written and re-added by `next dev` — verify at `node_modules/nex
 ## Deployment notes (production)
 
 - Read `docs/current-status.md` for the latest verified runtime state and pending work; `docs/README.md` indexes the project documentation. Do not infer Runner availability from a stored `online` flag without checking heartbeat freshness and the live connection.
-- Before team work, read `.ai/TEAM_RULES.md`, `.ai/PROJECT_STATUS.md`, and `docs/team-cloud-delivery.md`. Teammates and their agents must deliver through Git review; they must not upload directly into an active release, Runner state directory, or arbitrary server path.
+- Before team work, read `.ai/TEAM_RULES.md` and `.ai/PROJECT_STATUS.md`. Read `docs/team-cloud-delivery.md` only for production releases or project-knowledge imports. Teammates and their agents deliver normal changes through Git review; they must not upload directly into an active release, Runner state directory, or arbitrary server path.
 - Deployment host: `root@47.102.197.71`; VibeHard base path: `/vibehard`.
 - SSH key: `/Users/hushaohong/.ssh/ldcx_vibeboard_deploy` is passphrase-protected.
 - On this development Mac the passphrase is stored in the macOS Keychain. Use `-o UseKeychain=yes` on `ssh`/`scp` so it unlocks automatically.
