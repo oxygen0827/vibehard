@@ -1,0 +1,13 @@
+{
+  "release": "20260919-auth-cookies",
+  "previousPlatformRelease": "20260919-admin-sections",
+  "gatewayRelease": "20260918-cloud-runner",
+  "basePath": "/vibehard",
+  "databaseMigration": "none",
+  "preservedFrontend": ["app/demo", "public/demo", "next.config.ts", "app/app/pcb", "components/pcb"],
+  "changes": ["preserve both path-specific Set-Cookie headers on login, registration and logout", "prevent legacy root session cookies overriding a newly selected account"],
+  "restartServices": ["vibehard.service"],
+  "preserveServices": ["vibehard-gateway.service", "vibeboard.service", "nginx"],
+  "verification": ["scripts/verify-frontend-release.mjs", "scripts/verify-admin-sections.mjs", "scripts/verify-auth-cookies.mjs"],
+  "note": "No database, role, password, credential, Gateway, Runner or nginx change."
+}

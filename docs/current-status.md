@@ -2,6 +2,16 @@
 
 最新更新：2026-09-19，北京时间。以下核查结果分别标注时间，不代表持续监控。
 
+## 2026-09-19 认证 Cookie 修复上线
+
+- 平台已切换 `/opt/vibehard/releases/20260919-auth-cookies/standalone`，上一版为 `20260919-admin-sections`。用户明确授权修复认证并上线；没有修改账号角色、密码、数据库、Runner 或 Gateway。
+- 根因复现：NextResponse 的 Cookie 集合以名称作为键；在同一响应上连续设置旧根路径删除和 `/vibehard` 新 Cookie，会丢失前一条。请求携带两个同名 Cookie 时，旧账号可能覆盖新账号。
+- 登录、注册和退出统一改为分别序列化并追加独立 `Set-Cookie` 头，保留 HttpOnly、Secure、SameSite 和有效期；响应禁止缓存。
+- 6 项路由级回归覆盖带/不带 basePath 的账号切换、退出、注册降为成员和错误密码。旧版 3 项失败，修复后全过；完整测试 63 项通过、2 项独立数据库测试跳过，类型、lint 和生产构建通过。初次沙箱内测试因监听端口 EPERM 失败，允许本地回环监听后完整回归通过。
+- 候选 3211 与正式 3210 均通过 PCB/Demo、管理分区 bundle、管理员 overview API 和双路径 Cookie 头校验；公网 Cookie 校验通过。只重启平台，Gateway/VibeBoard PID 保持不变；临时预检服务已停止，3211 无监听。
+- 真实 Chrome 原会话返回 `ldcx@demo.com / member`；上线后从网页退出，会话变为 `authenticated:false,user:null`。登录页已填 `ldkj@admin.com`，等待用户输入原密码完成实际管理员登录；不把签名管理员 API 验收当作该浏览器登录成功。
+- 归档 SHA-256：`28db450ecc76f5171a75d3caebaf8e76e9552f76fd989d4424957c1841d3e4db`。回滚步骤见 `docs/deployment-ldcx.md`。
+
 ## 2026-09-19 管理台功能分区上线
 
 - 管理页改为概览、模型设置、Runner 节点、用户管理、审计日志五个分区，一次只显示一个；窄屏导航可横向滚动，切换保留未保存模型输入。
@@ -87,7 +97,7 @@
 - 主站：https://ldcx.tech/vibehard/
 - PCB 示例：https://ldcx.tech/vibehard/app/pcb（需要登录）
 - 宣传展示：https://ldcx.tech/vibehard/demo
-- 活跃平台发布：`/opt/vibehard/releases/20260919-admin-sections/standalone`；Gateway 保留 `20260918-cloud-runner`。
+- 活跃平台发布：`/opt/vibehard/releases/20260919-auth-cookies/standalone`；Gateway 保留 `20260918-cloud-runner`。
 - PCB v0.2 已恢复上线，包含精细绘图、装配／布线切换、图层显示、缩放和平移、PNG 下载。它是固定示例预览，并非已接通真实 EDA 自动设计；Gerber 导出仍禁用。
 - Demo 保留标题下简介、下方模块说明和五段自动循环 GIF，PCB GIF 使用已裁剪版本。
 - 本次平台发布包含当前完整前端、真实方案生成与 LLM 设置，云端 Runner 同步更新，已执行数据库迁移 `0003`。

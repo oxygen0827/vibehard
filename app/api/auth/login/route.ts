@@ -2,7 +2,8 @@ import type { NextRequest } from "next/server";
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { createUser, findUserByEmail, writeAuditLog } from "@/lib/server/store";
-import { AUTH_COOKIE, createSessionToken, hashPassword, sessionCookiePath, verifyPassword } from "@/lib/server/security";
+import { hashPassword, verifyPassword } from "@/lib/server/security";
+import { writeSessionCookies } from "@/lib/server/session-cookies";
 import { badRequest, serverError } from "@/lib/server/http";
 import { clearRateLimit, consumeRateLimit, requestAddress } from "@/lib/server/rate-limit";
 
@@ -26,9 +27,7 @@ export async function POST(request: NextRequest) {
     clearRateLimit("login", rateKey);
     const sessionUser = { id: user.id, email: user.email, name: user.name, role: user.role };
     const response = NextResponse.json({ user: sessionUser });
-    const cookiePath = sessionCookiePath();
-    if (cookiePath !== "/") response.cookies.set(AUTH_COOKIE, "", { httpOnly: true, sameSite: "lax", secure: process.env.NODE_ENV === "production", path: "/", maxAge: 0 });
-    response.cookies.set(AUTH_COOKIE, createSessionToken(sessionUser), { httpOnly: true, sameSite: "lax", secure: process.env.NODE_ENV === "production", path: cookiePath, maxAge: 60 * 60 * 24 * 7, priority: "high" });
+    writeSessionCookies(response, sessionUser);
     await writeAuditLog({ userId: user.id, action: "auth.login", metadata: { address } });
     return response;
   } catch (error) {

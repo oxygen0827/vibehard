@@ -4,6 +4,22 @@
 
 真实任务条目从本行下方开始。
 
+## 2026-09-19 Task: 修复认证 Cookie 并发布
+
+- Authorization: 用户明确确认继续修复并上线；编辑登录、注册、退出及共用 Cookie 写入模块、回归测试、发布脚本与交接文档。
+- Result: 发布 `20260919-auth-cookies`；分别序列化同名不同路径 Cookie，避免根路径旧会话残留；账号角色和密码未变。
+- Validation: 路由与浏览器 Cookie jar 回归先红后绿（3 个原失败、6 个最终通过），全套 63 通过/2 数据库测试跳过，类型、lint、构建通过。候选/正式 PCB、Demo、管理台及 Cookie HTTP 检查通过，公网双头检查通过。
+- Browser: 从真实 Chrome 退出后 `/api/auth/session` 返回未登录；已填写管理员邮箱等待用户自行输入原密码，未声明真实浏览器管理员登录完成。
+- Operations: 只重启平台；临时预检已停止且 3211 关闭；上一发布 unit 保留可回滚。没有生产迁移、权限/密码修改或模型调用。
+
+## 2026-09-19 Task: 排查管理员会话被识别为普通成员
+
+- Scope: 只读检查浏览器当前身份和认证代码，未修改认证、账号权限或生产服务。
+- Evidence: Chrome 直接访问 `/vibehard/api/auth/session` 返回 `ldcx@demo.com / member`；此前生产数据库检查确认 `ldkj@admin.com / admin`，管理员服务端接口验收通过。
+- Reproduction: 用当前安装的 `next/server` 和虚拟 Cookie 值复现：连续设置同名根路径删除 Cookie 与 `/vibehard` 新 Cookie 时，响应只保留后者；请求同时携带新路径和旧根路径的同名 Cookie 时，解析结果选择后面的旧值。
+- Finding: 登录/退出存在旧根路径 Cookie 清理缺陷，可导致账号切换后仍识别旧账号；尚未读取当前浏览器 HttpOnly Cookie 路径，不能把该缺陷视为这次浏览器状态的完全确证。
+- Next: 修复各认证入口的旧 Cookie 清理并加入账号切换回归测试，再验证真实浏览器；认证属于团队规则要求明确确认的高风险编辑区域。
+
 ## 2026-09-19 Task: 平台管理台按功能分区
 
 - Goal: 缩短管理页，按概览、模型设置、Runner 节点、用户管理、审计日志切换显示。

@@ -4,7 +4,7 @@
 
 As of 2026-09-19:
 
-- Active platform release: `/opt/vibehard/releases/20260919-admin-sections/standalone`.
+- Active platform release: `/opt/vibehard/releases/20260919-auth-cookies/standalone`.
 - Active Gateway release: `/opt/vibehard/releases/20260918-cloud-runner`.
 - Previous platform unit, Runner bundle/environment and DB dumps are retained inside `/opt/vibehard/releases/20260918-llm-settings/backup/` (root-only).
 - Cloud Runner service bundle: `/opt/vibehard/cloud-runner/runner.cjs`; its versioned source is in the active release.
@@ -12,6 +12,23 @@ As of 2026-09-19:
 - `cloud-runner` is the default production node and stores workspaces in `/var/lib/vibehard-runner/workspaces`.
 - `device-runner` runs on the Mac mini for USB, serial and flashing tasks; its workspace root is `/Users/hushaohong/vibehard/.runner-workspaces`.
 - The server runs pinned Codex CLI 0.149.1 through the unprivileged `vibehard-runner` service and bubblewrap wrapper. Provider requests returned 429 during release verification but recovered on September 19: three real browser conversation turns, context retention and reload recovery passed. This does not establish sustained availability or revalidate compilation/flashing.
+
+### Authentication cookie fix, 2026-09-19
+
+`20260919-auth-cookies` fixes legacy root cookies shadowing new `/vibehard` sessions. Login, registration and logout append separate path-specific Set-Cookie headers. Database roles, passwords and secrets are unchanged. Only the platform service was restarted; Gateway/VibeBoard PIDs were preserved. The preflight listener on 3211 is closed.
+
+63 tests passed and 2 database-only tests were skipped; type checking, lint and the production build passed. The regression exercises actual auth routes and an RFC-aware cookie jar: three failures before the fix, all six cases passing afterward. Both candidate and active releases passed the protected PCB/Demo checks, admin section/API checks and actual HTTP cookie checks; public HTTPS also preserved both deletion headers. Chrome logout cleared the previous member session; administrator login awaits the user's original password.
+
+Archive: `/opt/vibehard/releases/vibehard-20260919-auth-cookies.tar.gz`, SHA-256 `28db450ecc76f5171a75d3caebaf8e76e9552f76fd989d4424957c1841d3e4db`.
+
+Rollback to the saved `20260919-admin-sections` unit (inspect active tasks first):
+
+```bash
+node --env-file=/etc/vibehard/platform.env \
+  /opt/vibehard/releases/20260919-auth-cookies/scripts/deploy-auth-cookies.mjs rollback
+```
+
+Rollback restores the cookie bug; do not restore a database dump for this application-only change.
 
 ### Managed LLM settings release, 2026-09-18/19
 
