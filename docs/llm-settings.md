@@ -9,7 +9,7 @@
 | 硬件方案生成 | 浏览器 → 平台 `/api/design` → LLM | Chat Completions 或 Responses；能返回有效结构化 JSON |
 | Agent 对话与执行 | 浏览器 → 平台/Gateway → cloud-runner → Codex → LLM | Responses、流式输出及 Codex 工具调用兼容 |
 
-两项可用不同模型、地址和 Key，不依赖知识库。方案页不再使用固定 ESP32 BOM、模拟等待或假 ERC 通过；模型失败只显示错误。输出为待核验建议，不是已验证电路。
+两项可用不同模型、地址和 Key。方案页现会加载内置基础工程规则，并生成人民币 BOM 估算价；这不等于导入团队泰山派资料或接入供应商报价。方案页不再使用固定 ESP32 BOM、模拟等待或假 ERC 通过；模型失败只显示错误。输出为待核验建议，不是已验证电路。详见 [方案参考价](design-reference-prices.md)。
 
 ## 操作
 

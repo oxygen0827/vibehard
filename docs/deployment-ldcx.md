@@ -4,7 +4,7 @@
 
 As of 2026-09-19:
 
-- Active platform release: `/opt/vibehard/releases/20260919-auth-cookies/standalone`.
+- Active platform release: `/opt/vibehard/releases/20260919-design-knowledge-pricing/standalone`.
 - Active Gateway release: `/opt/vibehard/releases/20260918-cloud-runner`.
 - Previous platform unit, Runner bundle/environment and DB dumps are retained inside `/opt/vibehard/releases/20260918-llm-settings/backup/` (root-only).
 - Cloud Runner service bundle: `/opt/vibehard/cloud-runner/runner.cjs`; its versioned source is in the active release.
@@ -12,6 +12,23 @@ As of 2026-09-19:
 - `cloud-runner` is the default production node and stores workspaces in `/var/lib/vibehard-runner/workspaces`.
 - `device-runner` runs on the Mac mini for USB, serial and flashing tasks; its workspace root is `/Users/hushaohong/vibehard/.runner-workspaces`.
 - The server runs pinned Codex CLI 0.149.1 through the unprivileged `vibehard-runner` service and bubblewrap wrapper. Provider requests returned 429 during release verification but recovered on September 19: three real browser conversation turns, context retention and reload recovery passed. This does not establish sustained availability or revalidate compilation/flashing.
+
+### Design reference prices and built-in rules, 2026-09-19
+
+`20260919-design-knowledge-pricing` supplies versioned built-in engineering rules to design requests and asks for CNY small-batch reference unit prices. The rules are not the team's TaishanPi knowledge base, a retrieval system or live supplier data. Prices remain explicitly labeled AI estimates; unsupported estimates may include a reason instead of fabricated numbers.
+
+65 tests passed, 2 database-only tests skipped; TypeScript, lint and build passed. A real candidate request produced 13 BOM rows with prices and a knowledge version. Candidate and active releases passed all frontend/PCB/Demo, admin, cookie and design-bundle checks. Only the platform was restarted, with no database or credential change.
+
+Public Chrome verified the new copy but both full and shortened design requests hit the upstream 90-second timeout. Browser-rendered price results remain unverified; the successful candidate request does not establish provider reliability. The transient preflight unit is reclaimed and port 3211 is closed.
+
+Archive SHA-256: `92736a70cffa287c01a14d298c1d49a394386248c39c508148e29f9dd89c054c`.
+
+Rollback to `20260919-auth-cookies` after checking active tasks:
+
+```bash
+node --env-file=/etc/vibehard/platform.env \
+  /opt/vibehard/releases/20260919-design-knowledge-pricing/scripts/deploy-design-knowledge.mjs rollback
+```
 
 ### Authentication cookie fix, 2026-09-19
 

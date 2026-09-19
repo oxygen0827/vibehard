@@ -12,7 +12,7 @@ export default function DesignPage() {
   const [requirement, setRequirement] = useState("");
   const [generating, setGenerating] = useState(false);
   const [result, setResult] = useState<DesignResult | null>(null);
-  const [source, setSource] = useState<{ model: string; generatedAt: string; requirement: string } | null>(null);
+  const [source, setSource] = useState<{ model: string; generatedAt: string; requirement: string; knowledgeVersion: string } | null>(null);
   const [error, setError] = useState("");
   const [status, setStatus] = useState("");
   const active = useRef<AbortController | null>(null);
@@ -34,7 +34,7 @@ export default function DesignPage() {
           const event = JSON.parse(line);
           if (event.type === "status") setStatus(event.message);
           if (event.type === "error") throw new Error(event.error);
-          if (event.type === "result") { setResult(designResultSchema.parse(event.result)); setSource({ model: event.model, generatedAt: event.generatedAt, requirement }); completed = true; }
+          if (event.type === "result") { setResult(designResultSchema.parse(event.result)); setSource({ model: event.model, generatedAt: event.generatedAt, requirement, knowledgeVersion: event.knowledgeBase?.version ?? "未知" }); completed = true; }
         }
         if (done) break;
       }
@@ -45,7 +45,7 @@ export default function DesignPage() {
   };
   const download = () => {
     if (!result || !source) return;
-    const text = ["# 硬件方案草案", `模型：${source.model}`, `时间：${source.generatedAt}`, `需求：${source.requirement}`, "未经过知识库检索、数据手册核验或电气验证。", "## 架构", ...result.architecture.map((x) => `- ${x}`), "## BOM", ...result.bom.map((x) => `- ${x.item}：${x.model} × ${x.qty}；${x.estCost}`), "## 接口", ...result.interfaces.map((x) => `- ${x}`), "## 风险", ...result.risks.map((x) => `- [${x.level}] ${x.desc}`)].join("\n\n");
+    const text = ["# 硬件方案草案", `模型：${source.model}`, `知识库：内置方案知识库 ${source.knowledgeVersion}`, `时间：${source.generatedAt}`, `需求：${source.requirement}`, "已使用内置方案知识库；参考价格为小批量 AI 估算，未经过实时询价、数据手册逐项核验或电气验证。", "## 架构", ...result.architecture.map((x) => `- ${x}`), "## BOM", ...result.bom.map((x) => `- ${x.item}：${x.model} × ${x.qty}；参考单价 ${x.estCost}`), "## 接口", ...result.interfaces.map((x) => `- ${x}`), "## 风险", ...result.risks.map((x) => `- [${x.level}] ${x.desc}`)].join("\n\n");
     const url = URL.createObjectURL(new Blob([text], { type: "text/markdown;charset=utf-8" })); const a = document.createElement("a"); a.href = url; a.download = "硬件方案草案.md"; a.click(); setTimeout(() => URL.revokeObjectURL(url), 1000);
   };
   return <div className="p-6 lg:p-8">
@@ -53,14 +53,14 @@ export default function DesignPage() {
     <div className="rounded-xl border border-border/80 bg-card p-5">
       <div className="mb-3 flex items-center justify-between"><label htmlFor="requirement" className="text-sm font-semibold">功能需求</label><button disabled={generating} onClick={() => setRequirement(example)} className="text-xs font-medium text-primary hover:underline">填入示例</button></div>
       <Textarea id="requirement" value={requirement} disabled={generating} maxLength={12000} onChange={(e) => setRequirement(e.target.value)} placeholder="描述功能、供电、通信、尺寸等约束..." className="min-h-[140px]" />
-      <div className="mt-4 flex flex-wrap items-center justify-between gap-3"><span className="text-xs text-muted-foreground">直接调用管理员配置的模型，当前不接入知识库。</span><div className="flex gap-2">{generating && <Button variant="outline" onClick={() => active.current?.abort()}>取消</Button>}<Button onClick={() => void generate()} disabled={requirement.trim().length < 2 || generating} className="gap-2">{generating && <Loader2 className="h-4 w-4 animate-spin" />}{generating ? "生成中..." : "生成方案"}</Button></div></div>
+      <div className="mt-4 flex flex-wrap items-center justify-between gap-3"><span className="text-xs text-muted-foreground">已接入内置方案知识库，BOM 将自动填写人民币参考单价。</span><div className="flex gap-2">{generating && <Button variant="outline" onClick={() => active.current?.abort()}>取消</Button>}<Button onClick={() => void generate()} disabled={requirement.trim().length < 2 || generating} className="gap-2">{generating && <Loader2 className="h-4 w-4 animate-spin" />}{generating ? "生成中..." : "生成方案"}</Button></div></div>
       {status && <p role="status" className="mt-3 text-sm text-muted-foreground">{status}</p>}
       {error && <p role="alert" className="mt-3 text-sm text-red-500">{error}</p>}
     </div>
     {result && source && <div className="mt-6 space-y-4">
-      <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-amber-500/25 bg-amber-500/5 p-4"><div><p className="text-sm">AI 方案草案 · {source.model} · {new Date(source.generatedAt).toLocaleString("zh-CN")}</p><p className="mt-1 text-xs text-muted-foreground">尚未核对数据手册、价格和引脚，不代表已通过 ERC 或硬件验证。</p></div><Button variant="outline" onClick={download}><FileDown className="mr-2 h-4 w-4" />下载方案</Button></div>
+      <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-amber-500/25 bg-amber-500/5 p-4"><div><p className="text-sm">AI 方案草案 · {source.model} · 知识库 {source.knowledgeVersion} · {new Date(source.generatedAt).toLocaleString("zh-CN")}</p><p className="mt-1 text-xs text-muted-foreground">参考价格为小批量 AI 估算，采购前仍需询价；尚未逐项核对数据手册和引脚，不代表已通过 ERC 或硬件验证。</p></div><Button variant="outline" onClick={download}><FileDown className="mr-2 h-4 w-4" />下载方案</Button></div>
       <section className="rounded-xl border border-border bg-card p-5"><h2 className="mb-3 font-semibold">架构建议</h2><ul className="list-disc space-y-2 pl-5 text-sm">{result.architecture.map((x, i) => <li key={i}>{x}</li>)}</ul></section>
-      <section className="rounded-xl border border-border bg-card p-5"><h2 className="mb-3 font-semibold">BOM 建议</h2><div className="overflow-x-auto"><table className="w-full text-left text-sm"><thead><tr className="border-b"><th className="p-2">器件</th><th className="p-2">候选型号</th><th className="p-2">数量</th><th className="p-2">价格参考</th></tr></thead><tbody>{result.bom.map((b, i) => <tr key={i} className="border-b border-border/50"><td className="p-2">{b.item}</td><td className="p-2">{b.model}</td><td className="p-2">{b.qty}</td><td className="p-2">{b.estCost}</td></tr>)}</tbody></table></div></section>
+      <section className="rounded-xl border border-border bg-card p-5"><h2 className="mb-3 font-semibold">BOM 建议</h2><div className="overflow-x-auto"><table className="w-full text-left text-sm"><thead><tr className="border-b"><th className="p-2">器件</th><th className="p-2">候选型号</th><th className="p-2">数量</th><th className="p-2">参考单价（人民币）</th></tr></thead><tbody>{result.bom.map((b, i) => <tr key={i} className="border-b border-border/50"><td className="p-2">{b.item}</td><td className="p-2">{b.model}</td><td className="p-2">{b.qty}</td><td className="p-2">{b.estCost}</td></tr>)}</tbody></table></div></section>
       <div className="grid gap-4 lg:grid-cols-2"><section className="rounded-xl border border-border bg-card p-5"><h2 className="mb-3 font-semibold">接口规划</h2><ul className="list-disc space-y-2 pl-5 text-sm">{result.interfaces.map((x, i) => <li key={i}>{x}</li>)}</ul></section><section className="rounded-xl border border-border bg-card p-5"><h2 className="mb-3 font-semibold">风险与待验证项</h2><ul className="space-y-3 text-sm">{result.risks.map((r, i) => <li key={i}><span className="mr-2 font-semibold">[{r.level}]</span>{r.desc}</li>)}</ul></section></div>
     </div>}
   </div>;

@@ -2,6 +2,16 @@
 
 最新更新：2026-09-19，北京时间。以下核查结果分别标注时间，不代表持续监控。
 
+## 2026-09-19 方案参考价与内置规则资料上线
+
+- 平台已发布 `20260919-design-knowledge-pricing`，上一版为 `20260919-auth-cookies`；只有平台服务重启，Gateway/VibeBoard PID 保持不变，没有数据库、账号或模型配置变更。
+- 方案请求加载带版本的内置基础工程规则，页面显示“已接入内置方案知识库”；该资料是供电、接口和 BOM 规则，不是团队泰山派知识库，也不包含数据手册检索或实时报价。
+- BOM 自动填写人民币小批量参考单价，页面与下载文档明确是 AI 估算。模型无法合理估算时必须说明原因，不能靠强制数字校验编造价格。
+- 65 项测试通过，2 项独立数据库测试跳过；类型、lint、生产构建通过。候选与正式 PCB/Demo、管理员分区/API、Cookie 双路径清理及新版方案 bundle 校验通过。
+- 候选端口真实模型请求成功返回 13 条 BOM，全部具有参考价，响应包含知识版本 `2026.09.19-v1`。正式 Chrome 已确认新文案和生成中状态，但完整示例及缩短需求的两次请求都触发上游模型 90 秒超时，未取得浏览器带价表格截图；不能据候选成功宣称线上模型稳定。错误正常回显，没有回退假结果。
+- 临时预检 unit 已回收为 not-found/inactive，3211 无监听。
+- 归档 SHA-256：`92736a70cffa287c01a14d298c1d49a394386248c39c508148e29f9dd89c054c`。功能边界见 [方案参考价](design-reference-prices.md)。
+
 ## 2026-09-19 认证 Cookie 修复上线
 
 - 平台已切换 `/opt/vibehard/releases/20260919-auth-cookies/standalone`，上一版为 `20260919-admin-sections`。用户明确授权修复认证并上线；没有修改账号角色、密码、数据库、Runner 或 Gateway。
@@ -97,7 +107,7 @@
 - 主站：https://ldcx.tech/vibehard/
 - PCB 示例：https://ldcx.tech/vibehard/app/pcb（需要登录）
 - 宣传展示：https://ldcx.tech/vibehard/demo
-- 活跃平台发布：`/opt/vibehard/releases/20260919-auth-cookies/standalone`；Gateway 保留 `20260918-cloud-runner`。
+- 活跃平台发布：`/opt/vibehard/releases/20260919-design-knowledge-pricing/standalone`；Gateway 保留 `20260918-cloud-runner`。
 - PCB v0.2 已恢复上线，包含精细绘图、装配／布线切换、图层显示、缩放和平移、PNG 下载。它是固定示例预览，并非已接通真实 EDA 自动设计；Gerber 导出仍禁用。
 - Demo 保留标题下简介、下方模块说明和五段自动循环 GIF，PCB GIF 使用已裁剪版本。
 - 本次平台发布包含当前完整前端、真实方案生成与 LLM 设置，云端 Runner 同步更新，已执行数据库迁移 `0003`。

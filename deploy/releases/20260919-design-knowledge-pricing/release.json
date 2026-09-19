@@ -1,0 +1,13 @@
+{
+  "release": "20260919-design-knowledge-pricing",
+  "previousPlatformRelease": "20260919-auth-cookies",
+  "gatewayRelease": "20260918-cloud-runner",
+  "basePath": "/vibehard",
+  "databaseMigration": "none",
+  "preservedFrontend": ["app/demo", "public/demo", "next.config.ts", "app/app/pcb", "components/pcb"],
+  "changes": ["inject the versioned platform hardware design knowledge base into every design request", "require a CNY small-batch reference price on every generated BOM row", "show knowledge version and price estimate boundaries in the page and downloaded Markdown"],
+  "restartServices": ["vibehard.service"],
+  "preserveServices": ["vibehard-gateway.service", "vibeboard.service", "nginx"],
+  "verification": ["scripts/verify-frontend-release.mjs", "scripts/verify-admin-sections.mjs", "scripts/verify-auth-cookies.mjs", "scripts/verify-design-knowledge.mjs"],
+  "note": "No database, account, credential, Gateway, Runner or nginx change. Reference prices are model estimates, not live supplier quotes."
+}
