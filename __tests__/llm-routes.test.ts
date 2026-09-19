@@ -1,0 +1,67 @@
+// @vitest-environment node
+import { NextRequest } from "next/server";
+import { beforeEach, describe, expect, it, vi } from "vitest";
+import { GET, PUT } from "@/app/api/admin/llm/route";
+import { POST as testModel } from "@/app/api/admin/llm/test/route";
+import { POST as design } from "@/app/api/design/route";
+import { GET as runnerConfig } from "@/app/api/runners/model-config/route";
+import { createUser } from "@/lib/server/store";
+import { createSessionToken } from "@/lib/server/security";
+import { callLlm, LlmRequestError } from "@/lib/server/llm-client";
+import { publicLlm, saveLlm } from "@/lib/server/llm-settings";
+
+vi.mock("@/lib/server/llm-client", async (original) => ({ ...await original<typeof import("@/lib/server/llm-client")>(), callLlm: vi.fn(), providerAddress: vi.fn().mockResolvedValue({ address: "8.8.8.8", family: 4 }) }));
+beforeEach(() => { globalThis.__vibehardLlmSettings?.clear(); vi.mocked(callLlm).mockReset(); });
+const input = { purpose: "design" as const, model: "design-model", baseUrl: "https://example.com/v1", protocol: "chat-completions" as const, apiKey: "secret-123456", revision: null };
+async function user(admin = false) {
+  const record = await createUser({ email: `${crypto.randomUUID()}@example.invalid`, passwordHash: "test", inviteCode: "test" });
+  if (admin) record.role = "admin";
+  return { record, cookie: `vibehard_session=${createSessionToken(record)}` };
+}
+const req = (path: string, cookie = "", body?: unknown, method = "POST") => new NextRequest(`https://example.com${path}`, { method: body ? method : "GET", headers: { Cookie: cookie, "Content-Type": "application/json" }, ...(body ? { body: JSON.stringify(body) } : {}) });
+describe("LLM routes", () => {
+  it("blocks anonymous and ordinary members from reading, saving and testing credentials", async () => {
+    expect((await GET(req("/api/admin/llm"))).status).toBe(401);
+    const { cookie } = await user();
+    expect((await GET(req("/api/admin/llm", cookie))).status).toBe(403);
+    expect((await PUT(req("/api/admin/llm", cookie, input, "PUT"))).status).toBe(403);
+    expect((await testModel(req("/api/admin/llm/test", cookie, input))).status).toBe(403);
+    expect(callLlm).not.toHaveBeenCalled();
+  });
+  it("saves without echoing the key and tests unsaved credentials without activating them", async () => {
+    const { cookie } = await user(true);
+    vi.mocked(callLlm).mockImplementation(async (_c, _s, p) => p.replace("Reply with exactly ", ""));
+    expect((await testModel(req("/api/admin/llm/test", cookie, input))).status).toBe(200);
+    expect((await publicLlm("design")).hasApiKey).toBe(false);
+    const saved = await PUT(req("/api/admin/llm", cookie, input, "PUT"));
+    expect(saved.status).toBe(200);
+    expect(await saved.text()).not.toContain(input.apiKey);
+    expect(await (await GET(req("/api/admin/llm", cookie))).text()).not.toContain(input.apiKey);
+  });
+  it("requires authentication and configuration for real generation", async () => {
+    expect((await design(req("/api/design", "", { requirement: "test" }))).status).toBe(401);
+    const { cookie } = await user();
+    expect((await design(req("/api/design", cookie, { requirement: "test" }))).status).toBe(503);
+    expect(callLlm).not.toHaveBeenCalled();
+  });
+  it("sends the user's requirement to the configured model and rejects fabricated fallbacks", async () => {
+    const { record, cookie } = await user();
+    await saveLlm(input, record.id);
+    const result = { architecture: ["用户专属方案"], bom: [], interfaces: ["USB"], risks: [{ level: "中", desc: "验证供电" }] };
+    vi.mocked(callLlm).mockResolvedValue(JSON.stringify(result));
+    const response = await design(req("/api/design", cookie, { requirement: "独立的机器人方案" }));
+    expect(await response.text()).toContain("用户专属方案");
+    expect(callLlm).toHaveBeenCalledWith(expect.objectContaining({ model: "design-model" }), expect.any(String), "独立的机器人方案", expect.any(AbortSignal));
+    vi.mocked(callLlm).mockRejectedValue(new LlmRequestError("模型服务额度不足"));
+    const failed = await design(req("/api/design", cookie, { requirement: "独立的机器人方案" }));
+    const body = await failed.text();
+    expect(body).toContain("模型服务额度不足"); expect(body).not.toContain('"type":"result"');
+    vi.mocked(callLlm).mockResolvedValue("not json");
+    expect(await (await design(req("/api/design", cookie, { requirement: "独立的机器人方案" }))).text()).toContain("格式不正确");
+  });
+  it("does not release provider credentials to browsers or device nodes", async () => {
+    const { cookie } = await user(true);
+    const response = await runnerConfig(req(`/api/runners/model-config?taskId=${crypto.randomUUID()}`, cookie));
+    expect(response.status).toBe(403);
+  });
+});

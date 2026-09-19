@@ -5,6 +5,7 @@ const entries = {
   gateway: "gateway/index.ts",
   runner: "runner/index.ts",
   migrate: "scripts/migrate.ts",
+  "llm-bootstrap": "scripts/bootstrap-llm-settings.ts",
 };
 
 await mkdir("dist/services", { recursive: true });

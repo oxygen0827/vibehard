@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { apiPath } from "@/lib/utils";
+import { conversationMessages } from "@/lib/agent/messages";
 
 type Project = { id: string; name: string; workspaceKey: string; defaultModel: string; runnerKey?: string | null };
 type Thread = { id: string; title: string; codexThreadId?: string | null };
@@ -166,7 +167,7 @@ export function AgentWorkbench() {
   }, [events]);
 
   const messages = useMemo(
-    () => events.filter((event) => ["task.started", "agent.message", "agent.message.delta", "reasoning", "command.output", "tool.started", "tool.completed", "task.failed", "task.interrupted"].includes(event.type)),
+    () => conversationMessages(events),
     [events],
   );
 
@@ -218,7 +219,7 @@ export function AgentWorkbench() {
 
   const send = async () => {
     const profile = models.find((item) => item.id === modelProfileId);
-    if (!threadId || !input.trim() || !profile) return;
+    if (sending || taskState === "运行中" || !threadId || !input.trim() || !profile) return;
     setSending(true);
     setError("");
     try {
@@ -232,6 +233,15 @@ export function AgentWorkbench() {
     } finally {
       setSending(false);
     }
+  };
+
+  const refreshModels = async () => {
+    try {
+      const response = await json<{ models: Model[] }>("/api/models");
+      setModels(response.models);
+      setModelProfileId(response.models[0]?.id ?? "");
+      setError("");
+    } catch (reason) { setError(reason instanceof Error ? reason.message : "模型列表刷新失败"); }
   };
 
   const downloadProject = async () => {
@@ -295,6 +305,7 @@ export function AgentWorkbench() {
         <div className="flex min-w-0 items-center gap-2"><MessageSquare className="h-4 w-4 shrink-0 text-primary" /><select value={threadId} onChange={(event) => selectThread(event.target.value)} className="min-w-0 max-w-56 bg-transparent text-sm font-medium outline-none" disabled={!threads.length}><option value="">选择会话</option>{threads.map((thread) => <option key={thread.id} value={thread.id}>{thread.title}</option>)}</select><Button size="icon" variant="ghost" className="h-7 w-7 shrink-0" title="新建会话" onClick={createThread} disabled={!projectId}><Plus className="h-4 w-4" /></Button></div>
         <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground"><span className={`h-2 w-2 rounded-full ${connectionColor}`} /><span>{connectionLabel}</span><span className="border-l border-border pl-2">{taskState}</span><Button size="icon" variant="ghost" className="h-7 w-7" title="中断当前任务" onClick={interrupt} disabled={!threadId}><CircleStop className="h-4 w-4" /></Button><select value={modelProfileId} onChange={(event) => setModelProfileId(event.target.value)} className="max-w-48 rounded-md border border-border bg-background px-2 py-1 text-xs" disabled={!models.length}>{models.map((item) => <option key={item.id} value={item.id}>{item.displayName}</option>)}</select></div>
       </div>
+      <div className="flex justify-end border-b border-border/40 px-5 py-1"><button onClick={() => void refreshModels()} className="text-xs text-primary hover:underline">刷新模型列表</button></div>
       <div className="flex-1 space-y-3 overflow-y-auto p-5">
         {messages.length === 0 && <div className="flex h-full min-h-[300px] flex-col items-center justify-center text-center text-sm text-muted-foreground"><Terminal className="mb-3 h-8 w-8 text-primary/60" /><p>选择项目并发送第一个 Agent 任务</p></div>}
         {messages.map((event) => <div key={event.eventId} className={`rounded-md border p-3 text-sm ${event.type === "command.output" ? "border-border/60 bg-muted/40 font-mono text-xs" : "border-border/70 bg-card"}`}><div className="mb-1 flex items-center gap-2 text-[11px] text-muted-foreground"><Wrench className="h-3 w-3" />{event.type}</div><p className="whitespace-pre-wrap break-words leading-6">{eventText(event)}</p></div>)}

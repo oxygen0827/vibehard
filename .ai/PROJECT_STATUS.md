@@ -3,8 +3,15 @@
 ## 当前阶段
 
 - Phase: 云端 Agent 平台内测与设备闭环准备
-- Active focus: 修复模型 provider 超时；建立三人协作与项目知识导入规范
-- Last updated: 2026-09-18 19:21 CST
+- Active focus: 管理台功能分区已上线；完善云端 Agent 与设备闭环
+- Last updated: 2026-09-19
+
+## 最新补充（覆盖以下历史验收结论）
+
+- 9/19 正式方案生成、Agent 三轮对话及刷新后上下文恢复已成功；此前 provider 429 仍需持续关注，不能保证长期可用。
+- 账号 `ldkj@admin.com` 已经所有者明确确认后升为管理员，原密码不变；演示账号仍为普通成员。
+- 管理台五分区已发布为 `20260919-admin-sections`；3 项新增组件测试、完整测试、类型检查、lint、构建与发布校验通过。
+- 生产实际平台为 `20260919-admin-sections`，Gateway 保留 `20260918-cloud-runner`。以下旧构建/风险/下一步记录仅供历史追溯，当前状态以 `docs/current-status.md` 为准。
 
 ## 构建
 

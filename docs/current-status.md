@@ -1,6 +1,30 @@
 # 当前状态与交接
 
-最新更新：2026-09-18，北京时间。以下核查结果分别标注时间，不代表持续监控。
+最新更新：2026-09-19，北京时间。以下核查结果分别标注时间，不代表持续监控。
+
+## 2026-09-19 管理台功能分区上线
+
+- 管理页改为概览、模型设置、Runner 节点、用户管理、审计日志五个分区，一次只显示一个；窄屏导航可横向滚动，切换保留未保存模型输入。
+- 仅调整呈现，认证、密码重置逻辑及后端接口不变。3 项新增组件测试通过；完整回归为 57 项通过、2 项数据库专用测试跳过；类型检查、针对性 lint 和生产构建通过。
+- 正式平台已切换 `/opt/vibehard/releases/20260919-admin-sections/standalone`；无数据库迁移，只重启 `vibehard.service`。Gateway 保留 `20260918-cloud-runner`，VibeBoard、Gateway 与 nginx 未重启，相关 PID 保持不变。
+- 候选端口 3211 和正式端口 3210 均通过管理台五分区 bundle、管理员 overview API、PCB 详细 renderer、15 个资源及五个 Demo GIF 校验；公网登录与 Demo 返回 200。
+- 临时预检 unit 已回收为 not-found/inactive，3211 无监听。发布归档 SHA-256：`dd873a1357cd91d0f5dab553d4bd905354d863d59ebb5ac0b18cbe42155fb0d9`。
+- 账号状态更新：经所有者明确确认，已将 `ldkj@admin.com` 从 member 升级为 admin 并记录审计，密码不变；`ldcx@demo.com` 保持 member。下文“等待管理员授权”为此前历史记录。
+
+## 2026-09-19 LLM 设置上线与真实网页复测
+
+- 正式平台已切换 `/opt/vibehard/releases/20260918-llm-settings/standalone`，应用迁移 `0003_llm_settings`，更新云端 Runner bundle；Gateway 仍使用 `20260918-cloud-runner`。VibeBoard、Gateway、nginx 未重启，Runner 凭据未轮换。
+- 原方案页的 `setTimeout`、固定 ESP32 方案和假 ERC 通过已移除。`/api/design` 真实请求管理员配置的 LLM，不接知识库，带结构校验、等待心跳、取消和错误提示；结果标注未核验 AI 草案。
+- 管理概览新增独立的“硬件方案生成”和“云端 Agent 对话与执行”设置：Base URL、模型、协议、加密 API Key、真实连接测试及保存。cloud-runner 按新任务读取受控运行时配置，保存无需重启。
+- 发布当晚现有 provider 的直接测试和真实 Agent 任务均返回 HTTP 429，任务能正常失败退出。**9 月 19 日 09:33 起重新测试恢复响应**：管理页真实连接测试 3.5 秒成功；隔离副本完整生成温湿度方案；正式网页完成三轮 Agent 对话，第二轮和刷新后的第三轮均正确复述 `VH-0919-A`，已验证上下文和刷新恢复。
+- 正式账号保留验收项目“云端对话验收-20260919”，便于用户检查真实结果；三轮任务不调用工具、不修改工程文件。本次不等于重新验收编译/烧录或长期服务 SLA。
+- 09:36 正式网页方案生成成功：不联网、USB 供电的温湿度显示器返回 CH32V003/AHT20/OLED 等建议、5 条 BOM、接口和风险，而非原来固定 ESP32 结果。该结果仍明确标注未核验参数与价格。
+- 54 项测试通过、2 项 PostgreSQL 专用旧测试跳过，类型检查、变更文件 lint 和生产构建通过；前端发布校验覆盖 PCB 及真实引用 bundle、15 个资源和五个 Demo GIF。
+- 管理页浏览器测试使用隔离数据库副本，不提升生产账号权限。生产唯一账号 `ldcx@demo.com` 仍为 member，等待所有者明确授权提升为管理员，才能自行使用设置页。
+- 测试结束已删除隔离临时登录账号、停止并回收 `vibehard-llm-ui-preflight.service`（not-found / inactive）、关闭 SSH 隧道，确认 3211 无监听。隔离数据库及 root-only 备份保留供审计。
+- 部署预检曾因子进程继承 `DATABASE_URL` 优先于 `--env-file`，提前在正式库执行了新增空表的迁移；既有数据未覆盖，执行前已有备份。已修正为显式传入副本 URL，并分别核验副本和正式迁移。后续部署不可仅依赖 env-file 切库。
+
+配置操作、安全边界及验收方法见 [LLM 设置](llm-settings.md)。以下同日更早条目均为历史记录，以本节最新实测为准。
 
 ## 2026-09-18 19:21 预检服务清理
 
@@ -63,11 +87,11 @@
 - 主站：https://ldcx.tech/vibehard/
 - PCB 示例：https://ldcx.tech/vibehard/app/pcb（需要登录）
 - 宣传展示：https://ldcx.tech/vibehard/demo
-- 活跃发布：`/opt/vibehard/releases/20260918-cloud-runner/standalone`。
+- 活跃平台发布：`/opt/vibehard/releases/20260919-admin-sections/standalone`；Gateway 保留 `20260918-cloud-runner`。
 - PCB v0.2 已恢复上线，包含精细绘图、装配／布线切换、图层显示、缩放和平移、PNG 下载。它是固定示例预览，并非已接通真实 EDA 自动设计；Gerber 导出仍禁用。
 - Demo 保留标题下简介、下方模块说明和五段自动循环 GIF，PCB GIF 使用已裁剪版本。
-- 本次发布包含当前完整平台后端、Gateway、云端 Runner、工程下载以及既有 Demo 和 PCB 页面，已执行数据库迁移 `0002`。
-- 41 项测试通过，2 项依赖独立 PostgreSQL 测试库的测试跳过；数据库副本迁移、消息链路、真实模型与生产端到端验收另行通过。
+- 本次平台发布包含当前完整前端、真实方案生成与 LLM 设置，云端 Runner 同步更新，已执行数据库迁移 `0003`。
+- 54 项测试通过，2 项依赖独立 PostgreSQL 测试库的测试跳过；本次最新网页验收见顶部，历史编译成功不可替代新版本工具链回归。
 
 发布目录、回滚及检查命令见 [deployment-ldcx.md](deployment-ldcx.md)。可追溯覆盖清单见 [release.json](../deploy/releases/20260916-pcb-restore/release.json)。
 
@@ -75,11 +99,11 @@
 
 | 节点 | 当前用途 | 2026-09-18 状态 |
 | --- | --- | --- |
-| `cloud-runner` | 长期在线对话、代码生成、原生 C/C++ 编译、工程下载 | 心跳 online；早期验收通过，19:02 复测模型任务超时 |
+| `cloud-runner` | 长期在线对话、代码生成、原生 C/C++ 编译、工程下载 | 9/19 正式网页三轮回复成功，包含上下文和刷新恢复；历史有 429 |
 | `device-runner` | Mac mini 本地 USB、串口、烧录和实机日志 | online，尚未接入小电脑基础工程和实机 |
 | `mac-local` | 旧开发 Runner | offline，不再作为默认节点 |
 
-云端执行架构不依赖 Mac mini，但当前模型请求链路处于退化状态。需要实体数据线的任务必须选择 `device-runner`，并在现场 Mac mini 在线、产品工具链与设备均已准备的情况下运行。
+云端对话架构不依赖 Mac mini，上游可用性仍会波动。现有实体数据线任务使用 `device-runner`，需要设备节点、工具链和硬件准备好；泰山派跨电脑连接方案另行实施。
 
 ## Mac mini 与模型的位置
 
@@ -87,7 +111,7 @@
 
 核查时本机 Codex 配置为 `model_provider = "custom"`、`model = "gpt-5.6-sol"`，入口为 `http://127.0.0.1:15721`，监听进程为 CC Switch。这里只确认到本地代理入口，未核验其当前上游模型服务或可用性，不能据此宣称模型权重在 Mac 上运行。
 
-正式平台当前仅启用经过验收的 `tokenadvent:gpt-5.6-sol` 模型条目。云端和设备 Runner 都使用独立配置连接该 provider。
+正式平台已导入既有 `tokenadvent / gpt-5.6-sol` 为托管配置，模型列表中的 providerId 为 `vibehard`。云端按任务读取管理员设置；设备 Runner 不接收云端密钥，仍使用自己的配置。
 
 ## 下一步
 
@@ -101,8 +125,8 @@
 
 ### 云端执行后续步骤
 
-1. 排查云端 Runner 到 provider 的持续重连，恢复后重新运行完整生产验收。
-2. 发布新建项目的执行器选择页面，分别验证 `cloud-runner` 和 `device-runner` 项目路由。
+1. 经所有者确认后为其账号启用管理员角色；配置可用服务并继续观察 429，补做完整 Agent 工具链验收。
+2. 执行器选择页面已随本次发布上线，云端项目已验证；设备项目仍需实机验证。
 3. 接收“小电脑”基础工程、产品知识库、构建／烧录／日志命令，在设备 Runner 工作区中落盘。
 4. 连接真实数据线，验证设备识别、编译、烧录、重启、日志回传和失败恢复。
 5. 用两个固定 APP 做至少三轮全链路彩排，记录成功率和剩余人工步骤。

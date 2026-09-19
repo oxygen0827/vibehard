@@ -120,6 +120,17 @@ export const modelProfiles = pgTable("model_profiles", {
   ...timestamps,
 }, (table) => [uniqueIndex("model_profiles_provider_model_uidx").on(table.providerId, table.model)]);
 
+// Provider secrets are encrypted by the platform; never return this table directly.
+export const llmSettings = pgTable("llm_settings", {
+  purpose: text("purpose").primaryKey(),
+  baseUrl: text("base_url").notNull(),
+  model: text("model").notNull(),
+  protocol: text("protocol").notNull(),
+  encryptedApiKey: text("encrypted_api_key").notNull(),
+  revision: uuid("revision").notNull(),
+  ...timestamps,
+});
+
 export const auditLogs = pgTable("audit_logs", {
   id: uuid("id").defaultRandom().primaryKey(),
   userId: uuid("user_id").references(() => users.id, { onDelete: "set null" }),

@@ -7,6 +7,7 @@ import { WebSocket } from "ws";
 import { envelope, parseGatewayToRunnerMessage, type AgentEvent, type GatewayToRunnerMessage, type RunnerEvent, type TaskStart } from "@/lib/agent/protocol";
 import { CodexSession, redactSensitiveText } from "./codex-stdio";
 import { RunnerJournal } from "./state";
+import type { RuntimeLlm } from "@/lib/agent/llm";
 
 const runnerKey = process.env.RUNNER_ID ?? "local-runner";
 const runnerInstanceId = randomUUID();
@@ -111,7 +112,18 @@ async function handleCommand(socket: WebSocket, message: GatewayToRunnerMessage)
       }, workspaceRoot);
       sessions.set(message.taskId, session);
       activeThreads.set(message.threadId, message.taskId);
-      await session.start(task);
+      let config: RuntimeLlm | undefined;
+      if (task.modelProvider === "vibehard") {
+        const platformUrl = process.env.RUNNER_PLATFORM_URL;
+        if (!platformUrl) throw new Error("执行器未配置平台地址，请管理员检查 RUNNER_PLATFORM_URL");
+        const response = await fetch(`${platformUrl}/api/runners/model-config?taskId=${encodeURIComponent(task.taskId)}`, {
+          headers: { Authorization: `Bearer ${secret}`, "X-Runner-Key": runnerKey }, signal: AbortSignal.timeout(10_000), redirect: "error",
+        });
+        if (!response.ok) throw new Error(`无法读取云端模型配置（HTTP ${response.status}）`);
+        config = (await response.json() as { config: RuntimeLlm }).config;
+        if (config.model !== task.model) throw new Error("模型配置已变更，请刷新页面并重新发送任务");
+      }
+      await session.start(task, config);
     } catch (error) {
       if (session) session.fail(error);
       else {

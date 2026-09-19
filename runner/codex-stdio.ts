@@ -4,6 +4,7 @@ import { createInterface } from "node:readline";
 import { randomUUID } from "node:crypto";
 import path from "node:path";
 import type { AgentEvent, TaskStart } from "@/lib/agent/protocol";
+import type { RuntimeLlm } from "@/lib/agent/llm";
 import type { AgentMessageDeltaNotification } from "./generated/codex/v2/AgentMessageDeltaNotification";
 import type { CommandExecutionOutputDeltaNotification } from "./generated/codex/v2/CommandExecutionOutputDeltaNotification";
 import type { FileChangeOutputDeltaNotification } from "./generated/codex/v2/FileChangeOutputDeltaNotification";
@@ -42,6 +43,13 @@ export function redactSensitiveText(text: string, source: Record<string, string 
     redacted = redacted.split(value).join("[REDACTED]");
   }
   return redacted;
+}
+
+function redactData(value: unknown, secrets: Record<string, string | undefined>): unknown {
+  if (typeof value === "string") return redactSensitiveText(value, secrets);
+  if (Array.isArray(value)) return value.map((item) => redactData(item, secrets));
+  if (value && typeof value === "object") return Object.fromEntries(Object.entries(value).map(([key, item]) => [key, redactData(item, secrets)]));
+  return value;
 }
 
 function schemeString(value: string) {
@@ -85,6 +93,18 @@ export class CodexSession {
   private pending = new Map<string, { resolve(value: unknown): void; reject(error: Error): void; timer: NodeJS.Timeout }>();
   private approvals = new Map<string, { requestId: string | number; method: string }>();
   private terminalEmitted = false;
+  private providerSecrets: Record<string, string> = {};
+  private watchdog: NodeJS.Timeout | undefined;
+
+  private resetWatchdog() {
+    clearTimeout(this.watchdog);
+    if (this.terminalEmitted || this.approvals.size) return;
+    this.watchdog = setTimeout(() => {
+      this.fail(new Error("模型连续 120 秒没有返回有效内容，可能额度不足或上游网络不可用。请在管理页测试模型配置后重试。"));
+      this.dispose();
+    }, Number(process.env.CODEX_IDLE_TIMEOUT_MS ?? 120_000));
+    this.watchdog.unref?.();
+  }
 
   constructor(private readonly emit: Emit, private readonly workspaceRoot = process.cwd()) {}
 
@@ -108,8 +128,10 @@ export class CodexSession {
 
   private event(type: AgentEvent["type"], data: Record<string, unknown>) {
     if (this.terminalEmitted && ["task.completed", "task.failed", "task.interrupted"].includes(type)) return;
-    if (["task.completed", "task.failed", "task.interrupted"].includes(type)) this.terminalEmitted = true;
-    this.emit({ eventId: randomUUID(), sequence: this.sequence++, timestamp: new Date().toISOString(), type, data }, this.threadId);
+    if (["task.completed", "task.failed", "task.interrupted"].includes(type)) { this.terminalEmitted = true; clearTimeout(this.watchdog); }
+    else if (type !== "command.output" || (data.stream !== "stderr" && data.stream !== "system")) this.resetWatchdog();
+    const safeData = redactData(data, { ...process.env, ...this.providerSecrets }) as Record<string, unknown>;
+    this.emit({ eventId: randomUUID(), sequence: this.sequence++, timestamp: new Date().toISOString(), type, data: safeData }, this.threadId);
   }
 
   fail(error: unknown) {
@@ -194,12 +216,22 @@ export class CodexSession {
     }
   }
 
-  async start(task: TaskStart) {
+  async start(task: TaskStart, provider?: RuntimeLlm) {
     const parsedArgs = process.env.CODEX_APP_SERVER_ARGS ? JSON.parse(process.env.CODEX_APP_SERVER_ARGS) as unknown : ["app-server", "--listen", "stdio://"];
     if (!Array.isArray(parsedArgs) || !parsedArgs.every((item) => typeof item === "string")) throw new Error("CODEX_APP_SERVER_ARGS must be a JSON string array");
     const command = codexCommand(process.env.CODEX_BIN ?? "codex", parsedArgs, this.workspaceRoot, task.workspaceKey);
+    const env = codexEnvironment();
+    this.providerSecrets = provider ? { VIBEHARD_MODEL_API_KEY: provider.apiKey } : {};
+    Object.assign(env, this.providerSecrets);
+    // Configuration travels over stdin, with the secret only in the child's environment.
+    // It is never stored in the Runner task journal, command queue or user workspace.
+    const config = provider ? {
+      "model_providers.vibehard": { name: "VibeHard managed provider", base_url: provider.baseUrl, env_key: "VIBEHARD_MODEL_API_KEY", wire_api: "responses", request_max_retries: 1, stream_max_retries: 1, stream_idle_timeout_ms: 60_000 },
+      "shell_environment_policy.exclude": ["*KEY*", "*TOKEN*", "*SECRET*", "*PASSWORD*"],
+    } : undefined;
     try {
-      this.process = spawn(command.command, command.args, { cwd: task.workspaceKey, env: codexEnvironment(), stdio: ["pipe", "pipe", "pipe"] });
+      this.resetWatchdog();
+      this.process = spawn(command.command, command.args, { cwd: task.workspaceKey, env, stdio: ["pipe", "pipe", "pipe"] });
       createInterface({ input: this.process.stdout }).on("line", (line) => { try { this.handleMessage(JSON.parse(line)); } catch (error) { console.error("codex protocol parse error", error); } });
       this.process.stderr.on("data", (chunk) => this.event("command.output", { stream: "stderr", text: redactSensitiveText(chunk.toString()) }));
       this.process.on("error", (error) => {
@@ -219,9 +251,9 @@ export class CodexSession {
       this.send({ method: "initialized", params: {} });
       if (task.codexThreadId) {
         this.threadId = task.codexThreadId;
-        await this.request("thread/resume", { threadId: this.threadId, model: task.model, modelProvider: task.modelProvider, cwd: task.workspaceKey, runtimeWorkspaceRoots: [task.workspaceKey], sandbox: "read-only", approvalPolicy: "on-request" });
+        await this.request("thread/resume", { threadId: this.threadId, model: task.model, modelProvider: task.modelProvider, config, cwd: task.workspaceKey, runtimeWorkspaceRoots: [task.workspaceKey], sandbox: "read-only", approvalPolicy: "on-request" });
       } else {
-        const result = await this.request("thread/start", { model: task.model, modelProvider: task.modelProvider, cwd: task.workspaceKey, runtimeWorkspaceRoots: [task.workspaceKey], sandbox: "read-only", approvalPolicy: "on-request" }) as { thread?: { id?: string } } | undefined;
+        const result = await this.request("thread/start", { model: task.model, modelProvider: task.modelProvider, config, cwd: task.workspaceKey, runtimeWorkspaceRoots: [task.workspaceKey], sandbox: "read-only", approvalPolicy: "on-request" }) as { thread?: { id?: string } } | undefined;
         this.threadId = result?.thread?.id;
       }
       if (!this.threadId) throw new Error("Codex did not return a thread id");
@@ -243,6 +275,7 @@ export class CodexSession {
   }
 
   dispose() {
+    clearTimeout(this.watchdog);
     this.rejectPending(new Error("Codex session disposed"));
     this.process?.kill();
     this.process = null;
@@ -253,5 +286,6 @@ export class CodexSession {
     if (!approval) return;
     this.send({ id: approval.requestId, result: { decision: decision === "approve" ? "accept" : "decline" } });
     this.approvals.delete(approvalId);
+    this.resetWatchdog();
   }
 }

@@ -18,6 +18,7 @@ import { DEFAULT_MODELS } from "@/lib/agent/models";
 import type { AgentEvent, ApprovalDecision, PlatformToRunnerMessage, RunnerEvent } from "@/lib/agent/protocol";
 import { envelope } from "@/lib/agent/protocol";
 import { hashRunnerSecret } from "./security";
+import { publicLlm } from "./llm-settings";
 
 type UserRecord = typeof users.$inferSelect;
 type ProjectRecord = typeof projects.$inferSelect;
@@ -99,7 +100,7 @@ export async function createProject(userId: string, input: { name: string; works
   }
   const projectId = randomUUID();
   const workspaceKey = `${userId}/${projectId}-${input.workspaceKey}`;
-  const record = { id: projectId, userId, name: input.name, workspaceKey, runnerKey: input.runnerKey ?? process.env.DEFAULT_RUNNER_KEY ?? "local-runner", defaultModel: input.model ?? DEFAULT_MODELS[0].model, ...timestampFields() };
+  const record = { id: projectId, userId, name: input.name, workspaceKey, runnerKey: input.runnerKey ?? process.env.DEFAULT_RUNNER_KEY ?? "local-runner", defaultModel: input.model ?? (await listModels())[0].model, ...timestampFields() };
   if (!db) { memory.projects.push(record); return record; }
   const project = (await db.insert(projects).values(record).returning())[0];
   await db.insert(auditLogs).values({ userId, projectId: project.id, action: "project.created", metadata: { workspaceKey: project.workspaceKey } });
@@ -239,18 +240,21 @@ export async function decideApproval(userId: string, approvalId: string, decisio
 }
 
 export async function listModels() {
+  const managed = await publicLlm("agent");
+  if (managed.hasApiKey) return [{ id: `vibehard:${managed.model}`, providerId: "vibehard", model: managed.model, displayName: managed.model, kind: "custom" as const, capabilities: ["tools", "reasoning"] }];
   if (!db) return DEFAULT_MODELS;
   const configured = await db.select().from(modelProfiles).where(eq(modelProfiles.enabled, true));
   return configured.length ? configured.map((item) => ({ id: `${item.providerId}:${item.model}`, providerId: item.providerId, model: item.model, displayName: item.displayName, kind: item.providerId === "openai" ? "codex" as const : "custom" as const, capabilities: item.capabilities })) : DEFAULT_MODELS;
 }
 
 export async function getAdminOverview() {
+  const visibleModels = (await listModels()).map((model) => ({ ...model, enabled: true }));
   if (!db) {
     const activeTurns = memory.turns.filter((turn) => ACTIVE_TURN_STATUSES.includes(turn.status as typeof ACTIVE_TURN_STATUSES[number])).length;
     return {
       counts: { users: memory.users.length, projects: memory.projects.length, threads: memory.threads.length, turns: memory.turns.length, activeTurns, pendingApprovals: memory.approvals.filter((item) => item.status === "pending").length },
       runners: memory.runners.map((runner) => ({ id: runner.id, runnerKey: runner.runnerKey, name: runner.name, status: runner.status, capabilities: runner.capabilities, instanceId: runner.instanceId, lastHeartbeatAt: runner.lastHeartbeatAt, createdAt: runner.createdAt, updatedAt: runner.updatedAt })).sort((a, b) => b.updatedAt.getTime() - a.updatedAt.getTime()),
-      models: DEFAULT_MODELS.map((model) => ({ ...model, enabled: true })),
+      models: visibleModels,
       projects: memory.projects.map((project) => ({ ...project, userEmail: memory.users.find((user) => user.id === project.userId)?.email ?? "未知用户" })).sort((a, b) => b.updatedAt.getTime() - a.updatedAt.getTime()).slice(0, 20),
       auditLogs: [],
       users: memory.users.map((user) => ({ id: user.id, email: user.email, name: user.name, role: user.role, createdAt: user.createdAt })).sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime()),
@@ -272,7 +276,7 @@ export async function getAdminOverview() {
   ]);
   return {
     counts: { users: userCount[0]?.value ?? 0, projects: projectCount[0]?.value ?? 0, threads: threadCount[0]?.value ?? 0, turns: turnCount[0]?.value ?? 0, activeTurns: activeTurnCount[0]?.value ?? 0, pendingApprovals: pendingApprovalCount[0]?.value ?? 0 },
-    runners, models: configuredModels.length ? configuredModels : DEFAULT_MODELS.map((model) => ({ ...model, enabled: true })), projects: recentProjects, auditLogs: recentAuditLogs, users: userList,
+    runners, models: visibleModels.length ? visibleModels : configuredModels, projects: recentProjects, auditLogs: recentAuditLogs, users: userList,
   };
 }
 
@@ -298,6 +302,14 @@ export async function authenticateRunner(runnerKey: string, secret: string) {
   const hash = hashRunnerSecret(secret);
   if (!db) return memory.runners.some((runner) => runner.runnerKey === runnerKey && runner.secretHash === hash && runner.status !== "revoked");
   return Boolean((await db.select({ id: runnerNodes.id }).from(runnerNodes).where(and(eq(runnerNodes.runnerKey, runnerKey), eq(runnerNodes.secretHash, hash), ne(runnerNodes.status, "revoked"))).limit(1))[0]);
+}
+
+export async function runnerOwnsActiveTask(runnerKey: string, taskId: string) {
+  if (!db) return false;
+  return Boolean((await db.select({ id: runnerCommands.id }).from(runnerCommands)
+    .innerJoin(agentTurns, eq(agentTurns.id, runnerCommands.taskId))
+    .where(and(eq(runnerCommands.runnerKey, runnerKey), eq(runnerCommands.taskId, taskId), eq(runnerCommands.type, "task.start"), inArray(agentTurns.status, [...ACTIVE_TURN_STATUSES])))
+    .limit(1))[0]);
 }
 
 export async function heartbeatRunner(runnerKey: string, secret: string, capabilities?: string[], instanceId?: string) {

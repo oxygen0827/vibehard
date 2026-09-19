@@ -4,6 +4,16 @@
 
 真实任务条目从本行下方开始。
 
+## 2026-09-19 Task: 平台管理台按功能分区
+
+- Goal: 缩短管理页，按概览、模型设置、Runner 节点、用户管理、审计日志切换显示。
+- Scope: 仅管理页呈现、组件测试及交接记录；不修改认证、密码重置逻辑、数据库、Runner 或生产部署。
+- Changed files: app/app/admin/page.tsx,__tests__/admin-sections.test.tsx,.ai/TASK_LOG.md,.ai/PROJECT_STATUS.md,docs/current-status.md
+- Validation: 3 项新增组件测试通过，覆盖单分区显示、未保存输入保留、权限拒绝；TypeScript 与针对性 ESLint 通过；`NEXT_PUBLIC_BASE_PATH=/vibehard pnpm build` 成功。
+- Result: 已发布为 `/opt/vibehard/releases/20260919-admin-sections`；切换分区保留模型表单状态，不触发保存。
+- Production validation: 候选与正式环境均通过 PCB/Demo 完整回归和管理台 bundle/API 校验；公网登录、Demo 返回 200；Gateway/VibeBoard PID 未改变；3211 临时服务已回收。
+- Next: 由管理员在常用浏览器复核实际使用体验；需要回滚时恢复发布目录内备份的 `vibehard.service`。
+
 ## 2026-09-18 Task: 建立三人协作的云端文档交付与 Agent 读取规范
 
 - Owner: 未填写

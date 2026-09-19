@@ -1,0 +1,13 @@
+{
+  "release": "20260919-admin-sections",
+  "previousPlatformRelease": "20260918-llm-settings",
+  "gatewayRelease": "20260918-cloud-runner",
+  "basePath": "/vibehard",
+  "databaseMigration": "none",
+  "preservedFrontend": ["app/demo", "public/demo", "next.config.ts", "app/app/pcb", "components/pcb"],
+  "changes": ["split admin console into overview, model settings, runners, users, and audit sections", "preserve unsaved model form state while switching sections"],
+  "restartServices": ["vibehard.service"],
+  "preserveServices": ["vibehard-gateway.service", "vibeboard.service", "nginx"],
+  "verification": ["scripts/verify-frontend-release.mjs", "scripts/verify-admin-sections.mjs"],
+  "note": "No database, credential, Gateway, Runner, or nginx change."
+}

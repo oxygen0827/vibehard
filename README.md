@@ -6,13 +6,13 @@ VibeHard 是面向嵌入式与智能硬件研发的项目工作台。平台把�
 
 ## 当前状态
 
-截至 2026-09-18 19:02（北京时间），[线上平台](https://ldcx.tech/vibehard/)运行在完整的 `20260918-cloud-runner` 发布版，数据库迁移 `0002_lucky_daimon_hellstrom` 已应用。平台、Gateway 和云端 Runner 服务均为 `active/running`；`cloud-runner` 与 Mac mini 上的 `device-runner` 心跳正常。
+截至 2026-09-19（北京时间），[线上平台](https://ldcx.tech/vibehard/)已切换至 `20260918-llm-settings`，应用迁移 `0003_llm_settings`。Gateway 保持 `20260918-cloud-runner`；平台、Gateway 和云端 Runner 服务检查均为 active。
 
-**网页和执行基础设施可用，但当前不能把云端模型对话标记为可用。** 当天早些时候的生产验收曾真实完成 `gpt-5.6-sol` 回复、文件生成、审批、GCC 编译、程序运行和工程 ZIP 下载；19:00 前后的重新实测中，浏览器任务连续显示 `Reconnecting... waiting for network`，正式生产构建验收也在 5 分钟后超时。平台登录、项目/会话创建、SSE、任务中断和 Runner 心跳均正常，故障点位于 Runner 发起模型请求后的上游网络/provider 链路。修复后必须重新跑完整生产验收，不能只依据 `online` 状态判断可用。
+**真实调用与管理员模型设置已上线，正式网页方案生成、Agent 三轮对话及刷新恢复已成功。** 发布当晚现有 provider 返回过 HTTP 429，9 月 19 日 09:33–09:36 复测恢复，未更换 Key，不能断定旧额度已耗尽。新版限制重试、增加空闲超时并将错误回传网页；短时成功不代表长期稳定。管理员可在“管理概览 → LLM 服务设置”分别调整方案生成与 Agent 的 Base URL、模型、API Key 并测试连接，详见 [LLM 配置指南](docs/llm-settings.md)。
 
-本次浏览器实测还确认：公开首页、Demo、主题切换、登录/退出、普通成员管理页权限、PCB 示例生成、装配/布线切换和缩放均正常；PCB PNG 能生成并触发浏览器下载许可。PCB 仍是固定示例，Gerber 禁用。首页工作台的“本周使用、项目数、最近项目”等为展示数据，不代表生产数据库；原理图、方案、资料和嵌入式等旧页面也多数仍是演示 UI。
+此前浏览器实测确认：首页、Demo、主题切换、登录/退出、成员管理页权限、PCB 示例切换和缩放正常；本次发布再次通过 PCB/Demo 资源回归。PCB 仍是固定示例，Gerber 禁用。首页统计和最近项目为展示数据；原理图、资料和嵌入式等旧页面多数仍是演示 UI。**方案生成已移除硬编码 ESP32 结果，改为云端真实 LLM 请求，不依赖知识库，失败不回退假结果。** 输出仅为未核验 AI 草案，不代表真实原理图或 ERC 通过。
 
-新建项目选择 `cloud-runner` / `device-runner` 的代码和发布包已经准备好，但生产仍运行 `20260918-cloud-runner`，网页中尚未显示执行器选择器。小电脑实机尚未接入。详见[当前状态与交接](docs/current-status.md)和[云端 Runner 说明](deploy/runner/README.md)。
+本次完整源码发布包含此前的执行器选择代码；小电脑实机仍未接入，不能宣称烧录验收通过。详见[当前状态与交接](docs/current-status.md)和[云端 Runner 说明](deploy/runner/README.md)。
 
 - 现有 WebHUD/VibeBoard 继续占用 `/` 和 `/api`，VibeHard 部署没有修改它的 UI、服务或数据。
 - Next.js 平台运行在服务器 `47.102.197.71:3210`，由 `vibehard.service` 管理。
@@ -20,7 +20,7 @@ VibeHard 是面向嵌入式与智能硬件研发的项目工作台。平台把�
 - Runner Gateway 由 `vibehard-gateway.service` 管理，只监听 Docker 桥接地址 `172.17.0.1:8787`，公网只能通过 `wss://ldcx.tech/vibehard/runner` 访问。
 - 默认 Codex Runner 运行在云服务器；Mac 关机不影响普通对话、生成和云端编译。需要 USB、串口或烧录的任务使用 Mac mini 设备 Runner，Mac 离线时这类任务不可执行。
 - 云端 Runner 工作区位于服务器 `/var/lib/vibehard-runner/workspaces/`；设备 Runner 工作区位于 Mac mini 的 `/Users/hushaohong/vibehard/.runner-workspaces/`。两端工作区不会自动同步。
-- `/app/agent` 已接入真实项目、thread、turn、事件流和 Codex Runner；当前模型链路有超时故障。方案生成、原理图、资料解析、调试、PCB、嵌入式开发等旧页面第一阶段仍保留演示 UI，尚未全部接入 Agent Task API。
+- `/app/agent` 使用云端 Codex Runner；`/app/design` 由平台直接请求 LLM。前者要求 Responses 流式与工具调用兼容，后者也支持 Chat Completions。其余旧模块尚未全部接入真实执行。
 
 文档入口见 [docs/README.md](docs/README.md)，脚本用途见 [scripts/README.md](scripts/README.md)。生产部署边界、目录和回滚方式见 [docs/deployment-ldcx.md](docs/deployment-ldcx.md)。
 
@@ -89,13 +89,14 @@ macOS Runner 会用 `sandbox-exec` 阻止 Codex 访问其他 Runner 项目目录
 | 审批 | 结构化命令/路径详情、批准/拒绝、并发决策保护和审计 |
 | Runner | 注册换取并持久化密钥、实例 ID、心跳/离线、命令队列、磁盘 journal 和重连重发 |
 | Codex | stdio JSONL、环境白名单与脱敏、read-only、thread start/resume、真实 turn ID 中断 |
-| 模型 | 默认官方 Codex profile；自研 Responses API profile 需在数据库和 Runner Codex 配置中显式启用 |
+| 模型 | 管理员分别配置方案/Agent 的地址、模型和 Key；加密存储、权限校验、连接测试；cloud-runner 每任务读取配置 |
+| 方案 | 真实后端 LLM、结构校验、心跳、取消、错误提示与 Markdown 下载；不接知识库，不伪造原理图/校验结果 |
 | 审计 | 项目创建、任务、审批等关键动作入库 |
 | 部署 | Next.js standalone、独立服务 bundle、systemd 与 nginx 模板 |
 
 ## 数据库
 
-PostgreSQL 迁移会创建 11 张业务表：
+PostgreSQL 迁移会创建 12 张业务表：
 
 - `users`：用户、密码哈希、角色和邀请码记录。
 - `projects`：用户项目、工作区标识、Runner 和默认模型。
@@ -106,6 +107,7 @@ PostgreSQL 迁移会创建 11 张业务表：
 - `approvals`：待审批操作及用户决定。
 - `artifacts`：报告、补丁和生成文件的索引。
 - `model_profiles`：provider 引用、模型和能力声明。
+- `llm_settings`：方案与云端 Agent 配置及加密 API Key。
 - `audit_logs`：登录、项目、任务和审批审计。
 - `runner_commands`：等待 Gateway 投递的 Runner 命令。
 

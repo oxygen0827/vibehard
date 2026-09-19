@@ -1,7 +1,7 @@
 import { vi } from "vitest";
 import "@testing-library/jest-dom/vitest";
 
-Object.defineProperty(window, "matchMedia", {
+if (typeof window !== "undefined") Object.defineProperty(window, "matchMedia", {
   writable: true,
   value: vi.fn().mockImplementation((query: string) => ({
     matches: false,
@@ -15,7 +15,7 @@ Object.defineProperty(window, "matchMedia", {
   })),
 });
 
-Object.defineProperty(window, "localStorage", {
+if (typeof window !== "undefined") Object.defineProperty(window, "localStorage", {
   value: {
     getItem: vi.fn(),
     setItem: vi.fn(),

@@ -1,0 +1,12 @@
+{
+  "release": "20260918-llm-settings",
+  "previousRelease": "20260918-cloud-runner",
+  "basePath": "/vibehard",
+  "databaseMigration": "0003_llm_settings",
+  "preservedFrontend": ["app/demo", "public/demo", "next.config.ts", "app/app/pcb", "components/pcb"],
+  "changes": ["encrypted admin LLM settings", "real hardware design requests", "per-task cloud provider config", "bounded provider retries", "merged streaming messages"],
+  "restartServices": ["vibehard.service", "vibehard-runner.service"],
+  "verification": ["scripts/verify-frontend-release.mjs", "scripts/verify-llm-release.mjs", "scripts/verify-codex-provider.mjs"],
+  "liveVerification": "2026-09-19: public design generation and three Agent turns including context/reload recovery passed; previous evening returned upstream 429. Long-term availability and tool execution not established by this check.",
+  "note": "Live provider availability must be verified separately; no credential is included in this release."
+}

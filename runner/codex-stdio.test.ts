@@ -5,6 +5,28 @@ import { envelope, type AgentEvent, type TaskStart } from "@/lib/agent/protocol"
 
 describe("CodexSession", () => {
   afterEach(() => vi.unstubAllEnvs());
+  it("applies managed provider settings via stdin and redacts runtime credentials from events", async () => {
+    vi.stubEnv("CODEX_BIN", process.execPath);
+    vi.stubEnv("CODEX_APP_SERVER_ARGS", JSON.stringify([path.resolve("__tests__/fixtures/fake-codex.mjs")]));
+    vi.stubEnv("CODEX_PROVIDER_ENV_ALLOWLIST", "FAKE_CODEX_MODE"); vi.stubEnv("FAKE_CODEX_MODE", "managed");
+    const events: AgentEvent[] = [];
+    const session = new CodexSession((event) => events.push(event), path.dirname(process.cwd()));
+    try {
+      await session.start({ ...envelope(), type: "task.start", taskId: crypto.randomUUID(), projectId: crypto.randomUUID(), threadId: crypto.randomUUID(), workspaceKey: process.cwd(), input: "test", model: "managed", modelProvider: "vibehard" }, { baseUrl: "https://example.com/v1", apiKey: "managed-test-secret", model: "managed", protocol: "responses", revision: "test" });
+      await vi.waitFor(() => expect(events.some((event) => event.type === "task.completed")).toBe(true));
+      expect(JSON.stringify(events)).not.toContain("managed-test-secret");
+      expect(JSON.stringify(events)).toContain("[REDACTED]");
+    } finally { session.dispose(); }
+  });
+  it("ends silent provider requests rather than leaving a turn running indefinitely", async () => {
+    vi.stubEnv("CODEX_BIN", process.execPath); vi.stubEnv("CODEX_APP_SERVER_ARGS", JSON.stringify([path.resolve("__tests__/fixtures/fake-codex.mjs")]));
+    vi.stubEnv("CODEX_PROVIDER_ENV_ALLOWLIST", "FAKE_CODEX_MODE"); vi.stubEnv("FAKE_CODEX_MODE", "interrupt"); vi.stubEnv("CODEX_IDLE_TIMEOUT_MS", "300");
+    const events: AgentEvent[] = []; const session = new CodexSession((event) => events.push(event), path.dirname(process.cwd()));
+    try {
+      await session.start({ ...envelope(), type: "task.start", taskId: crypto.randomUUID(), projectId: crypto.randomUUID(), threadId: crypto.randomUUID(), workspaceKey: process.cwd(), input: "test", model: "test" });
+      await vi.waitFor(() => expect(events.filter((event) => event.type === "task.failed")).toHaveLength(1));
+    } finally { session.dispose(); }
+  });
   it("completes initialize, thread/start and turn/start over stdio", async () => { vi.stubEnv("CODEX_BIN", process.execPath); vi.stubEnv("CODEX_APP_SERVER_ARGS", JSON.stringify([path.resolve("__tests__/fixtures/fake-codex.mjs")])); const events: AgentEvent[] = []; const session = new CodexSession((event) => events.push(event), path.dirname(process.cwd())); const task: TaskStart = { ...envelope(), type: "task.start", taskId: crypto.randomUUID(), projectId: crypto.randomUUID(), threadId: crypto.randomUUID(), workspaceKey: process.cwd(), input: "Summarize this repo", model: "fake-model" }; await session.start(task); await new Promise((resolve) => setTimeout(resolve, 100)); expect(events.some((event) => event.type === "task.started")).toBe(true); expect(events.some((event) => event.type === "agent.message.delta" && event.data.text === "fake response")).toBe(true); expect(events.some((event) => event.type === "task.completed")).toBe(true); session.dispose(); });
 
   it("emits one failed terminal event when app-server exits during startup", async () => {

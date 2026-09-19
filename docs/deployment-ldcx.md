@@ -2,16 +2,50 @@
 
 ## Current deployment
 
-As of 2026-09-18:
+As of 2026-09-19:
 
-- Active platform release: `/opt/vibehard/releases/20260918-cloud-runner/standalone`.
+- Active platform release: `/opt/vibehard/releases/20260919-admin-sections/standalone`.
 - Active Gateway release: `/opt/vibehard/releases/20260918-cloud-runner`.
-- Previous platform and Gateway units are retained inside `/opt/vibehard/releases/20260918-cloud-runner/`.
+- Previous platform unit, Runner bundle/environment and DB dumps are retained inside `/opt/vibehard/releases/20260918-llm-settings/backup/` (root-only).
 - Cloud Runner service bundle: `/opt/vibehard/cloud-runner/runner.cjs`; its versioned source is in the active release.
 - Platform and Gateway run on `47.102.197.71`.
 - `cloud-runner` is the default production node and stores workspaces in `/var/lib/vibehard-runner/workspaces`.
 - `device-runner` runs on the Mac mini for USB, serial and flashing tasks; its workspace root is `/Users/hushaohong/vibehard/.runner-workspaces`.
-- The server runs the pinned Codex CLI 0.149.1 through the unprivileged `vibehard-runner` service and bubblewrap wrapper. A fresh 2026-09-18 19:02 check found healthy services and heartbeats but repeated provider-network reconnects and a five-minute production-task timeout; treat executor availability as degraded until the full verification passes again.
+- The server runs pinned Codex CLI 0.149.1 through the unprivileged `vibehard-runner` service and bubblewrap wrapper. Provider requests returned 429 during release verification but recovered on September 19: three real browser conversation turns, context retention and reload recovery passed. This does not establish sustained availability or revalidate compilation/flashing.
+
+### Managed LLM settings release, 2026-09-18/19
+
+`20260918-llm-settings` deploys real hardware-design requests, separate encrypted design/Agent settings and per-task cloud provider configuration. It preserves the complete PCB/Demo source and assets. Only `vibehard.service` and `vibehard-runner.service` were restarted; Gateway, VibeBoard and nginx were preserved, and the existing Runner credential was not rotated.
+
+Migration `0003_llm_settings` is additive. Existing provider credentials were imported without printing them, with system audit actor null. `RUNNER_PLATFORM_URL=http://127.0.0.1:3210/vibehard` was added to the Runner environment. Configuration changes now apply to new tasks without a service restart. Read [LLM settings](llm-settings.md) before rotating encryption secrets or changing providers.
+
+Preflight database: `vibehard_llm_preflight_20260918`; root-only environment: `<release>/preflight.env`. During initial preparation, an inherited `DATABASE_URL` overrode Node's `--env-file`, so the additive migration first reached production instead of the clone. A pre-change dump existed; existing tables/data were not overwritten. The deployment script now explicitly supplies the clone URL to child processes, and both schemas were verified. Do not repeat preparation against an existing clone or rely on env-file precedence to isolate migrations.
+
+54 tests passed and 2 database-only tests were skipped. Production build, type checking and changed-file lint passed. `verify-frontend-release.mjs` checked the protected PCB renderer and all five Demo GIFs before and after activation. Browser admin UI verification uses only the isolated clone; production role elevation requires explicit owner approval. Keep the production browser verification project `云端对话验收-20260919` as user-visible evidence.
+
+Rollback (inspect active tasks first):
+
+```bash
+node --env-file=/etc/vibehard/platform.env \
+  /opt/vibehard/releases/20260918-llm-settings/scripts/deploy-llm-settings.mjs rollback
+```
+
+This restores the saved platform unit, Runner environment and bundle; the additive settings table remains. Do not restore an old DB dump over new user projects merely to roll back application code.
+
+### Admin sections release, 2026-09-19
+
+`20260919-admin-sections` splits the administrator console into Overview, Model Settings, Runner Nodes, User Management and Audit Log sections. Only one section is visible at a time; hidden panels remain mounted so unsaved model form input survives navigation. Authentication, password-reset behavior, APIs, database schema, Gateway and Runner are unchanged.
+
+The release was built from the complete current source, preserving Demo and PCB overlays. 57 tests passed and 2 database-only tests were skipped; TypeScript, targeted ESLint and the production build passed. Both the localhost preflight on 3211 and active service on 3210 passed `verify-frontend-release.mjs` and `verify-admin-sections.mjs`. Public login and Demo returned HTTP 200. Gateway and VibeBoard PIDs did not change; nginx was not restarted. The transient preflight unit was reclaimed and port 3211 is closed.
+
+Release archive: `/opt/vibehard/releases/vibehard-20260919-admin-sections.tar.gz`, SHA-256 `dd873a1357cd91d0f5dab553d4bd905354d863d59ebb5ac0b18cbe42155fb0d9`.
+
+Rollback:
+
+```bash
+node --env-file=/etc/vibehard/platform.env \
+  /opt/vibehard/releases/20260919-admin-sections/scripts/deploy-admin-sections.mjs rollback
+```
 
 ### PCB and showcase release, 2026-09-05
 

@@ -8,11 +8,19 @@ lines.on("line", (line) => {
     if (message.params?.capabilities?.experimentalApi !== true) send({ id: message.id, error: { message: "experimentalApi capability required" } });
     else send({ id: message.id, result: { userAgent: "fake" } });
   }
-  if (message.method === "thread/start") send({ id: message.id, result: { thread: { id: "thread_fake" } } });
+  if (message.method === "thread/start") {
+    if (mode === "managed" && (message.params.config?.["model_providers.vibehard"]?.base_url !== "https://example.com/v1" || message.params.modelProvider !== "vibehard" || process.env.VIBEHARD_MODEL_API_KEY !== "managed-test-secret" || JSON.stringify(message).includes("managed-test-secret"))) {
+      send({ id: message.id, error: { message: "Managed provider config or environment not applied" } });
+    } else send({ id: message.id, result: { thread: { id: "thread_fake" } } });
+  }
   if (message.method === "thread/resume") send({ id: message.id, result: { thread: { id: message.params.threadId } } });
   if (message.method === "turn/start") {
     send({ id: message.id, result: { turn: { id: "turn_fake" } } });
-    if (mode === "approval") send({ id: "approval_fake", method: "item/commandExecution/requestApproval", params: { command: "git status", reason: "Inspect repository" } });
+    if (mode === "managed") {
+      send({ method: "item/agentMessage/delta", params: { delta: process.env.VIBEHARD_MODEL_API_KEY, itemId: "secret-check" } });
+      send({ method: "turn/completed", params: { turn: { id: "turn_fake", status: "completed" } } });
+    }
+    else if (mode === "approval") send({ id: "approval_fake", method: "item/commandExecution/requestApproval", params: { command: "git status", reason: "Inspect repository" } });
     else if (mode === "events") {
       send({ method: "item/commandExecution/outputDelta", params: { delta: "command output", itemId: "command_1" } });
       send({ method: "item/reasoning/summaryTextDelta", params: { delta: "reasoning summary", itemId: "reasoning_1" } });
