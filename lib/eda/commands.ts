@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { PARTS } from './library';
+import { PARTS, equivalentPinIds } from './library';
 import { componentSchema, coordinateSchema, dimensionSchema, idSchema, parseDocument, pinRefSchema, rotationSchema, textSchema, trackSchema } from './document';
 import type { EditBatch, EdaComponent, EdaDocument, EdaNet, PinRef } from './types';
 
@@ -119,7 +119,8 @@ export function applyEditBatch(doc: EdaDocument, batch: EditBatch): EdaDocument 
         const net = owningNet(next, command.pin);
         if (!net) throw new Error(`Pin ${command.pin.componentId}.${command.pin.pinId} is not connected`);
         invalidateTracks(next, [net.id]);
-        net.nodes = net.nodes.filter((node) => node.componentId !== command.pin.componentId || node.pinId !== command.pin.pinId);
+        const equivalent = equivalentPinIds(requiredComponent(next, command.pin.componentId), command.pin.pinId);
+        net.nodes = net.nodes.filter((node) => node.componentId !== command.pin.componentId || !equivalent.includes(node.pinId));
         if (net.nodes.length === 0) next.nets = next.nets.filter((item) => item.id !== net.id);
         break;
       }

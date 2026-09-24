@@ -22,6 +22,7 @@
 /build
 /dist
 /.runner-workspaces
+/.eda-data
 
 # misc
 .DS_Store

@@ -12,7 +12,7 @@ export function checkDocument(doc: EdaDocument): EdaIssue[] {
   const connected = new Set(valid.nets.flatMap((net) => net.nodes.map((node) => `${node.componentId}\u0000${node.pinId}`)));
   for (const component of valid.components) {
     for (const pin of PARTS[component.kind].pins) {
-      if (!connected.has(`${component.id}\u0000${pin.id}`)) issues.push({ id: `unconnected-${component.id}-${pin.id}`, severity: 'warning', message: `${component.ref}.${pin.id} is unconnected (internal graph check, not ERC).`, componentId: component.id });
+      if (pin.electrical !== 'no_connect' && !connected.has(`${component.id}\u0000${pin.id}`)) issues.push({ id: `unconnected-${component.id}-${pin.id}`, severity: 'warning', message: `${component.ref}.${pin.id} 尚未连接`, componentId: component.id });
       const pos = pinPosition(component, pin.id, 'pcb');
       if (pos.x < 0 || pos.x > valid.board.width || pos.y < 0 || pos.y > valid.board.height) issues.push({ id: `pad-outside-${component.id}-${pin.id}`, severity: 'warning', message: `${component.ref}.${pin.id} lies outside the board outline (internal placement check, not DRC).`, componentId: component.id });
     }

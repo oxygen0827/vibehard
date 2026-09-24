@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { PARTS, createComponent } from './library';
+import { PARTS, createComponent, equivalentPinIds } from './library';
 import type { EdaDocument } from './types';
 
 export const idSchema = z.string().min(1).max(128).regex(/^[A-Za-z0-9_-]+$/, 'IDs must use ASCII letters, digits, underscore or hyphen');
@@ -11,7 +11,7 @@ export const positionSchema = z.strictObject({ x: coordinateSchema, y: coordinat
 export const pinRefSchema = z.strictObject({ componentId: idSchema, pinId: idSchema });
 export const componentSchema = z.strictObject({
   id: idSchema, ref: z.string().min(1).max(32).regex(/^[A-Za-z]+[1-9][0-9]*$/, 'Invalid reference designator'),
-  kind: z.enum(['resistor', 'capacitor', 'led', 'connector2', 'connector4', 'mcu', 'sensor']),
+  kind: z.enum(['resistor', 'capacitor', 'led', 'connector2', 'connector4', 'mcu', 'sensor', 'r0603', 'c0603', 'led0603', 'header2', 'header4', 'esp32wroom32', 'tmp102']),
   value: z.string().max(256), schematic: positionSchema,
   pcb: positionSchema.extend({ side: z.enum(['top', 'bottom']) }), locked: z.boolean(),
 });
@@ -51,6 +51,25 @@ export function parseDocument(input: unknown): EdaDocument {
   const result = documentSchema.safeParse(candidate);
   if (!result.success) throw new Error(`Invalid EDA document: ${result.error.issues[0]?.path.join('.') || 'root'} ${result.error.issues[0]?.message || ''}`);
   const doc = result.data;
+  // Preserve the native symbol's implicit connectivity in the explicit PCB graph.
+  for (const component of doc.components) {
+    if (!PARTS[component.kind].native) continue;
+    const done = new Set<string>();
+    for (const pin of PARTS[component.kind].pins) {
+      const ids = equivalentPinIds(component, pin.id);
+      if (ids.length < 2 || done.has(pin.id)) continue;
+      ids.forEach(id => done.add(id));
+      const owners = doc.nets.filter(net => net.nodes.some(node => node.componentId === component.id && ids.includes(node.pinId)));
+      if (owners.length > 1) throw new Error(`Stacked pins on ${component.ref} cannot belong to different nets`);
+      let net = owners[0];
+      if (!net) {
+        let index = 1; let id = `stack-${component.id}-${index}`;
+        while (doc.nets.some(n => n.id === id || n.name.toUpperCase() === id.toUpperCase())) id = `stack-${component.id}-${++index}`;
+        net = { id, name: id, nodes: [] }; doc.nets.push(net);
+      }
+      for (const id of ids) if (!net.nodes.some(n => n.componentId === component.id && n.pinId === id)) net.nodes.push({ componentId: component.id, pinId: id });
+    }
+  }
   unique(doc.components.map((component) => component.id), 'component ID');
   unique(doc.components.map((component) => component.ref), 'component ref');
   unique(doc.nets.map((net) => net.id), 'net ID');
@@ -66,6 +85,7 @@ export function parseDocument(input: unknown): EdaDocument {
       const component = components.get(node.componentId);
       if (!component) throw new Error(`Net ${net.id} references missing component ${node.componentId}`);
       if (!PARTS[component.kind].pins.some((pin) => pin.id === node.pinId)) throw new Error(`Net ${net.id} references unknown pin ${component.ref}.${node.pinId}`);
+      if (PARTS[component.kind].pins.find(pin => pin.id === node.pinId)?.electrical === 'no_connect') throw new Error(`${component.ref}.${node.pinId} is a native NC pin and cannot be connected`);
       const key = `${node.componentId}\u0000${node.pinId}`;
       if (ownedPins.has(key)) throw new Error(`Pin ${component.ref}.${node.pinId} belongs to multiple nets`);
       ownedPins.add(key);
@@ -98,4 +118,9 @@ export function createStarterDocument(): EdaDocument {
     ],
     tracks: [], board: { width: 80, height: 55 }, appliedBatchIds: [],
   };
+}
+
+/** New user documents start empty; fixtures are never silently loaded as a design. */
+export function createEmptyDocument(): EdaDocument {
+  return { schemaVersion: 1, id: `circuit-${crypto.randomUUID()}`, name: '未命名电路', revision: 0, components: [], nets: [], tracks: [], board: { width: 80, height: 55 }, appliedBatchIds: [] };
 }

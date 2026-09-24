@@ -1,4 +1,4 @@
-export type PartKind = 'resistor' | 'capacitor' | 'led' | 'connector2' | 'connector4' | 'mcu' | 'sensor';
+export type PartKind = 'resistor' | 'capacitor' | 'led' | 'connector2' | 'connector4' | 'mcu' | 'sensor' | 'r0603' | 'c0603' | 'led0603' | 'header2' | 'header4' | 'esp32wroom32' | 'tmp102';
 export type ViewMode = 'schematic' | 'pcb';
 export type Position = { x: number; y: number; rotation: number };
 export type PinRef = { componentId: string; pinId: string };

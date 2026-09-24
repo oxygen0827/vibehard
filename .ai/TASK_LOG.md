@@ -4,6 +4,14 @@
 
 真实任务条目从本行下方开始。
 
+## 2026-09-24 Task: 真实网页 EDA 工作台
+
+- Goal: Agent 与用户共同编辑可交付的原理图和 PCB，用户明确要求不提供示例代替实现。
+- Implementation: 原子电路编辑内核、真实官方 KiCad 库、空白画布、PCB 精确焊盘布线、保存冲突保护、Agent 校验提案、原生导入/导出及实际 CLI 检查/生产文件生成。
+- Validation: 48 项 EDA 测试含真实 KiCad；全仓 111 passed / 2 existing EPERM failed / 2 database skipped；构建通过。实际 HTTP 导入、保存、冲突、ERC/DRC、19 项 ZIP；桌面编辑/撤销/刷新及移动布局检查。
+- Boundary: 未部署；无本地模型配置，未完成真实 AI 端到端。任意库、复杂原生结构、立创/PDF、高级 PCB 与真机仍未完成。长期任务因账户用量限制受限。
+- Evidence: `docs/eda-workbench.md`，`docs/superpowers/plans/2026-09-24-web-eda-workbench.md`。
+
 ## 2026-09-19 Task: 方案 BOM 参考价与知识资料文案
 
 - Goal: 自动填写 BOM 参考价，并让知识库文案有实际调用依据。
