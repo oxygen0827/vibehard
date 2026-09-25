@@ -2,13 +2,23 @@ import tempfile
 import unittest
 from unittest.mock import AsyncMock
 from pathlib import Path
-from server import TicketStore, ProjectFiles, DesktopError, DesktopRuntime
+from server import TicketStore, ProjectFiles, DesktopError, DesktopRuntime, container_bind, create_app
 
 OWNER = '11111111-1111-4111-8111-111111111111'
 PROJECT = '22222222-2222-4222-8222-222222222222'
 
 
 class DesktopBoundaries(unittest.TestCase):
+    def test_public_bind_requires_explicit_container_mode(self):
+        self.assertEqual(container_bind({}), '127.0.0.1')
+        self.assertEqual(container_bind({'EDA_DESKTOP_CONTAINER': '1', 'EDA_DESKTOP_BIND': '0.0.0.0'}, in_container=True), '0.0.0.0')
+        with self.assertRaises(DesktopError):
+            container_bind({'EDA_DESKTOP_BIND': '0.0.0.0'})
+        with self.assertRaises(DesktopError):
+            container_bind({'EDA_DESKTOP_CONTAINER': '1', 'EDA_DESKTOP_BIND': '0.0.0.0'}, in_container=False)
+        with self.assertRaises(DesktopError):
+            container_bind({'EDA_DESKTOP_CONTAINER': '1', 'EDA_DESKTOP_BIND': '192.0.2.1'})
+
     def test_initialization_adds_official_library_tables_without_overwriting_user_tables(self):
         with tempfile.TemporaryDirectory() as root:
             templates = Path(root) / 'templates'
@@ -106,6 +116,21 @@ class CheckFailures(unittest.IsolatedAsyncioTestCase):
             with self.assertRaises(DesktopError) as raised:
                 await runtime.snapshot(OWNER, PROJECT)
             self.assertEqual(raised.exception.status, 409)
+
+
+class BrokerHealth(unittest.IsolatedAsyncioTestCase):
+    async def test_health_requires_broker_token(self):
+        from aiohttp.test_utils import TestClient, TestServer
+        with tempfile.TemporaryDirectory() as root:
+            client = TestClient(TestServer(create_app(DesktopRuntime(Path(root)), 'a' * 32, set())))
+            await client.start_server()
+            try:
+                self.assertEqual((await client.get('/health')).status, 401)
+                response = await client.get('/health', headers={'Authorization': 'Bearer ' + 'a' * 32})
+                self.assertEqual(response.status, 200)
+                self.assertEqual(await response.json(), {'ok': True})
+            finally:
+                await client.close()
 
 
 if __name__ == '__main__':

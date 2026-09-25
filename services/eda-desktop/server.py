@@ -34,6 +34,18 @@ def identifier(value):
     return value
 
 
+def container_bind(environ=None, in_container=None):
+    env = os.environ if environ is None else environ
+    host = env.get('EDA_DESKTOP_BIND', '127.0.0.1')
+    if host == '127.0.0.1':
+        return host
+    if in_container is None:
+        in_container = Path('/.dockerenv').is_file()
+    if host == '0.0.0.0' and env.get('EDA_DESKTOP_CONTAINER') == '1' and in_container:
+        return host
+    raise DesktopError('Non-loopback desktop bind requires an isolated container', 503)
+
+
 class TicketStore:
     def __init__(self):
         self.values = {}
@@ -363,6 +375,9 @@ def create_app(runtime, secret, origins):
             return web.json_response(await runtime.snapshot(owner, project))
         raise DesktopError('Unknown desktop action')
 
+    async def health(_request):
+        return web.json_response({'ok': True})
+
     async def websocket(request):
         if request.headers.get('Origin') not in origins:
             raise DesktopError('Untrusted browser origin', 403)
@@ -401,6 +416,7 @@ def create_app(runtime, secret, origins):
             await runtime.stop(key)
 
     app = web.Application(middlewares=[guard], client_max_size=18_000_000)
+    app.router.add_get('/health', health)
     app.router.add_post('/v1/projects/{owner}/{project}', action)
     app.router.add_get('/client/ws', websocket)
     app.on_cleanup.append(cleanup)
@@ -421,4 +437,4 @@ if __name__ == '__main__':
     if len(secret) < 32:
         raise SystemExit('Desktop broker token must contain at least 32 characters')
     origins = set(os.environ.get('EDA_DESKTOP_ORIGINS', 'http://127.0.0.1:3212,http://localhost:3212').split(','))
-    web.run_app(create_app(DesktopRuntime(root), secret, origins), host='127.0.0.1', port=int(os.environ.get('EDA_DESKTOP_PORT', '6081')), access_log=None)
+    web.run_app(create_app(DesktopRuntime(root), secret, origins), host=container_bind(), port=int(os.environ.get('EDA_DESKTOP_PORT', '6081')), access_log=None)
