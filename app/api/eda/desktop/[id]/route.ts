@@ -45,6 +45,6 @@ export async function POST(request: NextRequest, context: { params: Promise<{ id
     });
   } catch (error) {
     if (error instanceof z.ZodError || error instanceof SyntaxError) return NextResponse.json({ error: '请求或原生文件格式不正确（总量上限 2 MB）' }, { status: 400 });
-    return NextResponse.json({ error: '无法连接 KiCad 桌面服务，请检查本机服务是否运行。已保存文件不会被覆盖。' }, { status: 503 });
+    return NextResponse.json({ error: '无法连接 KiCad 桌面服务。已保存文件不会被覆盖，请稍后重连。' }, { status: 503 });
   }
 }

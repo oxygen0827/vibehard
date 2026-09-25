@@ -62,7 +62,7 @@ export function DesktopWorkbench() {
       if (!active) return;
       disconnect();
       setConnection('disconnected');
-      setError('桌面连接超时，请检查本机服务后重新连接。');
+      setError('桌面连接超时，请稍后重新连接。');
     }, 20_000);
     void import('@novnc/novnc').then(({ default: RemoteFrameBuffer }) => {
       if (!active) return;
@@ -178,7 +178,7 @@ export function DesktopWorkbench() {
   };
   const current = projects.find(project => project.id === projectId);
   return <main className={styles.shell} ref={frame}>
-    <header className={styles.header}><a href={apiPath('/app')} className={styles.brand}><CircuitBoard size={23} /><strong>VibeHard</strong><span>KiCad 工作台</span></a><span className={styles.projectName}>{current?.name ?? '原生工程编辑'}</span><span className={styles.badge}>本机独立桌面</span></header>
+    <header className={styles.header}><a href={apiPath('/app')} className={styles.brand}><CircuitBoard size={23} /><strong>VibeHard</strong><span>KiCad 工作台</span></a><span className={styles.projectName}>{current?.name ?? '原生工程编辑'}</span><span className={styles.badge}>独立工程桌面</span></header>
     <div className={styles.toolbar} role="toolbar" aria-label="KiCad 工作台工具">
       <button aria-label={sidebar ? '收起工程面板' : '展开工程面板'} onClick={() => setSidebar(!sidebar)}>{sidebar ? <PanelLeftClose size={18} /> : <PanelLeftOpen size={18} />}</button>
       <div className={styles.tabs}><button disabled={!projectId || busy} aria-pressed={editor === 'schematic'} onClick={() => void run(() => start(projectId, 'schematic'))}>原理图</button><button disabled={!projectId || busy} aria-pressed={editor === 'pcb'} onClick={() => void run(() => start(projectId, 'pcb'))}>PCB</button></div>

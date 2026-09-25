@@ -18,7 +18,7 @@ const nextConfig: NextConfig = {
   allowedDevOrigins: ["127.0.0.1", "localhost"],
   async rewrites() {
     // Only the ticket-authenticated RFB endpoint is public; never proxy the broker control API.
-    const desktop = process.env.EDA_DESKTOP_URL ?? (process.env.NODE_ENV === 'development' ? 'http://127.0.0.1:6081' : '');
+    const desktop = process.env.NODE_ENV === 'development' ? (process.env.EDA_DESKTOP_URL ?? 'http://127.0.0.1:6081') : '';
     return desktop ? [{ source: '/eda-desktop/ws', destination: `${desktop}/client/ws` }] : [];
   },
   webpack(config) {

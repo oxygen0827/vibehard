@@ -8,10 +8,21 @@ import { requestUser } from '@/lib/server/http';
 import { ownedProject } from '@/lib/server/store';
 import { desktopRequest } from '@/lib/server/eda-desktop';
 import { POST } from '@/app/api/eda/desktop/[id]/route';
+import { GET as ACCESS } from '@/app/api/eda/desktop/[id]/access/route';
 const id = '22222222-2222-4222-8222-222222222222';
 const context = () => ({ params: Promise.resolve({ id }) });
 const request = (body: unknown, origin = 'http://localhost') => new NextRequest(`http://localhost/api/eda/desktop/${id}`, { method: 'POST', headers: { 'Content-Type': 'application/json', Origin: origin }, body: JSON.stringify(body) });
 beforeEach(() => vi.resetAllMocks());
+it('rechecks the current owner before a browser may use a desktop ticket', async () => {
+  vi.mocked(requestUser).mockResolvedValue({ id, email: 'a@b.com', name: 'a', role: 'member' });
+  vi.mocked(ownedProject).mockResolvedValue(null);
+  expect((await ACCESS(new NextRequest(`http://localhost/api/eda/desktop/${id}/access`), context())).status).toBe(404);
+  vi.mocked(ownedProject).mockResolvedValue({ id } as NonNullable<Awaited<ReturnType<typeof ownedProject>>>);
+  const response = await ACCESS(new NextRequest(`http://localhost/api/eda/desktop/${id}/access`), context());
+  expect(response.status).toBe(200);
+  expect(await response.json()).toEqual({ owner: id, project: id });
+  expect(response.headers.get('Cache-Control')).toBe('no-store');
+});
 it('requires login before starting a desktop', async () => {
   vi.mocked(requestUser).mockResolvedValue(null);
   expect((await POST(request({ action: 'start' }), context())).status).toBe(401);
