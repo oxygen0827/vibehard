@@ -4,6 +4,14 @@
 
 真实任务条目从本行下方开始。
 
+## 2026-09-26 Task: 云端 KiCad 多账号隔离发布与真实模型验收
+
+- Goal: 让每个账号使用自己的 KiCad 工程和文件系统，多个账号可同时编辑各自工程；同工程多个窗口可重连。通过公网在真实服务上验证 Agent → 原生文件 → KiCad。
+- Implementation: 非 root KiCad 9.0.8 worker、每工程独立 Docker 容器和持久卷、私有 manager、一次性票据及同源 nginx WebSocket 路由；平台归属鉴权和原生文件 API。固定单机容量 3 工程、每账号 2 工程。正式平台先发布 `20260925-eda-isolated-v2`，后以 `20260926-eda-grid-v1` 修复原生符号 1.27 mm 连接网格偏移。
+- Evidence: 三账号/三 worker 并发、跨账号 404/403、票据重放 401、三个同工程窗口 RFB、manager 重启与文件哈希恢复、真实 ERC/DRC/ZIP 通过；公网 HTTPS 和普通账号复测。正式设计模型返回 6 条有效命令，3 器件/3 网络原生文件；修复前 ERC 3 个 off-grid，修复后同一提案 KiCad ERC 0；PCB 无走线，DRC 仍 3 个未连接且一致性 0。候选首版遗漏 `/vibehard` 构建参数，未切换；重建后候选与公网均 200。测试账号和卷已清理。
+- Validation: 网格修复后 EDA 定向 65 通过、2 跳过（包含导出/再导入坐标回归），Python 20 通过；TypeScript 和带 basePath 的生产构建通过。此前全仓为 237 通过、2 个既有 Windows `EPERM` 失败、13 跳过，不称全绿。没有人工登录浏览器拖动/保存或长期稳定性验收。
+- Boundary: 未实现 Agent 就地修改原生工程、PCB 自动布线、广泛器件/立创/PDF/复杂多页导入、硬配额/排队扩容及制造验证。完整记录见 `docs/eda-cloud-acceptance-2026-09-26.md`。
+
 ## 2026-09-25 Task: 明确云端 KiCad 账号与工程隔离方案
 
 - Goal: 按用户澄清的真实场景设计每个账号独立使用自己的 KiCad 工程，删除多人共同编辑同一工程的假设。

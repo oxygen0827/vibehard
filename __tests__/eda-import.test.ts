@@ -9,7 +9,8 @@ describe('native schematic import', () => {
     const document = createEmptyDocument(); const a = createComponent('r0603', 1); const b = createComponent('r0603', 2);
     b.schematic = { x: 85, y: 60, rotation: 90 }; document.components = [a, b];
     const imported = importNativeSchematic(exportKicadSchematic(document), '(export (nets (net (code 1) (name "SIGNAL") (node (ref "R1") (pin "2")) (node (ref "R2") (pin "1")))))');
-    expect(imported.components[1].schematic).toEqual(b.schematic);
+    expect(imported.components[1].schematic).toEqual({ x: 85.09, y: 59.69, rotation: 90 });
+    expect(b.schematic).toEqual({ x: 85, y: 60, rotation: 90 }); // Export snaps the native file, not the editable draft.
     expect(imported.nets[0].nodes.map(n => n.pinId)).toEqual(['2', '1']);
     expect(imported.components[0].kind).toBe('r0603');
   });

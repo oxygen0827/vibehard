@@ -1,8 +1,12 @@
 # ldcx.tech deployment
 
+## 2026-09-26 EDA release
+
+Current platform: `/opt/vibehard/releases/20260926-eda-grid-v1/standalone`; previous platform: `20260925-eda-isolated-v2`. The isolated KiCad manager stays in `/opt/vibehard/eda-manager/current`, with per-project data under `/var/lib/vibehard-eda`. The manager and nginx WebSocket route were deployed with the previous EDA release; this release fixes native symbol grid alignment in the platform export. No migration or model configuration changed. Public `/vibehard/eda` and `/vibehard/login` returned 200 after cutover; a production account's saved KiCad project remained accessible with ERC 0 and DRC 3 expected unrouted items. The temporary acceptance account and volumes were removed. Full evidence and rollback: [EDA cloud acceptance](eda-cloud-acceptance-2026-09-26.md).
+
 ## Current deployment
 
-As of 2026-09-19:
+Historical snapshot as of 2026-09-19 (superseded for the platform by the release above):
 
 - Active platform release: `/opt/vibehard/releases/20260919-design-knowledge-pricing/standalone`.
 - Active Gateway release: `/opt/vibehard/releases/20260918-cloud-runner`.
