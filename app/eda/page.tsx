@@ -1,3 +1,3 @@
-import { EdaWorkbench } from '@/components/eda/workbench';
+import { DesktopWorkbench } from '@/components/eda/desktop-workbench';
 
-export default function EdaPage() { return <EdaWorkbench />; }
+export default function EdaPage() { return <DesktopWorkbench />; }

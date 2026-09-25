@@ -4,6 +4,13 @@
 
 真实任务条目从本行下方开始。
 
+## 2026-09-25 Task: KiCad / noVNC 原生网页编辑
+
+- Goal: 根据用户明确选择，用 noVNC 将实际 KiCad 原理图/PCB 编辑器接入现有平台。
+- Implementation: 本机 Linux 桌面 broker、项目权限 API、单次票据、原生持久化/ZIP/检查、主工作台和旧版入口；WSL 依赖、独立本地数据库、启动与验收脚本。
+- Validation: 浏览器放置和修改 470R 电阻、0603 封装，下载核对、真实 ERC 5/DRC 0、RFB 与认证、源文件哈希不变、服务重启恢复。EDA 56 项通过；新增边界后相关 9 项通过；Python 5 项、定向 lint/构建通过。
+- Boundary: 未修改生产或 Runner。只支持可信本机单账号，不是托管多租户；Agent 原生编辑与生产制造包迁移尚未完成。见 `docs/eda-desktop.md`。
+
 ## 2026-09-24 Task: 真实网页 EDA 工作台
 
 - Goal: Agent 与用户共同编辑可交付的原理图和 PCB，用户明确要求不提供示例代替实现。

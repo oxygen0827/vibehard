@@ -1,5 +1,7 @@
 # Web EDA workbench — implementation and verification
 
+**2026-09-25:** The main `/eda` route now runs the real KiCad/noVNC desktop described in [eda-desktop.md](eda-desktop.md). The JSON canvas described below is retained at `/eda/legacy`; its Agent and fabrication APIs do not operate on native desktop files.
+
 Status: functional engineering workbench with explicitly bounded import/library support. The full long-term objective is **not complete**. Work is on `codex/web-eda-workbench`; production has not been changed.
 
 ## Run

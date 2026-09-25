@@ -1,0 +1,59 @@
+import tempfile
+import unittest
+from unittest.mock import AsyncMock
+from pathlib import Path
+from server import TicketStore, ProjectFiles, DesktopError, DesktopRuntime
+
+OWNER = '11111111-1111-4111-8111-111111111111'
+PROJECT = '22222222-2222-4222-8222-222222222222'
+
+
+class DesktopBoundaries(unittest.TestCase):
+    def test_ticket_is_single_use_expiring_and_scoped(self):
+        tickets = TicketStore()
+        token = tickets.issue(PROJECT, now=100)
+        self.assertEqual(tickets.consume(token, now=110), PROJECT)
+        with self.assertRaises(DesktopError):
+            tickets.consume(token, now=111)
+        token = tickets.issue(PROJECT, now=100)
+        with self.assertRaises(DesktopError):
+            tickets.consume(token, now=161)
+
+    def test_initialization_never_overwrites_saved_native_files(self):
+        with tempfile.TemporaryDirectory() as root:
+            files = ProjectFiles(Path(root))
+            path = files.initialize(OWNER, PROJECT, {'schematic': '(kicad_sch first)', 'pcb': '(kicad_pcb first)'})
+            (path / 'circuit.kicad_sch').write_text('(kicad_sch edited)')
+            files.initialize(OWNER, PROJECT, {'schematic': '(kicad_sch replacement)', 'pcb': '(kicad_pcb replacement)'})
+            self.assertEqual((path / 'circuit.kicad_sch').read_text(), '(kicad_sch edited)')
+
+    def test_rejects_path_traversal_and_second_owner(self):
+        with tempfile.TemporaryDirectory() as root:
+            files = ProjectFiles(Path(root))
+            with self.assertRaises(DesktopError):
+                files.directory(OWNER, '../escape')
+            files.initialize(OWNER, PROJECT, {'schematic': '(kicad_sch)', 'pcb': '(kicad_pcb)'})
+            with self.assertRaises(DesktopError):
+                files.initialize(PROJECT, PROJECT, {'schematic': '(kicad_sch)', 'pcb': '(kicad_pcb)'})
+
+    def test_import_validates_both_files_before_writing(self):
+        with tempfile.TemporaryDirectory() as root:
+            files = ProjectFiles(Path(root))
+            with self.assertRaises(DesktopError):
+                files.initialize(OWNER, PROJECT, {'schematic': '(kicad_sch)', 'pcb': 'bad input'})
+            self.assertFalse((Path(root) / OWNER / PROJECT / 'circuit.kicad_sch').exists())
+
+
+class CheckFailures(unittest.IsolatedAsyncioTestCase):
+    async def test_failed_check_cannot_return_a_previous_report(self):
+        with tempfile.TemporaryDirectory() as root:
+            runtime = DesktopRuntime(Path(root))
+            path = runtime.files.initialize(OWNER, PROJECT, {'schematic': '(kicad_sch)', 'pcb': '(kicad_pcb)'})
+            (path / '.erc-report.json').write_text('{"stale": true}')
+            runtime.run = AsyncMock(return_value=(1, b'', b'failed'))
+            with self.assertRaises(DesktopError):
+                await runtime.check(OWNER, PROJECT, 'erc')
+
+
+if __name__ == '__main__':
+    unittest.main()
