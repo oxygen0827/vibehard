@@ -324,7 +324,7 @@ class DesktopRuntime:
                 output.unlink(missing_ok=True)
 
 
-def create_app(runtime, secret, origins):
+def create_app(runtime, secret, origins, max_viewers=2):
     from aiohttp import web, WSMsgType
 
     @web.middleware
@@ -385,7 +385,7 @@ def create_app(runtime, secret, origins):
         session = runtime.sessions.get(key)
         if not session:
             raise DesktopError('Session ended', 410)
-        if len(session.viewers) >= 2:
+        if len(session.viewers) >= max_viewers:
             raise DesktopError('Too many connected viewers', 409)
         reader, writer = await asyncio.open_connection('127.0.0.1', 5900 + session.display)
         ws = web.WebSocketResponse(max_msg_size=8_000_000, heartbeat=25)
@@ -437,4 +437,5 @@ if __name__ == '__main__':
     if len(secret) < 32:
         raise SystemExit('Desktop broker token must contain at least 32 characters')
     origins = set(os.environ.get('EDA_DESKTOP_ORIGINS', 'http://127.0.0.1:3212,http://localhost:3212').split(','))
-    web.run_app(create_app(DesktopRuntime(root), secret, origins), host=container_bind(), port=int(os.environ.get('EDA_DESKTOP_PORT', '6081')), access_log=None)
+    max_viewers = 6 if os.environ.get('EDA_DESKTOP_CONTAINER') == '1' else 2
+    web.run_app(create_app(DesktopRuntime(root), secret, origins, max_viewers=max_viewers), host=container_bind(), port=int(os.environ.get('EDA_DESKTOP_PORT', '6081')), access_log=None)
