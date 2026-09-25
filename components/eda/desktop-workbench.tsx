@@ -1,8 +1,9 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
-import { CircuitBoard, Download, Maximize2, RefreshCw, Save, FolderOpen, PanelLeftClose, PanelLeftOpen } from 'lucide-react';
+import { CircuitBoard, Download, Maximize2, RefreshCw, Save, FolderOpen, PanelLeftClose, PanelLeftOpen, Sparkles } from 'lucide-react';
 import type RFB from '@novnc/novnc';
+import { AgentPanel } from './agent-panel';
 import { apiPath } from '@/lib/utils';
 import styles from './desktop-workbench.module.css';
 
@@ -32,6 +33,7 @@ export function DesktopWorkbench() {
   const [files, setFiles] = useState<SavedFile[]>([]);
   const [report, setReport] = useState('');
   const [sidebar, setSidebar] = useState(true);
+  const [agentOpen, setAgentOpen] = useState(true);
   const [ticket, setTicket] = useState<string | null>(null);
   const viewport = useRef<HTMLDivElement>(null);
   const frame = useRef<HTMLDivElement>(null);
@@ -108,9 +110,9 @@ export function DesktopWorkbench() {
       setProjectId(id); setEditor(mode); setFiles(state.files); setTicket(state.ticket); setReport('');
     } catch (cause) { setConnection('disconnected'); throw cause; }
   };
-  const create = async (sources?: Sources) => {
-    if (name.trim().length < 2) throw new Error('工程名称至少需要两个字符');
-    const data = await jsonResponse(await fetch(apiPath('/api/projects'), { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name: name.trim(), workspaceKey: `eda-${crypto.randomUUID()}` }) }));
+  const create = async (sources?: Sources, requestedName = name) => {
+    if (requestedName.trim().length < 2) throw new Error('工程名称至少需要两个字符');
+    const data = await jsonResponse(await fetch(apiPath('/api/projects'), { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name: requestedName.trim(), workspaceKey: `eda-${crypto.randomUUID()}` }) }));
     setProjects(current => [...current, data.project]); setProjectId(data.project.id); setFiles([]); setTicket(null);
     await start(data.project.id, 'schematic', sources);
   };
@@ -175,9 +177,10 @@ export function DesktopWorkbench() {
       <button disabled={connection !== 'connected'} onClick={save}><Save size={16} />保存 Ctrl+S</button>
       <button disabled={!projectId || busy} onClick={() => void run(() => start(projectId, editor))}><RefreshCw size={16} />重新连接</button>
       <button disabled={!projectId || busy} onClick={() => void run(download)}><Download size={16} />下载工程</button>
+      <button aria-pressed={agentOpen} onClick={() => setAgentOpen(!agentOpen)}><Sparkles size={16} />Agent 画图</button>
       <button className={styles.fullscreen} onClick={() => void run(async () => { if (document.fullscreenElement) await document.exitFullscreen(); else await frame.current?.requestFullscreen(); })}><Maximize2 size={16} />全屏</button>
     </div>
-    <div className={`${styles.workspace} ${sidebar ? '' : styles.collapsed}`}>
+    <div className={`${styles.workspace} ${sidebar ? '' : styles.collapsed} ${agentOpen ? styles.agentOpen : ''}`}>
       {sidebar && <aside className={styles.sidebar} aria-label="工程与文件">
         <h2>工程</h2>
         {loginRequired ? <div className={styles.note}><p>登录后可打开属于你的 KiCad 工程。</p><a className={styles.primaryLink} href={apiPath('/login')}>登录平台</a></div> : <>
@@ -196,7 +199,7 @@ export function DesktopWorkbench() {
         <h2>工程检查</h2><div className={styles.checks}><button disabled={!projectId || busy} onClick={() => void run(() => check('erc'))}>运行 ERC</button><button disabled={!projectId || busy} onClick={() => void run(() => check('drc'))}>运行 DRC</button></div>
         <p className={styles.hint}>检查和下载前，请先保存原理图及 PCB。窗口未保存的修改不会自动写入交付文件。</p>
         {report && <details open className={styles.report}><summary>检查结果</summary><pre>{report}</pre></details>}
-        <div className={styles.divider} /><p className={styles.hint}>Agent 对原生工程的修改接口尚未接入。当前可直接使用 KiCad 的完整编辑工具。</p>
+        <div className={styles.divider} /><p className={styles.hint}>右侧 Agent 可从对话生成新原生工程。当前打开的工程仍由 KiCad 编辑。</p>
         <a href={apiPath('/eda/legacy')} target="_blank" rel="noreferrer">打开旧版草稿编辑器 ↗</a>
         <button className={styles.danger} disabled={!projectId || busy} onClick={() => void run(close)}>结束当前会话</button>
       </aside>}
@@ -205,6 +208,7 @@ export function DesktopWorkbench() {
         <div className={styles.viewport} ref={viewport} data-testid="kicad-viewport" />
         {connection !== 'connected' && <div className={styles.overlay}><CircuitBoard size={44} /><h1>{busy || connection === 'connecting' ? '正在连接 KiCad…' : connection === 'disconnected' ? 'KiCad 连接已断开' : '在浏览器中编辑原生工程'}</h1><p>{connection === 'disconnected' ? '重新连接会返回已有桌面，已保存文件会保留。' : '打开已有工程，或从空白原理图开始。'}</p>{error && <p role="alert" className={styles.error}>{error}</p>}{projectId && <button disabled={busy} className={styles.primary} onClick={() => void run(() => start(projectId, editor))}>连接编辑器</button>}</div>}
       </section>
+      <div className={`${styles.agentDock} ${agentOpen ? '' : styles.agentHidden}`}><AgentPanel currentProjectId={projectId} onCreate={(sources, title) => create(sources, title)} /></div>
     </div>
     <footer className={styles.status}><span className={connection === 'connected' ? styles.live : ''}>{connection === 'connected' ? '● 已连接' : '○ 未连接'}</span><span role="status" className={error ? styles.error : ''}>{error || (busy ? '正在处理…' : message)}</span><span className={styles.engine}>KiCad / noVNC</span></footer>
   </main>;

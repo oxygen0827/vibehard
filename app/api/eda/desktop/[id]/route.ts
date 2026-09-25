@@ -9,7 +9,7 @@ import { readEdaJson } from '@/lib/server/eda-http';
 
 export const runtime = 'nodejs';
 const inputSchema = z.object({
-  action: z.enum(['start', 'status', 'stop', 'archive', 'check']),
+  action: z.enum(['start', 'status', 'stop', 'archive', 'check', 'snapshot']),
   editor: z.enum(['schematic', 'pcb']).optional(),
   kind: z.enum(['erc', 'drc']).optional(),
   sources: z.object({ schematic: z.string().max(900_000).regex(/^\s*\(kicad_sch\b/), pcb: z.string().max(900_000).regex(/^\s*\(kicad_pcb\b/) }).strict().optional(),

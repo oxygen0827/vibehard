@@ -1,7 +1,7 @@
 import { readFile } from 'node:fs/promises';
 
 export type DesktopAction = {
-  action: 'start' | 'status' | 'stop' | 'archive' | 'check';
+  action: 'start' | 'status' | 'stop' | 'archive' | 'check' | 'snapshot';
   editor?: 'schematic' | 'pcb';
   kind?: 'erc' | 'drc';
   sources?: { schematic: string; pcb: string };
@@ -21,6 +21,6 @@ export async function desktopRequest(owner: string, project: string, action: Des
   const token = (await readFile(tokenPath, 'utf8')).trim();
   return fetch(new URL(`/v1/projects/${encodeURIComponent(owner)}/${encodeURIComponent(project)}`, url), {
     method: 'POST', headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
-    body: JSON.stringify(action), cache: 'no-store', signal: AbortSignal.timeout(action.action === 'check' ? 100_000 : 45_000),
+    body: JSON.stringify(action), cache: 'no-store', signal: AbortSignal.timeout(action.action === 'check' || action.action === 'snapshot' ? 100_000 : 45_000),
   });
 }

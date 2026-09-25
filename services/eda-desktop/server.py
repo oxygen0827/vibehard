@@ -272,6 +272,26 @@ class DesktopRuntime:
             finally:
                 output.unlink(missing_ok=True)
 
+    async def snapshot(self, owner, project):
+        path = self.files.directory(owner, project)
+        source = path / 'circuit.kicad_sch'
+        if not source.is_file():
+            raise DesktopError('Save a KiCad schematic first', 404)
+        initial = source.read_bytes()
+        if len(initial) > 900_000:
+            raise DesktopError('Schematic exceeds the current Agent import limit', 413)
+        async with self.jobs:
+            output = path / f'.agent-netlist-{uuid.uuid4()}.net'
+            try:
+                code, _, _ = await self.run(['kicad-cli', 'sch', 'export', 'netlist', '--format', 'kicadsexpr', '-o', str(output), str(source)], timeout=60)
+                if code != 0 or not output.is_file() or output.stat().st_size > 2_000_000:
+                    raise DesktopError('KiCad could not export a bounded netlist for this saved schematic', 422)
+                if source.read_bytes() != initial:
+                    raise DesktopError('Schematic changed while the Agent read it; save and retry', 409)
+                return {'schematic': initial.decode('utf-8'), 'netlist': output.read_text(encoding='utf-8'), 'sha256': hashlib.sha256(initial).hexdigest(), 'savedFilesOnly': True}
+            finally:
+                output.unlink(missing_ok=True)
+
 
 def create_app(runtime, secret, origins):
     from aiohttp import web, WSMsgType
@@ -320,6 +340,8 @@ def create_app(runtime, secret, origins):
             return web.Response(body=output.getvalue(), content_type='application/zip', headers={'Cache-Control': 'no-store'})
         if command == 'check':
             return web.json_response(await runtime.check(owner, project, body.get('kind')))
+        if command == 'snapshot':
+            return web.json_response(await runtime.snapshot(owner, project))
         raise DesktopError('Unknown desktop action')
 
     async def websocket(request):

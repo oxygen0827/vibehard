@@ -54,6 +54,34 @@ class CheckFailures(unittest.IsolatedAsyncioTestCase):
             with self.assertRaises(DesktopError):
                 await runtime.check(OWNER, PROJECT, 'erc')
 
+    async def test_snapshot_exports_netlist_from_the_saved_schematic_without_rewriting_it(self):
+        with tempfile.TemporaryDirectory() as root:
+            runtime = DesktopRuntime(Path(root))
+            path = runtime.files.initialize(OWNER, PROJECT, {'schematic': '(kicad_sch saved)', 'pcb': '(kicad_pcb)'})
+            source = path / 'circuit.kicad_sch'
+            async def netlist(args, **_):
+                Path(args[args.index('-o') + 1]).write_text('(export (nets))')
+                return (0, b'', b'')
+            runtime.run = AsyncMock(side_effect=netlist)
+            result = await runtime.snapshot(OWNER, PROJECT)
+            self.assertEqual(result['schematic'], '(kicad_sch saved)')
+            self.assertEqual(result['netlist'], '(export (nets))')
+            self.assertEqual(source.read_text(), '(kicad_sch saved)')
+
+    async def test_snapshot_rejects_a_save_during_netlist_export(self):
+        with tempfile.TemporaryDirectory() as root:
+            runtime = DesktopRuntime(Path(root))
+            path = runtime.files.initialize(OWNER, PROJECT, {'schematic': '(kicad_sch saved)', 'pcb': '(kicad_pcb)'})
+            source = path / 'circuit.kicad_sch'
+            async def netlist(args, **_):
+                Path(args[args.index('-o') + 1]).write_text('(export (nets))')
+                source.write_text('(kicad_sch newer)')
+                return (0, b'', b'')
+            runtime.run = AsyncMock(side_effect=netlist)
+            with self.assertRaises(DesktopError) as raised:
+                await runtime.snapshot(OWNER, PROJECT)
+            self.assertEqual(raised.exception.status, 409)
+
 
 if __name__ == '__main__':
     unittest.main()

@@ -43,6 +43,15 @@ it('accepts the browser Host when Next normalizes the internal request URL to lo
   req.headers.set('host', '127.0.0.1:3212');
   expect((await POST(req, context())).status).toBe(200);
 });
+it('lets an owner read a saved native schematic snapshot through the authenticated broker', async () => {
+  vi.mocked(requestUser).mockResolvedValue({ id, email: 'a@b.com', name: 'a', role: 'member' });
+  vi.mocked(ownedProject).mockResolvedValue({ id } as NonNullable<Awaited<ReturnType<typeof ownedProject>>>);
+  vi.mocked(desktopRequest).mockResolvedValue(Response.json({ schematic: '(kicad_sch)', netlist: '(export (nets))' }));
+  const response = await POST(request({ action: 'snapshot' }), context());
+  expect(response.status).toBe(200);
+  expect((await response.json()).schematic).toContain('kicad_sch');
+  expect(vi.mocked(desktopRequest).mock.calls[0][2].action).toBe('snapshot');
+});
 it('rejects malformed and oversized native imports before calling the broker', async () => {
   vi.mocked(requestUser).mockResolvedValue({ id, email: 'a@b.com', name: 'a', role: 'member' });
   vi.mocked(ownedProject).mockResolvedValue({ id } as NonNullable<Awaited<ReturnType<typeof ownedProject>>>);

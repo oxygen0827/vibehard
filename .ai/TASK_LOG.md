@@ -4,6 +4,13 @@
 
 真实任务条目从本行下方开始。
 
+## 2026-09-25 Task: 在 KiCad 工作台加入原理图 Agent 对话
+
+- Goal: 用户在 `/eda` 直接和 Agent 对话，审阅电路修改，再打开可编辑的原生 KiCad 工程。
+- Implementation: 右侧对话面板、设计模型状态与设置入口、逐条命令预览、确认后从受控电路草稿新建原生工程；只读读取已保存原理图和 KiCad CLI 网表，保存期间变化则拒绝快照。
+- Validation: EDA 60 项通过、2 项跳过；Python broker 7 项通过；TypeScript、定向 ESLint、生产构建通过。浏览器确认面板、模型禁用状态、已保存 `4xxx:4001` 的明确拒绝及 KiCad 重连；当前设计模型未配置，真实 AI 生成未验收。
+- Boundary: 不覆盖现有 KiCad 工程，不支持 `4xxx:4001` 等库外器件、复杂单页结构和原生就地应用；本机分支未发布生产。详见 `docs/eda-desktop.md`。
+
 ## 2026-09-25 Task: KiCad / noVNC 原生网页编辑
 
 - Goal: 根据用户明确选择，用 noVNC 将实际 KiCad 原理图/PCB 编辑器接入现有平台。

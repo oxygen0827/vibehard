@@ -11,8 +11,7 @@ beforeEach(() => { mocks.clients.length = 0; });
 afterEach(() => { cleanup(); vi.useRealTimers(); vi.unstubAllGlobals(); });
 
 async function openProject() {
-  const fetcher = vi.fn().mockResolvedValueOnce(Response.json({ projects: [project] }))
-    .mockImplementation(() => Promise.resolve(Response.json({ running: true, files: [], ticket: crypto.randomUUID() })));
+  const fetcher = vi.fn().mockImplementation((url: string) => Promise.resolve(Response.json(url.includes('capabilities') ? { agent: false } : url === '/api/projects' ? { projects: [project] } : { running: true, files: [], ticket: crypto.randomUUID() })));
   vi.stubGlobal('fetch', fetcher);
   render(<DesktopWorkbench />);
   await screen.findByRole('option', { name: project.name });
@@ -28,6 +27,17 @@ it('shows login without creating a simulated editor for unauthenticated users', 
   expect(await screen.findByRole('link', { name: '登录平台' })).toHaveAttribute('href', '/login');
   expect(mocks.clients).toHaveLength(0);
 });
+it('exposes the Agent conversation in the real KiCad workbench', async () => {
+  vi.stubGlobal('fetch', vi.fn().mockImplementation((url: string) => Promise.resolve(Response.json(url.includes('capabilities') ? { agent: false } : { projects: [] }))));
+  render(<DesktopWorkbench />);
+  expect(await screen.findByRole('complementary', { name: 'AI 原理图 Agent' })).toBeInTheDocument();
+  expect(screen.getByRole('textbox', { name: '向 Agent 描述电路' })).toBeInTheDocument();
+  fireEvent.change(screen.getByRole('textbox', { name: '向 Agent 描述电路' }), { target: { value: '画一个电路' } });
+  fireEvent.click(screen.getByRole('button', { name: 'Agent 画图' }));
+  expect(screen.getByRole('button', { name: 'Agent 画图' })).toHaveAttribute('aria-pressed', 'false');
+  fireEvent.click(screen.getByRole('button', { name: 'Agent 画图' }));
+  expect(screen.getByRole('textbox', { name: '向 Agent 描述电路' })).toHaveValue('画一个电路');
+});
 
 it('sends save keys only after connecting and preserves the saved-file warning', async () => {
   const fetcher = await openProject();
@@ -36,11 +46,11 @@ it('sends save keys only after connecting and preserves the saved-file warning',
   fireEvent.click(screen.getByRole('button', { name: '保存 Ctrl+S' }));
   expect(mocks.clients[0].sendKey).toHaveBeenCalledTimes(4);
   expect(screen.getByRole('status')).toHaveTextContent('已发送 Ctrl+S');
-  const startBody = JSON.parse(fetcher.mock.calls[1][1].body);
+  const startBody = JSON.parse(fetcher.mock.calls.find(call => String(call[0]).includes('/api/eda/desktop/'))![1].body);
   expect(startBody).toEqual({ action: 'start', editor: 'schematic' });
   cleanup();
   expect(mocks.clients[0].disconnect).toHaveBeenCalled();
-  expect(fetcher).toHaveBeenCalledTimes(2); // Leaving the page never terminates the native session.
+  expect(fetcher.mock.calls.filter(call => String(call[0]).includes('/api/eda/desktop/'))).toHaveLength(1); // Leaving the page never terminates the native session.
 });
 
 it('offers reconnect when the transport drops instead of claiming a saved session', async () => {
