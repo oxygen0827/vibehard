@@ -70,6 +70,14 @@ function librarySymbol(part: PartDefinition) {
 
 export function exportKicadSchematic(input: EdaDocument): string {
   const doc = validated(input); const root = uuid(`${doc.id}/sheet`); const netByPin = new Map<string, string>();
+  // Native KiCad symbols use 1.27 mm pin spacing. The editor and model can place
+  // their centers freely, but off-grid pin endpoints cause real ERC violations.
+  // parseDocument returned a copy, so the source draft retains its coordinates.
+  const snap = (value: number) => Number((Math.round(value / 1.27) * 1.27).toFixed(6));
+  for (const component of doc.components) if (PARTS[component.kind].native) {
+    component.schematic.x = snap(component.schematic.x);
+    component.schematic.y = snap(component.schematic.y);
+  }
   doc.nets.forEach(net => net.nodes.forEach(pin => netByPin.set(key(pin.componentId, pin.pinId), net.id)));
   const positions = new Map<string, string>();
   for (const component of doc.components) for (const pin of PARTS[component.kind].pins) {

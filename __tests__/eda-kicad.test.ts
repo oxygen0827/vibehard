@@ -22,6 +22,24 @@ function example(): EdaDocument {
 }
 
 describe("KiCad deterministic exports", () => {
+  it("places native schematic pins and labels on KiCad's 1.27 mm connection grid without changing the draft", () => {
+    const doc = example();
+    doc.components = [{ ...doc.components[0], kind: "r0603", schematic: { x: 10, y: 20, rotation: 0 } }];
+    doc.nets = [{ id: "n1", name: "VCC", nodes: [{ componentId: "r1", pinId: "1" }] }];
+    doc.tracks = [];
+    const ast = parseSExpression(exportKicadSchematic(doc));
+    const instance = children(ast, "symbol")[0];
+    const label = children(ast, "global_label")[0];
+    const onGrid = (value: SExpression) => {
+      const units = Number(value) / 1.27;
+      expect(Math.abs(units - Math.round(units))).toBeLessThan(1e-6);
+    };
+    for (const position of [child(instance, "at"), child(label, "at")]) {
+      onGrid(position[1]); onGrid(position[2]);
+    }
+    expect(doc.components[0].schematic).toEqual({ x: 10, y: 20, rotation: 0 });
+  });
+
   it("emits self contained library pins, placed instances, transformed net labels and deterministic unique UUIDs", () => {
     const doc = example(); const exported = exportKicadSchematic(doc); const ast = parseSExpression(exported);
     expect(exported).toBe(exportKicadSchematic(doc)); expect(list(ast)[0]).toBe("kicad_sch");
