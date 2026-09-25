@@ -18,7 +18,8 @@ const configs = [
   ['tmp102', 'Sensor_Temperature', 'TMP102xxDRL', '', 'TMP102xxDRL'],
 ];
 async function main() {
-  const root = process.argv[2]; if (!root) throw new Error('Pass the KiCad share/kicad directory');
+  const root = process.argv[2]; const sourceVersion = process.argv[3];
+  if (!root || !/^KiCad \d+\.\d+\.\d+$/.test(sourceVersion || '')) throw new Error('Pass the KiCad share/kicad directory and exact source version, for example KiCad 9.0.8');
   const catalog: Record<string, unknown> = {};
   for (const [kind, library, name, configuredFootprint, value] of configs) {
     const file = await readFile(join(root, 'symbols', `${library}.kicad_sym`), 'utf8');
@@ -39,7 +40,7 @@ async function main() {
     const graphics = children(tree, 'symbol').flatMap(unit => unit.filter((v): v is Node => Array.isArray(v) && ['rectangle', 'polyline', 'circle', 'arc'].includes(String(v[0]))));
     const xExtent = Math.max(2, ...pins.map(p => Math.abs(p.x)));
     const yExtent = Math.max(2, ...pins.map(p => Math.abs(p.y)));
-    catalog[kind] = { kind, name, prefix: property(tree, 'Reference'), defaultValue: value, description: property(tree, 'Description'), symbol: { width: xExtent * 2, height: yExtent * 2 }, footprint: { name: footprintId, width: Math.max(...pads.map(p => Math.abs(p.x) + p.width / 2)) * 2, height: Math.max(...pads.map(p => Math.abs(p.y) + p.height / 2)) * 2, padWidth: pads[0].width, padHeight: pads[0].height }, pins, native: { libraryId: `${library}:${name}`, symbol, footprint, pads, graphics, sourceVersion: 'KiCad 10.0.6', sha256: createHash('sha256').update(symbol + footprint).digest('hex') } };
+    catalog[kind] = { kind, name, prefix: property(tree, 'Reference'), defaultValue: value, description: property(tree, 'Description'), symbol: { width: xExtent * 2, height: yExtent * 2 }, footprint: { name: footprintId, width: Math.max(...pads.map(p => Math.abs(p.x) + p.width / 2)) * 2, height: Math.max(...pads.map(p => Math.abs(p.y) + p.height / 2)) * 2, padWidth: pads[0].width, padHeight: pads[0].height }, pins, native: { libraryId: `${library}:${name}`, symbol, footprint, pads, graphics, sourceVersion, sha256: createHash('sha256').update(symbol + footprint).digest('hex') } };
   }
   await mkdir('lib/eda/catalog', { recursive: true });
   await writeFile('lib/eda/catalog/parts.json', JSON.stringify(catalog, null, 2) + '\n');

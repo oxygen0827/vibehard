@@ -16,5 +16,6 @@ describe('native engineering artifact package', () => {
     const drc=JSON.parse(strFromU8(entries['checks/drc.json']));
     expect(drc.report.unconnected_items).toHaveLength(0);
     expect(drc.report.violations.filter((v:{severity:string})=>v.severity==='error')).toHaveLength(0);
+    expect(drc.report.schematic_parity).toHaveLength(0);
   },120_000);
 });

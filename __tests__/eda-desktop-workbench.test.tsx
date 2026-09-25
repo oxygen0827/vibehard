@@ -63,6 +63,15 @@ it('offers reconnect when the transport drops instead of claiming a saved sessio
   expect(mocks.clients[0].disconnect).not.toHaveBeenCalled();
 });
 
+it('shows schematic parity failures separately from ordinary PCB DRC results', async () => {
+  const fetcher = await openProject();
+  fetcher.mockResolvedValue(Response.json({ exitCode: 5, report: { violations: [], unconnected_items: [], schematic_parity: [{ type: 'missing_footprint' }, { type: 'extra_footprint' }] } }));
+  fireEvent.click(screen.getByRole('button', { name: '运行 DRC' }));
+  await waitFor(() => expect(screen.getByRole('status')).toHaveTextContent('2 项问题'));
+  expect(screen.getByText(/原理图不一致 2/)).toBeInTheDocument();
+  expect(JSON.parse(fetcher.mock.calls.at(-1)![1].body)).toEqual({ action: 'check', kind: 'drc' });
+});
+
 it('ends a stalled connection with a visible timeout', async () => {
   await openProject();
   const timer = vi.spyOn(window, 'setTimeout');

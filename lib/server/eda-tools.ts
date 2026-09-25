@@ -10,7 +10,7 @@ const execute = promisify(execFile);
 const executable = () => process.env.KICAD_CLI_PATH || 'kicad-cli';
 export type CheckKind = 'erc' | 'drc';
 export function nativeCheckArguments(kind: CheckKind, input: string, report: string) {
-  return [kind === 'erc' ? 'sch' : 'pcb', kind, '--format', 'json', '--exit-code-violations', '--output', report, input];
+  return [kind === 'erc' ? 'sch' : 'pcb', kind, '--format', 'json', '--exit-code-violations', ...(kind === 'drc' ? ['--schematic-parity'] : []), '--output', report, input];
 }
 export async function kicadAvailable(command = executable()) {
   try { await execute(command, ['--version'], { timeout: 5_000, maxBuffer: 64_000, windowsHide: true }); return true; }
@@ -24,6 +24,10 @@ export async function runEdaCheck(input: unknown, kind: CheckKind, signal?: Abor
   const report = join(directory, 'report.json');
   try {
     await writeFile(source, kind === 'erc' ? exportKicadSchematic(document) : exportKicadPcb(document), 'utf8');
+    if (kind === 'drc') {
+      await writeFile(join(directory, 'design.kicad_sch'), exportKicadSchematic(document), 'utf8');
+      await writeFile(join(directory, 'design.kicad_pro'), '{}', 'utf8');
+    }
     let exitCode = 0;
     try { await execute(executable(), nativeCheckArguments(kind, source, report), { timeout: 60_000, maxBuffer: 2_000_000, windowsHide: true, signal }); }
     catch (error) {

@@ -4,6 +4,14 @@
 
 真实任务条目从本行下方开始。
 
+## 2026-09-25 Task: 原生 EDA 工作台逐项验收及检查修复
+
+- Goal: 验证 Agent 基础任务、已保存 KiCad 输入文件、ERC/DRC 的真实有效性，并划清测试夹具与 AI 生成边界。
+- Finding: 三项 Agent 基础任务均因本机未配置设计模型返回 503；当前工程原生文件真实存在，ERC 报 10 项；原默认 DRC 0 遗漏 3 项原理图/PCB 不一致；KiCad 10 库源数据使 KiCad 9 无法加载测试导出文件。
+- Implementation: 受控 7 类器件改用桌面 KiCad 9 官方库；补齐工程库表；原生/旧版 DRC 都启用原理图一致性检查；页面区分问题数量与检查边界。
+- Validation: 浏览器 ERC 10、DRC 一致性 3；隔离的三器件测试工程 ERC/DRC 0、故意改错 PCB 后 DRC 2；EDA 定向 63 项通过、Python 9 项、TypeScript、ESLint、生产构建和源文件哈希检查通过。全仓 126 通过、2 个既有 Windows 符号链接权限 `EPERM` 失败、2 跳过。
+- Boundary: 测试工程不是 Agent 生成；原生工作台制造包、模型闭环和完整器件/导入覆盖未完成，未发布生产。详见 `docs/eda-acceptance-2026-09-25.md`。
+
 ## 2026-09-25 Task: 在 KiCad 工作台加入原理图 Agent 对话
 
 - Goal: 用户在 `/eda` 直接和 Agent 对话，审阅电路修改，再打开可编辑的原生 KiCad 工程。

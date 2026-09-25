@@ -160,8 +160,16 @@ export function DesktopWorkbench() {
   };
   const check = async (kind: 'erc' | 'drc') => {
     const data = await jsonResponse(await request(projectId, { action: 'check', kind }));
-    setReport(`${kind.toUpperCase()} · 退出码 ${data.exitCode} · 检查磁盘上的已保存文件\n${JSON.stringify(data.report, null, 2)}`);
-    setMessage(`${kind.toUpperCase()} 已返回，结果见检查面板`);
+    const report = data.report as { sheets?: { violations?: unknown[] }[]; violations?: unknown[]; unconnected_items?: unknown[]; schematic_parity?: unknown[] };
+    const electrical = report.sheets?.reduce((count, sheet) => count + (sheet.violations?.length ?? 0), 0) ?? 0;
+    const board = report.violations?.length ?? 0;
+    const unconnected = report.unconnected_items?.length ?? 0;
+    const parity = report.schematic_parity?.length ?? 0;
+    const total = electrical + board + unconnected + parity;
+    const label = kind === 'drc' ? 'DRC（含原理图一致性）' : 'ERC';
+    const details = kind === 'drc' ? `板级 ${board} · 未布通 ${unconnected} · 原理图不一致 ${parity}` : `电气规则 ${electrical}`;
+    setReport(`${label} · ${total} 项问题 · ${details} · 退出码 ${data.exitCode}\n检查对象：磁盘上已保存的原生文件；规则未报错不代表电路功能或可制造性已验证。\n\n${JSON.stringify(report, null, 2)}`);
+    setMessage(`${label}：${total} 项问题，详情见检查结果`);
   };
   const close = async () => {
     if (!window.confirm('结束 KiCad 会话？请先在原理图和 PCB 窗口分别保存。未保存修改将丢失。')) return;
@@ -197,7 +205,7 @@ export function DesktopWorkbench() {
         <ul className={styles.fileList}>{files.map(file => <li key={file.name}><span title={file.name}>{file.name}</span><small>{(file.bytes / 1024).toFixed(1)} KB</small></li>)}</ul>
         {!files.length && <p className={styles.hint}>打开工程后显示磁盘文件。</p>}
         <h2>工程检查</h2><div className={styles.checks}><button disabled={!projectId || busy} onClick={() => void run(() => check('erc'))}>运行 ERC</button><button disabled={!projectId || busy} onClick={() => void run(() => check('drc'))}>运行 DRC</button></div>
-        <p className={styles.hint}>检查和下载前，请先保存原理图及 PCB。窗口未保存的修改不会自动写入交付文件。</p>
+        <p className={styles.hint}>检查和下载前，请先保存原理图及 PCB。DRC 同时核对原理图与 PCB；未保存的窗口内容不在检查范围内。</p>
         {report && <details open className={styles.report}><summary>检查结果</summary><pre>{report}</pre></details>}
         <div className={styles.divider} /><p className={styles.hint}>右侧 Agent 可从对话生成新原生工程。当前打开的工程仍由 KiCad 编辑。</p>
         <a href={apiPath('/eda/legacy')} target="_blank" rel="noreferrer">打开旧版草稿编辑器 ↗</a>

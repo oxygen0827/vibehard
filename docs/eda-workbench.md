@@ -2,6 +2,8 @@
 
 **2026-09-25:** The main `/eda` route now runs the real KiCad/noVNC desktop described in [eda-desktop.md](eda-desktop.md). The JSON canvas described below is retained at `/eda/legacy`; its Agent and fabrication APIs do not operate on native desktop files.
 
+The current acceptance result, including three model-blocked Agent tasks and native ERC/DRC evidence, is in [eda-acceptance-2026-09-25.md](eda-acceptance-2026-09-25.md).
+
 Status: functional engineering workbench with explicitly bounded import/library support. The full long-term objective is **not complete**. Work is on `codex/web-eda-workbench`; production has not been changed.
 
 ## Run
@@ -10,7 +12,7 @@ Status: functional engineering workbench with explicitly bounded import/library 
 
 New documents are empty. No example circuit or generic MCU/sensor is offered in the palette. The old generic definitions remain only for compatibility and regression fixtures. The engineering ZIP rejects those legacy placeholder parts.
 
-The editor currently provides seven official KiCad symbol/footprint pairs: resistor 0603, capacitor 0603, LED 0603, 2-pin and 4-pin 2.54-mm headers, ESP32-WROOM-32, and TMP102xxDRL/SOT-563. See `lib/eda/catalog/README.md` for provenance, extraction command and license. Actual pin numbers, electrical types, native symbol shapes and physical pads come from KiCad 10.0.6 library data. This does not substitute for selecting a manufacturer part or validating the circuit electrically.
+The editor currently provides seven official KiCad symbol/footprint pairs: resistor 0603, capacitor 0603, LED 0603, 2-pin and 4-pin 2.54-mm headers, ESP32-WROOM-32, and TMP102xxDRL/SOT-563. See `lib/eda/catalog/README.md` for provenance, extraction command and license. The current catalog was rebuilt from the KiCad 9.0.8 library used by the noVNC desktop after KiCad 10 forms failed to load there. This does not substitute for selecting a manufacturer part or validating the circuit electrically.
 
 ## Working paths
 
@@ -31,7 +33,7 @@ PCB import supports rectangular two-layer boards using supported catalog footpri
 
 ## Configuration and limits
 
-- `KICAD_CLI_PATH`: trusted administrator-configured executable path, or `kicad-cli` on PATH. Tested locally with `C:/tmp/vibehard-tools/KiCad/bin/kicad-cli.exe`, version 10.0.6. No lower-version compatibility claim has been verified for the imported official library subset.
+- `KICAD_CLI_PATH`: trusted administrator-configured executable path, or `kicad-cli` on PATH. The original browser-editor validation used Windows KiCad 10.0.6; the current native desktop and catalog are checked against KiCad 9.0.8. Revalidate both versions after any catalog rebuild.
 - `EDA_DATA_ROOT`: persistent, application-owned directory. Default `.eda-data` is ignored by Git. Do not share it with untrusted filesystem writers. Writes use a directory lock plus immutable snapshots and atomic replacement. A crashed process can leave `.write-lock`; an operator must verify no writer is active before removing that specific empty lock directory. Automatic crash recovery and multi-host storage are pending.
 - Native subprocesses use fixed arguments, no shell, temporary directories, output limits and timeouts. API endpoints require existing platform authentication and have per-user rate limits. Production process-level resource isolation and global job concurrency still need deployment review.
 - This checkout has no configured design model. Live LLM generation has **not been tested**. The UI reports unavailable; no canned AI response is used. Configure the existing platform model through its administrator flow rather than placing keys in source or chat.

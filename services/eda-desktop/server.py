@@ -54,9 +54,21 @@ class TicketStore:
 
 
 class ProjectFiles:
-    def __init__(self, root):
+    def __init__(self, root, templates=None):
         self.root = root.resolve()
         self.root.mkdir(parents=True, exist_ok=True, mode=0o700)
+        self.templates = Path(templates) if templates else Path('/usr/share/kicad/template')
+
+    def ensure_library_tables(self, directory):
+        for name in ('sym-lib-table', 'fp-lib-table'):
+            template = self.templates / name
+            if not template.is_file():
+                continue
+            try:
+                with (directory / name).open('xb') as handle:
+                    handle.write(template.read_bytes())
+            except FileExistsError:
+                pass
 
     def directory(self, owner, project):
         directory = self.root / identifier(owner) / identifier(project)
@@ -78,6 +90,7 @@ class ProjectFiles:
         directory = self.directory(owner, project)
         self.claim(owner)
         if (directory / 'circuit.kicad_pro').exists():
+            self.ensure_library_tables(directory)
             return directory
         for name, root in [('schematic', 'kicad_sch'), ('pcb', 'kicad_pcb')]:
             source = sources.get(name, '')
@@ -91,6 +104,7 @@ class ProjectFiles:
                 with target.open('x', encoding='utf-8') as handle:
                     handle.write(sources[name])
         (directory / 'circuit.kicad_pro').write_text('{}', encoding='utf-8')
+        self.ensure_library_tables(directory)
         return directory
 
     def native_files(self, directory):
@@ -262,10 +276,15 @@ class DesktopRuntime:
         source = path / ('circuit.kicad_sch' if kind == 'erc' else 'circuit.kicad_pcb')
         if not source.is_file():
             raise DesktopError('Save a native project first', 404)
+        if kind == 'drc' and not (path / 'circuit.kicad_sch').is_file():
+            raise DesktopError('Save the schematic before checking PCB parity', 404)
         async with self.jobs:
             output = path / f'.{kind}-{uuid.uuid4()}.json'
             try:
-                code, _, _ = await self.run(['kicad-cli', 'sch' if kind == 'erc' else 'pcb', kind, '--format', 'json', '--exit-code-violations', '-o', str(output), str(source)], timeout=90)
+                command = ['kicad-cli', 'sch' if kind == 'erc' else 'pcb', kind, '--format', 'json', '--exit-code-violations']
+                if kind == 'drc':
+                    command.append('--schematic-parity')
+                code, _, _ = await self.run([*command, '-o', str(output), str(source)], timeout=90)
                 if code not in (0, 5) or not output.is_file():
                     raise DesktopError('KiCad check failed; no valid report was produced', 503)
                 return {'kind': kind, 'exitCode': code, 'report': json.loads(output.read_text()), 'savedFilesOnly': True}

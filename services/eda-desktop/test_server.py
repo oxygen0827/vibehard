@@ -9,6 +9,20 @@ PROJECT = '22222222-2222-4222-8222-222222222222'
 
 
 class DesktopBoundaries(unittest.TestCase):
+    def test_initialization_adds_official_library_tables_without_overwriting_user_tables(self):
+        with tempfile.TemporaryDirectory() as root:
+            templates = Path(root) / 'templates'
+            templates.mkdir()
+            (templates / 'sym-lib-table').write_text('(sym_lib_table (lib (name "Device")))')
+            (templates / 'fp-lib-table').write_text('(fp_lib_table (lib (name "Resistor_SMD")))')
+            files = ProjectFiles(Path(root) / 'projects', templates=templates)
+            path = files.initialize(OWNER, PROJECT, {'schematic': '(kicad_sch)', 'pcb': '(kicad_pcb)'})
+            self.assertEqual((path / 'sym-lib-table').read_text(), (templates / 'sym-lib-table').read_text())
+            (path / 'sym-lib-table').write_text('(sym_lib_table user-edited)')
+            files.initialize(OWNER, PROJECT, {'schematic': '(kicad_sch new)', 'pcb': '(kicad_pcb new)'})
+            self.assertEqual((path / 'sym-lib-table').read_text(), '(sym_lib_table user-edited)')
+            self.assertEqual((path / 'fp-lib-table').read_text(), (templates / 'fp-lib-table').read_text())
+
     def test_ticket_is_single_use_expiring_and_scoped(self):
         tickets = TicketStore()
         token = tickets.issue(PROJECT, now=100)
@@ -45,6 +59,17 @@ class DesktopBoundaries(unittest.TestCase):
 
 
 class CheckFailures(unittest.IsolatedAsyncioTestCase):
+    async def test_drc_checks_schematic_parity_from_the_saved_project(self):
+        with tempfile.TemporaryDirectory() as root:
+            runtime = DesktopRuntime(Path(root))
+            runtime.files.initialize(OWNER, PROJECT, {'schematic': '(kicad_sch)', 'pcb': '(kicad_pcb)'})
+            async def report(args, **_):
+                Path(args[args.index('-o') + 1]).write_text('{"violations": [], "schematic_parity": []}')
+                return (0, b'', b'')
+            runtime.run = AsyncMock(side_effect=report)
+            await runtime.check(OWNER, PROJECT, 'drc')
+            self.assertIn('--schematic-parity', runtime.run.call_args.args[0])
+
     async def test_failed_check_cannot_return_a_previous_report(self):
         with tempfile.TemporaryDirectory() as root:
             runtime = DesktopRuntime(Path(root))
