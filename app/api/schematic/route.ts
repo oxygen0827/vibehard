@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { NextResponse, type NextRequest } from "next/server";
-import { SCHEMATIC_SYSTEM, schematicModelResultSchema, schematicResultSchema } from "@/lib/agent/schematic";
+import { SCHEMATIC_DRAFT_NOTICE, SCHEMATIC_MARKDOWN_LIMIT, SCHEMATIC_SYSTEM, schematicModelResultSchema, schematicResultSchema } from "@/lib/agent/schematic";
 import { requestUser, unauthorized } from "@/lib/server/http";
 import { callLlm, LlmRequestError } from "@/lib/server/llm-client";
 import { runtimeLlm } from "@/lib/server/llm-settings";
@@ -42,12 +42,18 @@ export async function POST(request: NextRequest) {
             try { raw = JSON.parse(text.replace(/^```(?:json)?\s*/i, "").replace(/\s*```$/, "")); }
             catch { throw new LlmRequestError("模型返回格式不正确，未生成可提交资料；请重试"); }
             const parsed = schematicModelResultSchema.safeParse(raw);
-            if (!parsed.success) throw new LlmRequestError("识别正文为空、超长或格式不完整；请拆分图纸重试");
+            if (!parsed.success) {
+              const markdown = raw && typeof raw === "object" && "markdown" in raw ? raw.markdown : undefined;
+              if (typeof markdown === "string" && markdown.trim().length > SCHEMATIC_MARKDOWN_LIMIT) throw new LlmRequestError(`模型识别正文为 ${markdown.trim().length} 个字符，超过可保存的 ${SCHEMATIC_MARKDOWN_LIMIT} 字符上限；请重试或按图纸区域分别识别`);
+              if (typeof markdown === "string" && markdown.trim().length < 20) throw new LlmRequestError("模型识别正文为空或不足 20 个字符，请重试");
+              if (parsed.error.issues.some(issue => issue.path[0] === "title")) throw new LlmRequestError("模型返回的标题缺失、格式错误或超过 120 个字符，请重试");
+              throw new LlmRequestError("模型返回的识别字段格式不正确，请重试");
+            }
             if (/Unsupported Document|附件不可读|文件内容无法读取|未能提取任何原理图/i.test(`${parsed.data.title}\n${parsed.data.markdown}`)) throw new LlmRequestError("模型未能读取图纸内容，请检查文件或拆分为清晰图片后重试");
             const generatedAt = new Date().toISOString(); const analysisId = randomUUID();
             const result = schematicResultSchema.parse({ analysisId, model: config.model, generatedAt, fileName: attachment.filename, fileSha256: sha256,
               draft: { title: parsed.data.title, kind: "schematic", source: `${attachment.filename}；SHA256 ${sha256}；识别 ${generatedAt}；模型 ${config.model}；分析编号 ${analysisId}`,
-                content: `> AI 原理图识别草案，未经工程师审核或上板验证。请对照原图核验；原文件未在平台持久保存。\n\n${parsed.data.markdown}` } });
+                content: SCHEMATIC_DRAFT_NOTICE + parsed.data.markdown } });
             send({ type: "result", result });
           } catch (error) { send({ type: "error", error: error instanceof LlmRequestError ? error.message : "识别失败，请检查模型是否支持图片/PDF 输入" }); }
           finally { active.delete(user.id); clearInterval(heartbeat); signal.removeEventListener("abort", abort); close(); }
