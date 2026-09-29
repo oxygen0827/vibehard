@@ -2,6 +2,14 @@
 
 最新更新：2026-09-29，北京时间。以下核查结果分别标注时间，不代表持续监控。
 
+## 2026-09-29 19:18 平台工作台 UI 已上线
+
+- 正式平台现为 `/opt/vibehard/releases/20260929-platform-ui-v1/standalone`。从前一正式版 `20260929-chip-search-v1` 的 1132 个源码文件复制并逐个核对哈希，仅叠加 6 个 UI 运行时文件和 1 个导航测试；完整新清单 1133/1133 哈希通过。保留原有 EDA、设备开发、真实项目与方案状态、PCB 和 Demo。归档 SHA256 `2359daa018af1ae1fce3fe5389f76261361190e99922725475aaeb7e9a1b9a3f`；旧平台 unit 位于新 release 的 `backup/vibehard.service`。
+- 工作台首页整理快捷入口和真实进度卡片，桌面侧栏分组，移动端补全功能菜单与键盘关闭；移除无功能的通知/设置按钮。UI 代码提交 `188d754` 经 [PR #30](https://github.com/oxygen0827/vibehard/pull/30) 的平台 CI 通过，合并提交 `26323ad`。独立构建的 24 项定向测试、类型、ESLint、Next 生产构建通过。
+- 候选端口 3211 和切换后的 `https://ldcx.tech` 均通过完整 `verify-frontend-release.mjs`：PCB v0.2 详细 renderer、Demo 5 个 GIF 哈希与 18 个前端资源、匿名鉴权边界正常。切换前 Agent/设计活跃任务均为 0；仅 `vibehard.service` 重启，设计 worker、Runner、Gateway、VibeBoard PID 保持不变，预检已停止、3211 空闲。无数据库迁移、模型/密钥、OSS、设备或 nginx 修改。生产登录态视觉点击未验；以上公网验收不替代实际用户会话。服务器根盘剩余约 2.5 GB（94% 已用），后续发布应先规划旧归档清理。
+- 此前芯片资料检索已由 [PR #29](https://github.com/oxygen0827/vibehard/pull/29) 发布为 `20260929-chip-search-v1` 并被本次完整保留；其检索功能不属于此次 UI 验收范围。
+
+
 ## 2026-09-29 14:10 原理图正文校验修复已上线
 
 - PR #27 与合并提交 `40f4130` 完整 CI 通过后，平台发布为 `20260929-schematic-result-v1`。原理图正文按知识库 6000 字符减去 48 字符声明计算，当前硬上限 5952；模型提示目标 4500。修复真实 5590 字符有效正文被旧 5500 上限拒绝的问题，并细分错误提示。
