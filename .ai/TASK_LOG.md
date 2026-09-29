@@ -570,3 +570,11 @@
 - Scope: 按用户改定的公开测试版标准，修复 KiCad worker 镜像打包缺文件、样板模块文件摘要跨平台不一致，工作台首屏标注“不可用于正式硬件设计”；保留正式模块的独立硬件审核发布闸门。
 - Evidence: PR #8 当前头提交 `f67c5e8` 的 Linux `platform` 和 `image` CI 均通过；镜像含 KiCad 9、Java、TigerVNC、固定摘要的 Freerouting。定向 22 项测试通过；此前真实 KiCad/Freerouting 测试 2 项未布通降至 0、源 PCB 不变，36 项 Python worker 测试与 Next 生产构建通过。
 - Release status: PR 已推送但尚待上游审查合并；当前 GitHub 身份无上游写权限，本机到生产服务器 SSH 22 不通。未构建生产候选、迁移或切换服务，未做公网双账号验收；不能称已上线。LED 软件样板仍待审核，正式模块目录不开放。
+
+## 2026-09-29 Task: 发布平台工作台 UI
+
+- Scope: 从生产 `20260929-chip-search-v1` 全量源码构建，只发布 6 个 UI 运行时文件与 1 个测试；保留现有 EDA、PCB、Demo、真实项目和芯片检索。
+- Git: `188d754`，PR #30 的平台 CI 通过，合并提交 `26323ad`；共享脏工作树的其他改动未纳入。
+- Validation: 1133/1133 源码哈希；24 项定向测试、TypeScript、ESLint 和 Next 生产构建通过。候选 3211 与正式公网完整 PCB/Demo/18 资源/五个 GIF/匿名鉴权校验通过。切换前 Agent 与设计任务均为 0。
+- Deployment: `20260929-platform-ui-v1`，归档 SHA256 `2359daa018af1ae1fce3fe5389f76261361190e99922725475aaeb7e9a1b9a3f`；仅重启平台，worker、Runner、Gateway、VibeBoard PID 未变，平台 NRestarts=0；预检已停止，3211 空闲。旧 unit 在新 release 的 root-only `backup/`。
+- Limits: 生产登录态视觉点击未验；服务器根盘剩余约 2.5 GB。无数据库、模型、密钥、OSS、设备或 nginx 变更。

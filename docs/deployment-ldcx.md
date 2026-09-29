@@ -1,5 +1,14 @@
 # ldcx.tech deployment
 
+## Platform UI release, 2026-09-29 19:18 CST
+
+The active platform is `/opt/vibehard/releases/20260929-platform-ui-v1/standalone` (PID 1034083 at verification). It overlays six UI runtime files and one test on the full hash-verified source of `20260929-chip-search-v1`; `RELEASE.json` verifies all 1133 files. The versioned archive `/opt/vibehard/releases/vibehard-20260929-platform-ui-v1.tar.gz` has SHA256 `2359daa018af1ae1fce3fe5389f76261361190e99922725475aaeb7e9a1b9a3f`. Code PR #30 passed platform CI and merged as `26323ad`. The original platform unit is stored at `20260929-platform-ui-v1/backup/vibehard.service`.
+
+The isolated candidate and public active release passed `scripts/verify-frontend-release.mjs` with PCB v0.2 renderer, 18 assets, five Demo GIF hashes and anonymous auth checks. Agent turns and design jobs were idle before switching. Only `vibehard.service` restarted; design worker, Runner, Gateway and VibeBoard PIDs were preserved. The candidate unit is stopped, port 3211 closed, and platform `NRestarts=0`. No DB migration or configuration, model, OSS, device or nginx change. Authenticated production visual click-through was not performed. The root filesystem had about 2.5 GB free (94% used) after extraction.
+
+To roll back, first confirm no Agent turns or design jobs are active, then restore `backup/vibehard.service` to `/etc/systemd/system/vibehard.service`, run `systemctl daemon-reload` and restart only `vibehard.service`. Verify the public PCB/Demo release check against the restored active standalone. No database restore is part of this UI rollback.
+
+
 ## 2026-09-28 RV1126B entry clarification (current platform)
 
 Platform `20260928-rv1126b-entry-v1`; design worker `20260928-bom-price-freeze-v1`; private retrieval `20260928-audit-fixes-v1`; independent VibeBoard unchanged. Default merge commit `a38dd19` passed full CI. A platform-only candidate, backup, zero-active-task activation, public PCB/Demo/BOM and anonymous boundary checks passed; five allowed runtime files changed, no DB/OSS/index/model/device write. The exact archive hash, independent site/Runner checks, login-state limitation and rollback are in [RV1126B entry release record](release-rv1126b-entry-20260928.md).
