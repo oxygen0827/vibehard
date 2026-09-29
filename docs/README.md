@@ -1,5 +1,7 @@
 # 文档索引
 
+- [原理图正文校验发布](release-schematic-result-20260929.md)：5952 字符上限、同图正式 DeepSeek 验收、平台发布及回滚。
+
 - [RV1126B 设备入口发布](release-rv1126b-entry-20260928.md)：独立 VibeBoard 入口说明、前端候选/正式保护检查、边界与回滚。
 
 - [BOM 价格依据留痕发布](release-bom-price-freeze-20260928.md)：网页与方案 Worker 双服务候选、备份/上线/回滚及生产登录态待验。
