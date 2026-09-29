@@ -9,7 +9,7 @@ import { schematicImages, SCHEMATIC_PDF_PAGE_LIMIT } from "@/lib/server/schemati
 import { createProject, createUser } from "@/lib/server/store";
 import { createSessionToken } from "@/lib/server/security";
 import { saveLlm } from "@/lib/server/llm-settings";
-import { schematicResultSchema, SCHEMATIC_FILE_LIMIT } from "@/lib/agent/schematic";
+import { schematicResultSchema, SCHEMATIC_FILE_LIMIT, SCHEMATIC_DRAFT_NOTICE, SCHEMATIC_MARKDOWN_LIMIT } from "@/lib/agent/schematic";
 import { changeKnowledge, publishedSnapshot } from "@/lib/server/knowledge-state";
 import type { RuntimeLlm } from "@/lib/agent/llm";
 import { createCanvas, loadImage } from "@napi-rs/canvas";
@@ -127,6 +127,48 @@ describe("real schematic route contracts (upstream mocked)", () => {
     expect((await knowledge(new NextRequest("http://localhost", { headers: { Cookie: outsider.cookie } }), context)).status).toBe(403);
     const foreign = new NextRequest("http://localhost/api/knowledge", { method: "POST", headers: { Cookie: outsider.cookie, "Content-Type": "application/json" }, body: JSON.stringify(action) });
     expect((await submit(foreign, context)).status).toBe(403);
+  });
+  it("preserves a 5590-character recognition that fits the knowledge draft, including its final evidence", async () => {
+    const { user, cookie } = await fixture();
+    const markdown = "## 引脚与证据\n".padEnd(5560, "可见网络；") + "\n## 待确认项\n末尾证据必须保留。";
+    const capturedLength = markdown.padEnd(5590, "。");
+    expect(capturedLength).toHaveLength(5590);
+    vi.mocked(callLlm).mockResolvedValue(JSON.stringify({ title: "合成长度回归", markdown: capturedLength }));
+    const events = (await (await POST(upload(cookie))).text()).trim().split("\n").map(line => JSON.parse(line));
+    expect(events.find(event => event.type === "error")).toBeUndefined();
+    const result = schematicResultSchema.parse(events.find(event => event.type === "result")?.result);
+    expect(result.draft.content.endsWith(capturedLength)).toBe(true);
+    expect(result.draft.content.length).toBeLessThanOrEqual(6000);
+    const project = await createProject(user.id, { name: "长度回归", workspaceKey: crypto.randomUUID() });
+    const response = await submit(new NextRequest("http://localhost/api/knowledge", { method: "POST", headers: { Cookie: cookie, "Content-Type": "application/json" }, body: JSON.stringify({ action: "create", submissionId: result.analysisId, draft: result.draft }) }), { params: Promise.resolve({ id: project.id }) });
+    expect(response.status).toBe(200);
+    expect((await response.json()).documents[0].draft.content).toBe(result.draft.content);
+  });
+  it("accepts the exact draft capacity and reports the actual count one character beyond it", async () => {
+    const { cookie } = await fixture();
+    const markdown = "可".repeat(SCHEMATIC_MARKDOWN_LIMIT);
+    vi.mocked(callLlm).mockResolvedValue(JSON.stringify({ title: "边界回归", markdown }));
+    const accepted = (await (await POST(upload(cookie))).text()).trim().split("\n").map(line => JSON.parse(line)).find(event => event.type === "result");
+    const result = schematicResultSchema.parse(accepted?.result);
+    expect(result.draft.content).toBe(SCHEMATIC_DRAFT_NOTICE + markdown);
+    expect(result.draft.content).toHaveLength(6000);
+    vi.mocked(callLlm).mockResolvedValue(JSON.stringify({ title: "边界回归", markdown: markdown + "可" }));
+    const rejected = await (await POST(upload(cookie))).text();
+    expect(rejected).toContain(`正文为 ${SCHEMATIC_MARKDOWN_LIMIT + 1} 个字符`);
+    expect(rejected).toContain(`${SCHEMATIC_MARKDOWN_LIMIT} 字符上限`);
+    expect(rejected).not.toContain('"type":"result"');
+  });
+  it.each([
+    [{ title: "短正文", markdown: "空" }, "不足 20 个字符"],
+    [{ title: "错类型", markdown: { section: "正文" } }, "识别字段格式不正确"],
+    [{ markdown: "可".repeat(30) }, "标题缺失"],
+  ])("reports the output validation failure without mislabeling it as a PDF problem", async (reply, message) => {
+    const { cookie } = await fixture();
+    vi.mocked(callLlm).mockResolvedValue(JSON.stringify(reply));
+    const text = await (await POST(upload(cookie))).text();
+    expect(text).toContain(message);
+    expect(text).not.toContain("请拆分图纸");
+    expect(text).not.toContain('"type":"result"');
   });
   it("does not overwrite subsequent edits/publications when a submission is retried", () => {
     const owner = crypto.randomUUID();
