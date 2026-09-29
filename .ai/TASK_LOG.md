@@ -67,6 +67,12 @@
 - Findings: Worker 超时后失败写入仍可无限等待（真实隔离 PG 行锁两次复现）；新索引批次替换旧语料；同批次 v2 登记 EEXIST；密码重置不撤销旧会话。四项均未修复，详见 `docs/code-audit-20260927.md`。
 - Boundary: 只诊断，不改业务代码或生产服务，不发收费模型请求，不 commit/push；仅测试库合成记录和临时本地环境。
 
+## 2026-09-28 Task: 无正式模块包时跑通 EDA 原生模块链路
+
+- 在独立 `codex/eda-native-module-chain` 分支新增未审核 LED 软件样板包、文件哈希和端口/网表校验、Agent 受控插入与原生 KiCad 保存读回；Freerouting 适配器只产生独立 PCB 候选，不覆盖原工程。
+- KiCad 9.0.8 验收：3 器件/3 网络，模块来源及 PCB 内部走线读回成功，手动候选 ERC/DRC 均 0；保留模块内部走线后，真实 DSN→Freerouting 2.4.1→SES 使外部未布通 2→0，原理图一致性仍 0、原板哈希不变。证据见 `docs/eda-native-module-acceptance-2026-09-28.md`。
+- EDA 定向 87 通过/2 跳过；TypeScript、定向 ESLint、Next 生产构建通过。全仓 303 通过/13 跳过/5 失败（4 个 Windows 符号链接 `EPERM`，1 个私有检索服务超时）。当前未部署、未做真实模型及公网新功能验收；云端 manager 入口和团队正式模块仍待后续交付。
+
 ## 2026-09-27 Task: 分阶段交付收尾
 
 - 第三阶段代码 `e6c0b2e`、PR #6 已合并，归档 ba7d08ae…a872 验证后预检/备份/激活 `20260927-controlled-ingestion-v1`。只更新检索 unit 和发布管理 CLI；其余六项服务/容器 PID 保持，legacy 原索引 SHA 不变。
@@ -499,6 +505,19 @@
 - 在独立 `codex/unified-knowledge` 工作树实现方案/Agent/EDA 服务端权限与引用入口、私有 socket Worker、旧 Runner 降级和语料版本上下文重置。
 - 全仓 282 测试、类型检查及隔离 PostgreSQL 11 项通过；云端真实工具回合/负载/发布待验证。仅第一阶段可靠性通过门槛后才按序发布，不修改主工作区未提交文档。
 
+## 2026-09-28 Task: KiCad 原生模块受控入库、独立审核与发布目录
+
+- Scope: 服务端包哈希/端口/原生网表校验、不可覆盖的数据库版本、独立硬件审核名单、公开已发布目录、Agent 与 EDA 保存/导出的请求作用域模块锁定；候选原生包只做待审链路验证。
+- Validation: EDA 定向 104 通过/2 跳过、TypeScript 与定向 ESLint 通过；隔离 PostgreSQL 迁移/发布约束/源文件不可变触发器通过；KiCad 9.0.8 对待审候选导出真实网表并成功编译 2 个器件、2 个端口、1 条内部 PCB 走线。`git diff --check` 无错误。
+- Result: 本地代码待主任务整体验收与提交；未写生产数据库、未迁移/部署、未把候选发布给用户或 Agent。正式模块目录应为空。
+- Risks: 候选来自软件样板，不来自已核实的案例库原件；BOM、电气限值、工程师签审报告缺失。私有 OSS 清单本机无法读取。生产私有 KiCad 校验容器的镜像构建/真实 HTTP、正式模块端到端、模型和公网并发验收仍待主任务确认；软件审核门槛不能替代真实硬件签审。
+
+## 2026-09-28 Task: 网页 KiCad/FreeRouting 布线闭环与现网 Agent 问题
+
+- Scope: 从用户已保存的原生工程启动隔离布线，保存独立候选，查看前后 DRC 并另存到本账号新工程；接受时逐字节校验原生文件，保留来源。首个 LED 原生包保持待审，不对外发布。
+- Validation: KiCad 9.0.8 与 Freerouting 2.4.1 实际 DSN/SES 往返，未布通 2→0、原板哈希未变、候选另存与重试通过；worker 36 项测试、EDA Vitest 105 项通过/2 项跳过、Next 生产构建通过。隔离 PostgreSQL 应用 0000–0008 迁移并检查发布/不可变约束。全仓测试仍有 5 项环境相关失败，未称全绿。
+- Live finding: 已登录的现网空白草稿 LED 请求返回“工程数据或请求格式不正确”；审查定位为空 `projectId` 被 UUID 校验拒绝。新增先失败后通过的回归测试，本分支修复；现网尚未部署修复。在有效已有工程上只读加载 5 器件/4 网络原理图后，`deepseek-v4-pro` 返回仅将 R1 从 1kΩ 改为 2kΩ 的单项真实提案；随后放弃，原工程未修改。独立生成和新版本端到端仍未验收。
+- Gate: 未有硬件工程师签审模块，未构建生产 Docker 镜像或完成公网两账号候选验收；维持草稿 PR，不发布正式硬件可用服务。
 ## 2026-09-28 Task: BOM 公开价格快照
 
 - Scope: 本地方案 BOM、项目 BOM/CSV 的价格展示；不变更数据库、生产服务、模型配置或物料采购流程。
@@ -513,3 +532,9 @@
 - Validation: 305 测试通过/16 条件跳过、TypeScript、定向 lint、两个 `/vibehard` 构建通过；两个不可变候选均通过 PCB/Demo、资源和匿名权限预检，正式回环与公网再验。BOM v1 脚本预检失败且未激活；v2 修正并完整重跑。零活跃任务、两份可回查数据库/旧 unit 备份、配置/PID/索引指针保护均已检查。
 - Deployment: 平台 `20260928-bom-pricing-v2`；设计 Worker/检索 `20260928-audit-fixes-v1`。Runner/Gateway/VibeBoard/EDA manager 未重启；Cloud Runner 心跳 13 秒，设备 Runner 7 秒。3211 候选已停。详情与归档哈希、回滚见 `docs/release-audit-bom-20260928.md`。
 - Limits: 未在本轮上线后使用真实用户会话点开 BOM/CSV，也未调用付费模型；Mac 锁屏导致浏览器验收不可用。旧报价非实时采购价；自动知识仍非工程师验证。下一步由项目所有者登录后验证真实已完成项目 BOM/CSV，再抽样检查新方案与引用。
+
+## 2026-09-29 Task: PR #8 公开测试版发布准备
+
+- Scope: 按用户改定的公开测试版标准，修复 KiCad worker 镜像打包缺文件、样板模块文件摘要跨平台不一致，工作台首屏标注“不可用于正式硬件设计”；保留正式模块的独立硬件审核发布闸门。
+- Evidence: PR #8 当前头提交 `f67c5e8` 的 Linux `platform` 和 `image` CI 均通过；镜像含 KiCad 9、Java、TigerVNC、固定摘要的 Freerouting。定向 22 项测试通过；此前真实 KiCad/Freerouting 测试 2 项未布通降至 0、源 PCB 不变，36 项 Python worker 测试与 Next 生产构建通过。
+- Release status: PR 已推送但尚待上游审查合并；当前 GitHub 身份无上游写权限，本机到生产服务器 SSH 22 不通。未构建生产候选、迁移或切换服务，未做公网双账号验收；不能称已上线。LED 软件样板仍待审核，正式模块目录不开放。

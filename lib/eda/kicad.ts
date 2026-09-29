@@ -1,4 +1,5 @@
 import { parseDocument } from "./document";
+import { MODULES, type ModuleCatalog } from "./modules";
 import { PARTS, pinPosition, type PartDefinition } from "./library";
 import type { EdaComponent, EdaDocument } from "./types";
 import { quoteSExpression as q } from "./sexpr";
@@ -38,8 +39,8 @@ function uuid(name: string): string {
   return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20)}`;
 }
 
-function validated(input: EdaDocument) {
-  const doc = parseDocument(input); const names = new Set<string>();
+function validated(input: EdaDocument, catalog: ModuleCatalog) {
+  const doc = parseDocument(input, catalog); const names = new Set<string>();
   for (const net of doc.nets) {
     if (names.has(net.name)) throw new Error(`Duplicate net name would merge separate networks: ${net.name}`);
     // Native labels interpret these as buses, escapes or text substitutions.
@@ -68,8 +69,8 @@ function librarySymbol(part: PartDefinition) {
   )`;
 }
 
-export function exportKicadSchematic(input: EdaDocument): string {
-  const doc = validated(input); const root = uuid(`${doc.id}/sheet`); const netByPin = new Map<string, string>();
+export function exportKicadSchematic(input: EdaDocument, catalog: ModuleCatalog = MODULES): string {
+  const doc = validated(input, catalog); const root = uuid(`${doc.id}/sheet`); const netByPin = new Map<string, string>();
   // Native KiCad symbols use 1.27 mm pin spacing. The editor and model can place
   // their centers freely, but off-grid pin endpoints cause real ERC violations.
   // parseDocument returned a copy, so the source draft retains its coordinates.
@@ -89,11 +90,14 @@ export function exportKicadSchematic(input: EdaDocument): string {
   const kinds = [...new Set(doc.components.map(component => component.kind))].sort();
   const symbols = doc.components.map(component => {
     const position = component.schematic; const part = PARTS[component.kind]; const prefix = `${doc.id}/component/${component.id}`;
+    const moduleInstance = doc.moduleInstances?.find(instance => instance.componentIds.includes(component.id));
+    const moduleProperty = moduleInstance ? `(property "VibeHard.Module" ${q(JSON.stringify({ schemaVersion: 1, instanceId: moduleInstance.id, moduleId: moduleInstance.moduleId, version: moduleInstance.version, sourceSha256: moduleInstance.sourceSha256, localId: component.id.slice(moduleInstance.id.length + 1), pcb: component.pcb }))} (at ${n(position.x)} ${n(position.y)} 0) (effects (font (size 1.27 1.27)) hide))` : '';
     return `(symbol (lib_id ${q(part.native?.libraryId ?? `VibeHard:${component.kind}`)}) (at ${n(position.x)} ${n(position.y)} ${angle(position.rotation)}) (unit 1) (in_bom yes) (on_board yes) (dnp no)
       (uuid ${uuid(`${prefix}/symbol`)})
       (property "Reference" ${q(component.ref)} (at ${n(position.x)} ${n(position.y - part.symbol.height / 2 - 3)} 0) ${effects})
       (property "Value" ${q(component.value)} (at ${n(position.x)} ${n(position.y + part.symbol.height / 2 + 3)} 0) ${effects})
       (property "Footprint" ${q(part.footprint.name)} (at ${n(position.x)} ${n(position.y)} 0) (effects (font (size 1.27 1.27)) hide))
+      ${moduleProperty}
       ${part.pins.map(pin => `(pin ${q(pin.id)} (uuid ${uuid(`${prefix}/pin/${pin.id}`)}))`).join("\n")}
       (instances (project "vibehard" (path ${q(`/${root}`)} (reference ${q(component.ref)}) (unit 1))))
     )`;
@@ -151,8 +155,8 @@ function pcbFootprint(doc: EdaDocument, component: EdaComponent, nets: Map<strin
   )`;
 }
 
-export function exportKicadPcb(input: EdaDocument): string {
-  const doc = validated(input); const nets = new Map<string, { code: number; name: string }>(); const code = new Map<string, number>();
+export function exportKicadPcb(input: EdaDocument, catalog: ModuleCatalog = MODULES): string {
+  const doc = validated(input, catalog); const nets = new Map<string, { code: number; name: string }>(); const code = new Map<string, number>();
   doc.nets.forEach((net, index) => { code.set(net.id, index + 1); net.nodes.forEach(pin => nets.set(key(pin.componentId, pin.pinId), { code: index + 1, name: net.name })); });
   const tracks = doc.tracks.flatMap(track => track.points.slice(1).map((point, index) => {
     const from = track.points[index];
@@ -170,14 +174,14 @@ export function exportKicadPcb(input: EdaDocument): string {
 }
 
 /** RFC4180 quoting + spreadsheet formula neutralization on every text column. */
-export function exportBomCsv(input: EdaDocument): string {
-  const doc = parseDocument(input);
+export function exportBomCsv(input: EdaDocument, catalog: ModuleCatalog = MODULES): string {
+  const doc = parseDocument(input, catalog);
   const cell = (value: string) => `"${(/^[\s]*[=+@-]/.test(value) ? `'${value}` : value).replace(/"/g, '""')}"`;
   return [["Ref", "Value", "Kind", "Footprint", "Quantity"], ...doc.components.map(component => [component.ref, component.value, component.kind, PARTS[component.kind].footprint.name, "1"])].map(row => row.map(cell).join(",")).join("\r\n") + "\r\n";
 }
 
-export function exportNetCsv(input: EdaDocument): string {
-  const doc = parseDocument(input);
+export function exportNetCsv(input: EdaDocument, catalog: ModuleCatalog = MODULES): string {
+  const doc = parseDocument(input, catalog);
   const cell = (value: string) => `"${(/^[\s]*[=+@-]/.test(value) ? `'${value}` : value).replace(/"/g, '""')}"`;
   return [['Net', 'Component', 'Pin'], ...doc.nets.flatMap(net => net.nodes.map(node => [net.name, doc.components.find(c => c.id === node.componentId)!.ref, node.pinId]))].map(row => row.map(cell).join(',')).join('\r\n') + '\r\n';
 }
