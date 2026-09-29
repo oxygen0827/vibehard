@@ -1,0 +1,12 @@
+# Reuse the exact installed KiCad 9 base to keep the 40 GB host within budget.
+# Full clean Dockerfile is independently built in CI. Candidate verifies native tools.
+FROM sha256:48d66beeb6cf112d6cc481ac243fb63030a077e3b41d912af0a542929c39ac0f
+USER root
+RUN apt-get update && apt-get install -y --no-install-recommends openjdk-25-jre-headless curl \
+    && rm -rf /var/lib/apt/lists/*
+RUN curl --fail --location --silent --show-error --retry 3 \
+    https://repo.maven.apache.org/maven2/app/freerouting/freerouting/2.4.1/freerouting-2.4.1-executable.jar \
+    --output /opt/vibehard-eda/freerouting.jar \
+    && echo 'fb2e91df901fa50cd23a09ab42793af0ece4f3b1f3857d6724dd6f9c0c00be98  /opt/vibehard-eda/freerouting.jar' | sha256sum --check -
+COPY --chown=10001:10001 server.py routing.py module_verify.py /opt/vibehard-eda/
+USER 10001:10001
