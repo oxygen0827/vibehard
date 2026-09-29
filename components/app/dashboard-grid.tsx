@@ -39,13 +39,13 @@ const tools = [
   },
   {
     id: "datasheets",
-    title: "芯片资料解析",
-    description: "查看芯片资料解析流程演示。正式资料的收录与检索通过知识库和方案生成流程进行。",
+    title: "芯片资料检索",
+    description: "按型号先查平台已发布资料；未命中时搜索厂商产品页、数据手册和开发工具。",
     icon: BookOpen,
     color: "text-amber-500",
     bgColor: "bg-amber-500/10",
     borderColor: "hover:border-amber-500/35",
-    stats: "流程演示",
+    stats: "知识库 → 网页",
   },
   {
     id: "schematic",
