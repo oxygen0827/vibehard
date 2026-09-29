@@ -14,6 +14,14 @@ const securityHeaders = [
 
 const nextConfig: NextConfig = {
   output: "standalone",
+  serverExternalPackages: ["@napi-rs/canvas", "pdfjs-dist"],
+  outputFileTracingIncludes: {
+    "/api/schematic": [
+      "./node_modules/pdfjs-dist/standard_fonts/**/*",
+      "./node_modules/pdfjs-dist/cmaps/**/*",
+      "./node_modules/pdfjs-dist/wasm/**/*",
+    ],
+  },
   poweredByHeader: false,
   allowedDevOrigins: ["127.0.0.1", "localhost"],
   async rewrites() {

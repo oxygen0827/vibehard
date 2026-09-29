@@ -7,6 +7,7 @@ import { runtimeLlm } from "@/lib/server/llm-settings";
 import { llmError } from "@/lib/server/llm-http";
 import { consumeRateLimit } from "@/lib/server/rate-limit";
 import { readSchematicUpload } from "@/lib/server/schematic-upload";
+import { schematicImages } from "@/lib/server/schematic-pdf";
 
 export const runtime = "nodejs";
 declare global { var __vibehardSchematicActive: Set<string> | undefined }
@@ -18,7 +19,7 @@ export async function POST(request: NextRequest) {
   active.add(user.id);
   try {
     const config = await runtimeLlm("design");
-    if (!config) throw new LlmRequestError("请管理员先配置硬件方案生成模型；原理图识别暂共用此配置，要求支持图片/PDF 输入", 503);
+    if (!config) throw new LlmRequestError("请管理员先配置硬件方案生成模型；原理图识别暂共用此配置，要求支持图片输入", 503);
     const { attachment, sha256 } = await readSchematicUpload(request);
     const controller = new AbortController();
     const signal = AbortSignal.any([request.signal, controller.signal]);
@@ -34,12 +35,15 @@ export async function POST(request: NextRequest) {
         signal.addEventListener("abort", abort, { once: true });
         void (async () => {
           try {
-            const text = await callLlm(config, SCHEMATIC_SYSTEM, "请分析附件原理图，按要求返回含证据位置、引脚与待确认项的 JSON 草案。", signal, 90_000, attachment);
+            const images = await schematicImages(attachment, signal);
+            const pageHint = attachment.mimeType === "application/pdf" ? `上传的 PDF 已转换为 ${images.length} 张图片，按顺序对应第 1 页至第 ${images.length} 页。` : "";
+            const text = await callLlm(config, SCHEMATIC_SYSTEM, `${pageHint}请分析附件原理图，按要求返回含证据位置、引脚与待确认项的 JSON 草案。`, signal, 90_000, images);
             let raw: unknown;
             try { raw = JSON.parse(text.replace(/^```(?:json)?\s*/i, "").replace(/\s*```$/, "")); }
             catch { throw new LlmRequestError("模型返回格式不正确，未生成可提交资料；请重试"); }
             const parsed = schematicModelResultSchema.safeParse(raw);
             if (!parsed.success) throw new LlmRequestError("识别正文为空、超长或格式不完整；请拆分图纸重试");
+            if (/Unsupported Document|附件不可读|文件内容无法读取|未能提取任何原理图/i.test(`${parsed.data.title}\n${parsed.data.markdown}`)) throw new LlmRequestError("模型未能读取图纸内容，请检查文件或拆分为清晰图片后重试");
             const generatedAt = new Date().toISOString(); const analysisId = randomUUID();
             const result = schematicResultSchema.parse({ analysisId, model: config.model, generatedAt, fileName: attachment.filename, fileSha256: sha256,
               draft: { title: parsed.data.title, kind: "schematic", source: `${attachment.filename}；SHA256 ${sha256}；识别 ${generatedAt}；模型 ${config.model}；分析编号 ${analysisId}`,
