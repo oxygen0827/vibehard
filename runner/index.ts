@@ -10,10 +10,12 @@ import { RunnerJournal } from "./state";
 import type { RuntimeLlm } from "@/lib/agent/llm";
 import { KNOWLEDGE_CAPABILITY } from "@/lib/agent/knowledge";
 import { RETRIEVAL_CAPABILITY } from "@/lib/agent/retrieval-payload";
+import { DESIGN_ARTIFACT_CAPABILITY } from "@/lib/agent/design-artifact";
+import { DesignFileSync } from "./design-sync";
 
 const runnerKey = process.env.RUNNER_ID ?? "local-runner";
 const runnerInstanceId = randomUUID();
-const runnerCapabilities = [...new Set([KNOWLEDGE_CAPABILITY, RETRIEVAL_CAPABILITY, ...(process.env.RUNNER_CAPABILITIES ?? "codex,workspace-read,workspace-write-approval")
+const runnerCapabilities = [...new Set([KNOWLEDGE_CAPABILITY, RETRIEVAL_CAPABILITY, DESIGN_ARTIFACT_CAPABILITY, ...(process.env.RUNNER_CAPABILITIES ?? "codex,workspace-read,workspace-write-approval")
   .split(",").map((item) => item.trim()).filter(Boolean)])].slice(0, 50);
 let gatewayUrl = process.env.RUNNER_GATEWAY_URL ?? "ws://127.0.0.1:8787/runner";
 let secret = process.env.RUNNER_SHARED_SECRET ?? "";
@@ -25,6 +27,7 @@ const sessions = new Map<string, CodexSession>();
 const activeThreads = new Map<string, string>();
 let activeSocket: WebSocket | null = null;
 let accepted = false;
+let designFileSync: DesignFileSync | undefined;
 
 interface StoredCredential { runnerKey: string; secret: string; gatewayUrl: string }
 
@@ -34,7 +37,7 @@ async function workspaceFor(key: string) {
   await mkdir(requested, { recursive: true, mode: 0o700 });
   if ((await lstat(requested)).isSymbolicLink()) throw new Error("Workspace cannot be a symbolic link");
   const workspace = await realpath(requested);
-  if (!workspace.startsWith(`${workspaceRoot}${path.sep}`)) throw new Error("Workspace resolves outside runner root");
+  if (workspace !== requested || !workspace.startsWith(`${workspaceRoot}${path.sep}`)) throw new Error("Workspace resolves through a symbolic link or outside runner root");
   await chmod(workspace, 0o700);
   return workspace;
 }
@@ -64,6 +67,7 @@ async function handleCommand(socket: WebSocket, message: GatewayToRunnerMessage)
   if (message.type === "runner.accepted") {
     if (message.runnerKey !== runnerKey) throw new Error("Gateway accepted a different runner identity");
     accepted = true;
+    void designFileSync?.poll();
     for (const outgoing of journal.outboundEvents()) {
       if (socket.readyState !== WebSocket.OPEN) break;
       socket.send(JSON.stringify(outgoing));
@@ -231,6 +235,10 @@ async function bootstrap() {
     secret = registered.secret;
     gatewayUrl = registered.gatewayUrl ?? gatewayUrl;
     await saveStoredCredential(credentialPath, { runnerKey, secret, gatewayUrl });
+  }
+  if (runnerKey === "cloud-runner" && process.env.RUNNER_PLATFORM_URL) {
+    designFileSync = new DesignFileSync(process.env.RUNNER_PLATFORM_URL, runnerKey, secret, workspaceFor);
+    setInterval(() => { if (accepted) void designFileSync?.poll(); }, 15000).unref();
   }
   connect();
 }

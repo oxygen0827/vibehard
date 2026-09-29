@@ -1,5 +1,9 @@
 # 项目状态
 
+- 2026-09-29 本地待发布：已完成方案通过云端 Runner 分页补齐到项目 `designs/`；Agent 回合携带当前方案、先校验落盘再请求模型，记录文件产物，并在方案变更时重建上下文。317 常规测试通过、15 项真实隔离 PostgreSQL 测试通过、类型/lint/平台及服务构建通过；含跨账号/Runner、哈希、伪造产物路径、符号链接、保留编辑和 ZIP 文件回读。分支 `codex/agent-design-handoff` 同时保留推理合并折叠修复；未提交、推送或发布，生产与真实付费模型未复测。见 `docs/agent-design-files.md`。
+
+- 2026-09-29 本地待发布：Agent 工作台 reasoning 流片段按回合与 itemId 合并成一块，默认折叠、点击展开；正式回复与 Runner 协议不变。修复前测试复现一词一卡片，修复后全量 310 通过/16 条件跳过、类型/lint/生产构建通过。未提交、推送或上线；生产会话和真实模型未复测。详见 `.ai/TASK_LOG.md`。
+
 - 2026-09-28 22:40 已发布：VibeHard 中“设备开发 · RV1126B”入口及真实使用边界；平台 `20260928-rv1126b-entry-v1`，Worker/检索/Runner/Gateway/VibeBoard/EDA 未重启。PR #20/#21 与默认合并提交完整 CI 全绿；五文件前端包通过候选、备份、零活跃任务激活和公网 PCB/Demo/BOM/匿名权限检查。独立 VibeBoard 200，云端与设备 Runner 心跳新鲜、Gateway 活连接；无 DB/OSS/索引/模型或真机写入。生产登录态新入口、两套账号/项目统一及新一次设备部署未验；见 `docs/release-rv1126b-entry-20260928.md`。
 
 - 2026-09-28 22:04 已发布：新方案 BOM 的服务端报价依据随 JSONB 结果保存，模型伪造字段剥离，旧方案标“当前参考”；平台和方案 Worker `20260928-bom-price-freeze-v1`，受限检索/Runner/Gateway/VibeBoard/EDA 未重启。默认分支合并提交 `9d5d65c` 的完整 CI 全绿后才完成候选、备份、零活跃任务切换及公网 PCB/Demo/BOM/匿名权限检查。无数据库迁移、索引或模型配置变更；生产登录态旧/新 BOM、CSV 和新付费模型任务未复测。详见 `docs/release-bom-price-freeze-20260928.md`。

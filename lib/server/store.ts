@@ -26,6 +26,8 @@ import { prepareKnowledge } from "./knowledge-dispatch";
 import { retrieveAuthorizedKnowledge } from "./knowledge-retrieval-service";
 import { prepareRetrieval } from "./retrieval-dispatch";
 import { knowledgeManifest } from "@/lib/agent/knowledge";
+import { latestProjectDesign, requireDesignRunner } from "./design-artifacts";
+import { designArtifactPath, designArtifactSchema } from "@/lib/agent/design-artifact";
 
 type UserRecord = typeof users.$inferSelect;
 type ProjectRecord = typeof projects.$inferSelect;
@@ -192,16 +194,22 @@ export async function createTurn(userId: string, threadId: string, input: string
     if (active) throw new ThreadBusyError();
     const thread = (await tx.select().from(agentThreads).where(eq(agentThreads.id, threadId)).limit(1))[0];
     const documents = (await tx.select().from(projectKnowledge).where(eq(projectKnowledge.projectId, owned.project.id)).limit(1))[0]?.documents ?? [];
-    const previous = (await tx.select({ payload: agentEvents.payload }).from(agentEvents).innerJoin(agentTurns, eq(agentTurns.id, agentEvents.turnId))
-      .where(and(eq(agentTurns.threadId, threadId), eq(agentEvents.type, "task.started"))).orderBy(desc(agentEvents.sequence)).limit(1))[0]?.payload.knowledge;
+    const previousStart = (await tx.select({ payload: agentEvents.payload }).from(agentEvents).innerJoin(agentTurns, eq(agentTurns.id, agentEvents.turnId))
+      .where(and(eq(agentTurns.threadId, threadId), eq(agentEvents.type, "task.started"))).orderBy(desc(agentEvents.sequence)).limit(1))[0]?.payload;
+    const previous = previousStart?.knowledge;
     const runner = (await tx.select().from(runnerNodes).where(eq(runnerNodes.runnerKey, owned.project.runnerKey ?? process.env.DEFAULT_RUNNER_KEY ?? "local-runner")).limit(1))[0];
+    const design = await latestProjectDesign(userId, owned.project.id, tx);
+    if (design) { requireDesignRunner(runner); startMessage.design = design.artifact; }
+    const previousDesign = previousStart?.design as { sha256?: string } | undefined;
+    const designChanged = Boolean(thread.codexThreadId && previousDesign?.sha256 !== design?.artifact.sha256);
     startMessage.knowledge = prepareKnowledge(publishedSnapshot(documents), thread.codexThreadId, previous, runner);
     const previousRetrieval = (await tx.select({ payload: agentEvents.payload }).from(agentEvents).innerJoin(agentTurns, eq(agentTurns.id, agentEvents.turnId))
       .where(and(eq(agentTurns.threadId, threadId), eq(agentEvents.type, "knowledge.retrieved"))).orderBy(desc(agentEvents.sequence)).limit(1))[0]?.payload.retrieval;
-    const retrieved = await retrieveAuthorizedKnowledge({ userId, projectId: owned.project.id, query: input, purpose: "agent" }, tx);
+    const query = design ? `${input}\n项目方案需求：${design.requirement}`.slice(0, 50000) : input;
+    const retrieved = await retrieveAuthorizedKnowledge({ userId, projectId: owned.project.id, query, purpose: "agent" }, tx);
     const dispatch = prepareRetrieval(retrieved, thread.codexThreadId, previousRetrieval, runner);
     startMessage.retrieval = dispatch.payload;
-    startMessage.codexThreadId = startMessage.knowledge.contextReset || dispatch.contextReset ? undefined : thread.codexThreadId ?? undefined;
+    startMessage.codexThreadId = startMessage.knowledge.contextReset || dispatch.contextReset || designChanged ? undefined : thread.codexThreadId ?? undefined;
     await tx.insert(agentTurns).values(record);
     const turnIds = (await tx.select({ id: agentTurns.id }).from(agentTurns).where(eq(agentTurns.threadId, threadId))).map(t => t.id);
     const sequence = (await tx.select({ value: max(agentEvents.sequence) }).from(agentEvents).where(inArray(agentEvents.turnId, turnIds)))[0]?.value ?? -1;
@@ -397,7 +405,18 @@ export async function ingestRunnerEvent(message: RunnerEvent) {
       const waiting = await tx.update(agentTurns).set({ status: "waiting_approval", updatedAt: now() }).where(and(eq(agentTurns.id, message.taskId), inArray(agentTurns.status, [...ACTIVE_TURN_STATUSES]))).returning({ id: agentTurns.id });
       if (waiting[0]) await tx.insert(approvals).values({ id: approvalId, turnId: message.taskId, tool: String(event.data.tool ?? "unknown"), risk: String(event.data.risk ?? "write"), description: String(event.data.description ?? "Agent 请求执行受限操作"), details: event.data }).onConflictDoNothing();
     }
-    if (event.type === "artifact.created") await tx.insert(artifacts).values({ projectId: currentTurn.projectId, turnId: message.taskId, name: String(event.data.name ?? "Agent artifact"), kind: String(event.data.kind ?? "file"), path: String(event.data.path ?? "") });
+    if (event.type === "artifact.created") {
+      if (event.data.kind === "design") {
+        const command = (await tx.select({ payload: runnerCommands.payload }).from(runnerCommands)
+          .where(and(eq(runnerCommands.taskId, message.taskId), eq(runnerCommands.runnerKey, message.runnerKey), eq(runnerCommands.type, "task.start"))).limit(1))[0];
+        const source = designArtifactSchema.safeParse(command?.payload.design);
+        if (source.success && source.data.projectId === currentTurn.projectId && source.data.designId === event.data.designId
+          && source.data.sha256 === event.data.sha256 && designArtifactPath(source.data) === event.data.path) {
+          await tx.insert(artifacts).values({ id: source.data.designId, projectId: currentTurn.projectId, name: "硬件方案", kind: "design", path: designArtifactPath(source.data) })
+            .onConflictDoUpdate({ target: artifacts.id, set: { path: designArtifactPath(source.data), updatedAt: now() } });
+        }
+      } else await tx.insert(artifacts).values({ projectId: currentTurn.projectId, turnId: message.taskId, name: String(event.data.name ?? "Agent artifact"), kind: String(event.data.kind ?? "file"), path: String(event.data.path ?? "") });
+    }
     if (["task.started", "task.completed", "task.failed", "task.interrupted"].includes(event.type)) {
       const activeRunnerTurn = (await tx.select({ id: agentTurns.id }).from(agentTurns)
         .innerJoin(agentThreads, eq(agentThreads.id, agentTurns.threadId))
