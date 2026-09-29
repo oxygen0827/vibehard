@@ -5,15 +5,41 @@ import { POST } from "@/app/api/schematic/route";
 import { POST as submit, GET as knowledge } from "@/app/api/projects/[id]/knowledge/route";
 import { callLlm, llmRequestBody, LlmRequestError } from "@/lib/server/llm-client";
 import { readSchematicUpload } from "@/lib/server/schematic-upload";
+import { schematicImages, SCHEMATIC_PDF_PAGE_LIMIT } from "@/lib/server/schematic-pdf";
 import { createProject, createUser } from "@/lib/server/store";
 import { createSessionToken } from "@/lib/server/security";
 import { saveLlm } from "@/lib/server/llm-settings";
 import { schematicResultSchema, SCHEMATIC_FILE_LIMIT } from "@/lib/agent/schematic";
 import { changeKnowledge, publishedSnapshot } from "@/lib/server/knowledge-state";
 import type { RuntimeLlm } from "@/lib/agent/llm";
+import { createCanvas, loadImage } from "@napi-rs/canvas";
 
 vi.mock("@/lib/server/llm-client", async original => ({ ...await original<typeof import("@/lib/server/llm-client")>(), callLlm: vi.fn(), providerAddress: vi.fn().mockResolvedValue({ address: "8.8.8.8", family: 4 }) }));
-const pdf = new File(["%PDF-1.4\nsynthetic transport fixture"], "board.pdf", { type: "application/pdf" });
+function pdfBytes(pageCount = 1) {
+  const fontId = pageCount + 3;
+  const pageIds = Array.from({ length: pageCount }, (_, index) => index + 3);
+  const objects = [
+    "<< /Type /Catalog /Pages 2 0 R >>",
+    `<< /Type /Pages /Kids [${pageIds.map(id => `${id} 0 R`).join(" ")}] /Count ${pageCount} >>`,
+    ...pageIds.map((_, index) => `<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 ${fontId} 0 R >> >> /Contents ${fontId + 1 + index} 0 R >>`),
+    "<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>",
+    ...pageIds.map((_, index) => {
+      const content = `0 0 0 rg 72 700 100 12 re f BT /F1 20 Tf 72 720 Td (PAGE ${index + 1} U1) Tj ET`;
+      return `<< /Length ${Buffer.byteLength(content)} >>\nstream\n${content}\nendstream`;
+    }),
+  ];
+  let body = "%PDF-1.4\n";
+  const offsets = [0];
+  for (const [index, object] of objects.entries()) {
+    offsets.push(Buffer.byteLength(body));
+    body += `${index + 1} 0 obj\n${object}\nendobj\n`;
+  }
+  const startxref = Buffer.byteLength(body);
+  body += `xref\n0 ${objects.length + 1}\n0000000000 65535 f \n`;
+  for (const offset of offsets.slice(1)) body += `${String(offset).padStart(10, "0")} 00000 n \n`;
+  return Buffer.from(body + `trailer\n<< /Root 1 0 R /Size ${objects.length + 1} >>\nstartxref\n${startxref}\n%%EOF\n`);
+}
+const pdf = new File([pdfBytes()], "board.pdf", { type: "application/pdf" });
 const modelReply = JSON.stringify({ title: "板卡资料", markdown: "## 引脚与证据\n第 1 页 U1 引脚文字无法辨认。\n## 待确认项\n需清晰原图，不声称已验证。" });
 beforeEach(() => { globalThis.__vibehardLlmSettings?.clear(); globalThis.__vibehardSchematicActive?.clear(); vi.mocked(callLlm).mockReset(); });
 async function fixture(configured = true) {
@@ -46,6 +72,31 @@ describe("schematic upload and protocol", () => {
     const request = new Request("http://localhost", { method: "POST", headers: { "Content-Type": "multipart/form-data; boundary=test" }, body: bytes });
     await expect(readSchematicUpload(request)).rejects.toThrow("5 MB");
   });
+  it("renders every PDF page to a real image and sends ordered page evidence", async () => {
+    const attachment = { filename: "board.pdf", mimeType: "application/pdf" as const, base64: pdfBytes(2).toString("base64") };
+    const images = await schematicImages(attachment);
+    expect(images.map(image => image.filename)).toEqual(["board.pdf-第1页.png", "board.pdf-第2页.png"]);
+    for (const image of images) {
+      expect(image.mimeType).toBe("image/png");
+      expect(Buffer.from(image.base64, "base64").subarray(0, 8).toString("hex")).toBe("89504e470d0a1a0a");
+    }
+    const rendered = await loadImage(Buffer.from(images[0].base64, "base64"));
+    const canvas = createCanvas(rendered.width, rendered.height);
+    const context = canvas.getContext("2d");
+    context.drawImage(rendered, 0, 0);
+    expect([...context.getImageData(160, 170, 1, 1).data].slice(0, 3)).toEqual([0, 0, 0]);
+    const config: RuntimeLlm = { model: "deepseek-flash", protocol: "responses", baseUrl: "https://api.deepseek.com", apiKey: "fixture", revision: "r" };
+    const body = JSON.stringify(llmRequestBody(config, "rules", "task", images));
+    expect(body).toContain('"type":"input_image"');
+    expect(body).toContain("附件第 1 页");
+    expect(body).toContain("附件第 2 页");
+    expect(body).not.toContain('"type":"input_file"');
+    const chatBody = JSON.stringify(llmRequestBody({ ...config, protocol: "chat-completions" }, "rules", "task", images));
+    expect(chatBody).toContain('"type":"image_url"');
+    expect(chatBody).not.toContain('"type":"file"');
+    await expect(schematicImages({ ...attachment, base64: pdfBytes(SCHEMATIC_PDF_PAGE_LIMIT + 1).toString("base64") })).rejects.toThrow("拆分");
+    await expect(schematicImages({ ...attachment, base64: Buffer.from("%PDF-invalid").toString("base64") })).rejects.toThrow("无法解析");
+  });
 });
 describe("real schematic route contracts (upstream mocked)", () => {
   it("requires authentication/config and returns no fixed circuit fallback", async () => {
@@ -62,7 +113,9 @@ describe("real schematic route contracts (upstream mocked)", () => {
     const result = schematicResultSchema.parse(event.result);
     expect(result.draft.source).toContain(result.fileSha256);
     expect(result.draft.content).toContain("未经工程师审核");
-    expect(callLlm).toHaveBeenCalledWith(expect.objectContaining({ model: "vision-test" }), expect.stringContaining("不使用固定示例"), expect.any(String), expect.any(AbortSignal), 90_000, expect.objectContaining({ filename: "board.pdf", mimeType: "application/pdf", base64: Buffer.from(await pdf.arrayBuffer()).toString("base64") }));
+    expect(callLlm).toHaveBeenCalledWith(expect.objectContaining({ model: "vision-test" }), expect.stringContaining("不使用固定示例"), expect.stringContaining("第 1 页"), expect.any(AbortSignal), 90_000, [expect.objectContaining({ mimeType: "image/png", filename: "board.pdf-第1页.png", base64: expect.any(String) })]);
+    const images = vi.mocked(callLlm).mock.calls[0][5] as { base64: string }[];
+    expect(Buffer.from(images[0].base64, "base64").subarray(0, 8).toString("hex")).toBe("89504e470d0a1a0a");
     const project = await createProject(user.id, { name: "原理图申请", workspaceKey: crypto.randomUUID() });
     const context = { params: Promise.resolve({ id: project.id }) };
     const action = { action: "create", submissionId: result.analysisId, draft: result.draft };
@@ -95,6 +148,13 @@ describe("real schematic route contracts (upstream mocked)", () => {
     expect(text).toContain("格式不正确"); expect(text).not.toContain('"type":"result"');
     expect((await POST(upload(cookie, new File(["<svg/>"], "bad.svg")))).status).toBe(400);
     expect(globalThis.__vibehardSchematicActive?.size).toBe(0);
+  });
+  it("does not offer a pending draft when the model reports an unreadable document", async () => {
+    const { cookie } = await fixture();
+    vi.mocked(callLlm).mockResolvedValue(JSON.stringify({ title: "附件不可读", markdown: "## 分析范围\n[Unsupported Document]，文件内容无法读取，未能提取任何原理图信息。" }));
+    const text = await (await POST(upload(cookie))).text();
+    expect(text).toContain("模型未能读取图纸内容");
+    expect(text).not.toContain('"type":"result"');
   });
   it("rejects concurrent work and releases the slot on cancellation", async () => {
     const { cookie } = await fixture();

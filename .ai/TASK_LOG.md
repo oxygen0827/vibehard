@@ -23,6 +23,12 @@
 - Scope: PR #20 明确独立 VibeBoard 的 RV1126B USB/ADB 应用部署入口，PR #21 只增加前端版本化发布门禁；不改设备连接器、账号、Agent loop 或硬件。用户主工作区未提交文档未碰。
 - Evidence: 本地 308 通过/16 条条件跳过、构建/类型/lint；两 PR 与默认合并提交 `a38dd19` CI 全绿。发布包只改变五个预期运行时文件；候选/正式/公网 PCB、Demo、BOM、匿名权限通过，独立 VibeBoard 200，Runner 心跳及 Gateway 活连接核对。零活跃任务后备份并激活平台 `20260928-rv1126b-entry-v1`；其他服务 PID 未变，候选回收。无数据库迁移、OSS/索引/模型/设备写入。
 - Limit: 未在生产登录态人工点击新入口或新做真机部署；账号/项目/知识仍独立。发布哈希与回滚见 `docs/release-rv1126b-entry-20260928.md`。
+## 2026-09-29 Task: PDF 原理图先转图片再识别
+
+- Request: 检测到 PDF 时先逐页转换成图片，再交由模型识别。
+- Change: PDF.js + Canvas 在服务端内存渲染最多 6 页，限制像素、单页/总图片字节与 15 秒转换时间；按页发送 `input_image`/`image_url`，保留原 PDF 文件名和 SHA256。直接上传的 PNG/JPG 沿用图片路径；模型返回 `Unsupported Document` 不生成待审核草稿。页面与流程文档说明转换和页数限制。
+- Evidence: 基于正式发布 Git 提交 `a38dd19` 的独立分支，回归先复现旧代码直接发送 PDF 且接受不可读草稿；修复后两页有效 PDF 生成真实 PNG，像素验证为非空，模型请求有页码且无 `input_file`。相关 23 项测试、TypeScript、定向 ESLint 与 Next standalone 构建通过；产物含 PDF.js 字体/CMap/WASM 和 Canvas 原生模块。
+- Boundary: 未改变生产配置、凭据、数据库、权限、Runner 或设备，未部署、未调用真实 DeepSeek，也未完成实际原理图准确度验收。
 
 ## 2026-09-28 Task: 分项评审后分别提交四项修复补丁与真实 BOM
 
