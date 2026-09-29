@@ -7,8 +7,11 @@ import { and, eq, inArray, sql } from "drizzle-orm";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { NextRequest } from "next/server";
 import { requireDb } from "@/lib/db";
-import { designJobs, projects, users } from "@/lib/db/schema";
-import { createUser, resetUserPassword } from "@/lib/server/store";
+import { artifacts, designJobs, projects, runnerNodes, users } from "@/lib/db/schema";
+import { createThread, createTurn, createUser, getQueuedRunnerCommands, ingestRunnerEvent, registerRunner, resetUserPassword } from "@/lib/server/store";
+import { acknowledgeRunnerDesign, latestProjectDesign, pendingRunnerDesigns } from "@/lib/server/design-artifacts";
+import { DESIGN_ARTIFACT_CAPABILITY, designArtifactPath } from "@/lib/agent/design-artifact";
+import { envelope } from "@/lib/agent/protocol";
 import { AUTH_COOKIE, createSessionToken, hashPassword } from "@/lib/server/security";
 import { POST as login } from "@/app/api/auth/login/route";
 import { requestUser } from "@/lib/server/http";
@@ -39,6 +42,45 @@ if (enabled) {
   const input = () => ({ requestId: randomUUID(), requirement: "带温度传感器的 USB 节点" });
   const result = { architecture: ["持久化架构"], bom: [{ item: "主控", model: "MCU", qty: 1, estCost: "¥5（估算）" }], interfaces: ["UART"], risks: [{ level: "低" as const, desc: "核验" }] };
   const req = (record: Awaited<ReturnType<typeof user>>, body?: unknown) => new NextRequest("https://example.invalid/api/design", { method: body ? "POST" : "GET", headers: { Cookie: `vibehard_session=${createSessionToken(record)}`, "Content-Type": "application/json" }, ...(body ? { body: JSON.stringify(body) } : {}) });
+
+  it("backfills completed designs only to their assigned Runner and attaches the saved file to Agent tasks", async () => {
+    const owner = await user(); const outsider = await user(); const job = await enqueueDesign(owner.id, input());
+    const claimed = (await claimDesign())!;
+    await finishDesign(job.id, claimed.leaseToken!, { result, model: "test", knowledgeVersion: "test" });
+    const runnerKey = `design-${randomUUID()}`;
+    try {
+      await registerRunner({ runnerKey, name: "Design sync fixture", capabilities: [DESIGN_ARTIFACT_CAPABILITY] });
+      await requireDb().update(projects).set({ runnerKey }).where(eq(projects.id, job.projectId));
+      const page = await pendingRunnerDesigns(runnerKey);
+      expect(page.items).toHaveLength(1);
+      expect(page.items[0].artifact.markdown).toContain(job.requirement);
+      expect(await latestProjectDesign(outsider.id, job.projectId)).toBeNull();
+      expect((await pendingRunnerDesigns(`${runnerKey}-other`)).items).toEqual([]);
+      expect(await acknowledgeRunnerDesign(`${runnerKey}-other`, job.id, page.items[0].artifact.sha256)).toBe(false);
+      expect(await acknowledgeRunnerDesign(runnerKey, job.id, "a".repeat(64))).toBe(false);
+      expect(await acknowledgeRunnerDesign(runnerKey, job.id, page.items[0].artifact.sha256)).toBe(true);
+      expect(await acknowledgeRunnerDesign(runnerKey, job.id, page.items[0].artifact.sha256)).toBe(true);
+      expect(await requireDb().select().from(artifacts).where(eq(artifacts.id, job.id))).toHaveLength(1);
+      expect((await pendingRunnerDesigns(runnerKey)).items).toEqual([]);
+      const thread = (await createThread(owner.id, job.projectId))!;
+      const turn = (await createTurn(owner.id, thread.id, "分析一下生成的方案", "test"))!;
+      const queued = await getQueuedRunnerCommands(runnerKey);
+      expect(queued).toHaveLength(1);
+      expect(queued[0].payload.design).toEqual(page.items[0].artifact);
+      await requireDb().delete(artifacts).where(eq(artifacts.id, job.id));
+      const event = { ...envelope(), type: "event" as const, runnerKey, taskId: turn.id, threadId: thread.id,
+        event: { eventId: randomUUID(), sequence: 1, timestamp: new Date().toISOString(), type: "artifact.created" as const,
+          data: { kind: "design", designId: job.id, sha256: page.items[0].artifact.sha256, path: "forged/path.md" } } };
+      await ingestRunnerEvent(event);
+      expect(await requireDb().select().from(artifacts).where(eq(artifacts.id, job.id))).toHaveLength(0);
+      await ingestRunnerEvent({ ...event, event: { ...event.event, eventId: randomUUID(), data: { ...event.event.data, path: designArtifactPath(page.items[0].artifact) } } });
+      expect(await requireDb().select().from(artifacts).where(eq(artifacts.id, job.id))).toHaveLength(1);
+      expect(await createTurn(outsider.id, thread.id, "read", "test")).toBeNull();
+      await requireDb().update(runnerNodes).set({ capabilities: [] }).where(eq(runnerNodes.runnerKey, runnerKey));
+      const nextThread = (await createThread(owner.id, job.projectId))!;
+      await expect(createTurn(owner.id, nextThread.id, "analyze", "test")).rejects.toThrow("同步功能");
+    } finally { await requireDb().delete(runnerNodes).where(eq(runnerNodes.runnerKey, runnerKey)); }
+  });
 
   it("bounds real row-lock failure persistence and destroys the child worker's pending database connections", async () => {
     const owner = await user(); const queued = await enqueueDesign(owner.id, input());

@@ -3,9 +3,27 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { CodexSession, codexEnvironment, redactSensitiveText } from "./codex-stdio";
 import { envelope, type AgentEvent, type TaskStart } from "@/lib/agent/protocol";
 import { changeKnowledge, publishedSnapshot } from "@/lib/server/knowledge-state";
+import { createHash, randomUUID } from "node:crypto";
+import { mkdtemp, realpath, rm } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { designArtifactPath } from "@/lib/agent/design-artifact";
 
 describe("CodexSession", () => {
   afterEach(() => vi.unstubAllEnvs());
+  it("provides a readable saved design file before starting the model turn", async () => {
+    vi.stubEnv("CODEX_BIN", process.execPath);
+    vi.stubEnv("CODEX_APP_SERVER_ARGS", JSON.stringify([path.resolve("__tests__/fixtures/fake-codex.mjs")]));
+    vi.stubEnv("CODEX_PROVIDER_ENV_ALLOWLIST", "FAKE_CODEX_MODE"); vi.stubEnv("FAKE_CODEX_MODE", "design");
+    const workspace = await realpath(await mkdtemp(path.join(tmpdir(), "vibehard-design-turn-")));
+    const markdown = "# Project design\nDESIGN_FILE_FIXTURE";
+    const design = { projectId: randomUUID(), designId: randomUUID(), markdown, sha256: createHash("sha256").update(markdown).digest("hex") };
+    const events: AgentEvent[] = []; const session = new CodexSession(event => events.push(event), path.dirname(workspace));
+    try {
+      await session.start({ ...envelope(), type: "task.start", taskId: randomUUID(), projectId: design.projectId, threadId: randomUUID(), workspaceKey: workspace, input: "分析一下生成的方案", model: "fake", design });
+      await vi.waitFor(() => expect(events.some(event => event.type === "task.completed")).toBe(true));
+      expect(events.find(event => event.type === "task.started")?.data.design).toEqual({ designId: design.designId, sha256: design.sha256, path: designArtifactPath(design) });
+    } finally { session.dispose(); await rm(workspace, { recursive: true, force: true }); }
+  });
   it.each([false, true])("loads reviewed knowledge and records snapshot on resume/reset (%s)", async (reset) => {
     vi.stubEnv("RUNNER_ENGINEERING_WORKFLOW", "true");
     vi.stubEnv("CODEX_BIN", process.execPath);

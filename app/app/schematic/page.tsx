@@ -101,10 +101,10 @@ export default function SchematicPage() {
     <PageHeader helpKey="schematic" icon={Cpu} title="原理图识别" description="上传图纸 → 模型识别 → 申请加入项目知识库备选 → 管理员或开发者审核发布" />
     <section className="space-y-4 rounded-xl border bg-card p-5">
       <label className="block space-y-2 text-sm font-medium"><span>上传原理图</span><input aria-label="上传原理图" type="file" accept=".png,.jpg,.jpeg,.pdf" disabled={analyzing || submitting} onChange={event => selectFile(event.target.files?.[0])} className="block w-full rounded border p-4" /></label>
-      <p className="text-xs text-muted-foreground">PNG / JPG / PDF，单个文件最多 5 MB。复杂图纸建议按页拆分，保持网络标签和引脚清晰。原文件不在平台持久保存，请自行保留供审核对照。</p>
+      <p className="text-xs text-muted-foreground">PNG / JPG / PDF，单个文件最多 5 MB；PDF 最多 6 页，服务端会逐页转为图片后识别。复杂图纸建议按页拆分，保持网络标签和引脚清晰。原文件不在平台持久保存，请自行保留供审核对照。</p>
       {file && <p className="text-sm">当前文件：{file.name} · {(file.size / 1024).toFixed(1)} KB</p>}
       <label className="flex items-start gap-2 text-sm"><input type="checkbox" checked={consent} disabled={analyzing || submitting} onChange={event => setConsent(event.target.checked)} />我有权处理此图纸，同意将文件发送给管理员配置的模型服务进行识别。</label>
-      <p className="text-xs text-muted-foreground">暂共用管理台「硬件方案生成」模型配置，服务商和模型需支持图片/PDF 输入；失败会明确报错，不生成示例替代结果。</p>
+      <p className="text-xs text-muted-foreground">暂共用管理台「硬件方案生成」模型配置，服务商和模型需支持图片输入；PDF 会先转成图片。失败会明确报错，不生成示例替代结果。</p>
       <div className="flex justify-end gap-2">{analyzing && <Button variant="outline" onClick={() => active.current?.abort()}>取消识别</Button>}<Button onClick={() => void analyze()} disabled={!file || !consent || analyzing || submitting}>{analyzing && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}{analyzing ? "识别中…" : "开始识别"}</Button></div>
       {status && <p role="status" className="text-sm text-muted-foreground">{status}</p>}
     </section>

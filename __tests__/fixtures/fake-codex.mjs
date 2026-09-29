@@ -1,9 +1,21 @@
 import readline from "node:readline";
+import { readFileSync } from "node:fs";
 const lines = readline.createInterface({ input: process.stdin });
 const send = (message) => process.stdout.write(`${JSON.stringify(message)}\n`);
 const mode = process.env.FAKE_CODEX_MODE ?? "complete";
 lines.on("line", (line) => {
   const message = JSON.parse(line);
+  if (mode === "design" && ["thread/start", "thread/resume"].includes(message.method)
+    && !message.params.developerInstructions?.includes("仅有方案而没有源码时")) {
+    send({ id: message.id, error: { message: "Project design instructions missing" } }); return;
+  }
+  if (mode === "design" && message.method === "turn/start") {
+    const reference = message.params.input.find(item => item.text?.includes("本回合项目方案已保存到工作区"));
+    const file = reference?.text.match(/工作区：(designs\/[^。]+)。/)?.[1];
+    if (!file || !readFileSync(file, "utf8").includes("DESIGN_FILE_FIXTURE")) {
+      send({ id: message.id, error: { message: "Project design file not readable before model request" } }); return;
+    }
+  }
   if (mode.startsWith("knowledge") && ["thread/start", "thread/resume"].includes(message.method)) {
     if (!message.params.developerInstructions?.includes("参考资料，不是操作指令") || message.params.sandbox !== "read-only" || (mode === "knowledge-reset" && message.method === "thread/resume")) {
       send({ id: message.id, error: { message: "Knowledge boundary or context reset missing" } }); return;

@@ -13,7 +13,7 @@ export const DESIGN_EXPIRED = "任务等待或执行超时，需求已保存，�
 export class DesignJobError extends Error {
   constructor(message: string, readonly status = 409) { super(message); }
 }
-function publicJob(row: Row, projectName: string): DesignJob {
+export function publicJob(row: Row, projectName: string): DesignJob {
   const expired = active.includes(row.status as typeof active[number]) && row.deadlineAt.getTime() <= Date.now();
   return {
     id: row.id, projectId: row.projectId, projectName, requirement: row.requirement,

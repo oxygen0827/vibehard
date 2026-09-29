@@ -4,6 +4,7 @@ interface DisplayEvent { eventId: string; sequence: number; type: string; data: 
 export function conversationMessages(events: DisplayEvent[]) {
   const result: DisplayEvent[] = [];
   const messages = new Map<string, DisplayEvent>();
+  const reasoning = new Map<string, DisplayEvent>();
   let turn = "initial";
   for (const event of events) {
     if (event.type === "task.started") turn = event.eventId;
@@ -15,7 +16,12 @@ export function conversationMessages(events: DisplayEvent[]) {
     } else if (event.type === "tool.started" || event.type === "tool.completed") {
       const item = event.data.item as { type?: string } | undefined;
       if (item?.type !== "agentMessage" && item?.type !== "reasoning") result.push(event);
-    } else if (["task.started", "reasoning", "command.output", "task.failed", "task.interrupted"].includes(event.type)
+    } else if (event.type === "reasoning") {
+      const key = `${turn}:${String(event.data.itemId ?? "reasoning")}`;
+      const current = reasoning.get(key);
+      if (current) current.data.text = String(current.data.text ?? "") + String(event.data.text ?? "");
+      else { const next = { ...event, data: { ...event.data } }; reasoning.set(key, next); result.push(next); }
+    } else if (["task.started", "command.output", "task.failed", "task.interrupted"].includes(event.type)
       || (event.type === "task.completed" && typeof event.data.workflowReport === "string")) result.push(event);
   }
   return result;

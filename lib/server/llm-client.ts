@@ -41,21 +41,24 @@ export function designRequestPolicy(config: RuntimeLlm) {
   return new URL(config.baseUrl).hostname === "api.deepseek.com" && ["deepseek-v4-pro", "deepseek-flash"].includes(config.model)
     ? "deepseek-draft-low-v2" : "provider-default-v1";
 }
-export function llmRequestBody(config: RuntimeLlm, system: string, prompt: string, attachment?: LlmAttachment, options?: LlmRequestOptions) {
-  const url = attachment ? `data:${attachment.mimeType};base64,${attachment.base64}` : "";
+export function llmRequestBody(config: RuntimeLlm, system: string, prompt: string, attachment?: LlmAttachment | LlmAttachment[], options?: LlmRequestOptions) {
+  const attachments = attachment ? Array.isArray(attachment) ? attachment : [attachment] : [];
+  const parts = attachments.flatMap((file, index) => {
+    const url = `data:${file.mimeType};base64,${file.base64}`;
+    const label = attachments.length > 1 ? [{ type: "text" as const, text: `附件第 ${index + 1} 页` }] : [];
+    const part = file.mimeType === "application/pdf" ? { type: "file" as const, file: { filename: file.filename, file_data: url } } : { type: "image_url" as const, image_url: { url, detail: "high" } };
+    return [...label, part];
+  });
   const bounded = options?.profile === "design-draft" && designRequestPolicy(config) === "deepseek-draft-low-v2";
   if (config.protocol === "responses") return { ...(bounded ? { reasoning: { effort: "low" }, max_output_tokens: 8192 } : {}), model: config.model, instructions: system, input: attachment ? [{ role: "user", content: [
     { type: "input_text", text: prompt },
-    attachment.mimeType === "application/pdf" ? { type: "input_file", filename: attachment.filename, file_data: url } : { type: "input_image", image_url: url, detail: "high" },
+    ...parts.map(part => part.type === "text" ? { type: "input_text", text: part.text } : part.type === "file" ? { type: "input_file", filename: part.file.filename, file_data: part.file.file_data } : { type: "input_image", image_url: part.image_url.url, detail: "high" }),
   ] }] : prompt, stream: false, store: false };
-  return { ...(bounded ? { reasoning_effort: "low", max_tokens: 8192 } : {}), model: config.model, messages: [{ role: "system", content: system }, { role: "user", content: attachment ? [
-    { type: "text", text: prompt },
-    attachment.mimeType === "application/pdf" ? { type: "file", file: { filename: attachment.filename, file_data: url } } : { type: "image_url", image_url: { url, detail: "high" } },
-  ] : prompt }], stream: false };
+  return { ...(bounded ? { reasoning_effort: "low", max_tokens: 8192 } : {}), model: config.model, messages: [{ role: "system", content: system }, { role: "user", content: attachment ? [{ type: "text", text: prompt }, ...parts] : prompt }], stream: false };
 }
 
 // DNS is validated and pinned to the TLS request; redirects are never followed.
-export async function callLlm(config: RuntimeLlm, system: string, prompt: string, signal?: AbortSignal, timeoutMs = 90_000, attachment?: LlmAttachment, network?: NonNullable<DesignDiagnostics["network"]>, options?: LlmRequestOptions) {
+export async function callLlm(config: RuntimeLlm, system: string, prompt: string, signal?: AbortSignal, timeoutMs = 90_000, attachment?: LlmAttachment | LlmAttachment[], network?: NonNullable<DesignDiagnostics["network"]>, options?: LlmRequestOptions) {
   const began = performance.now();
   signal?.throwIfAborted();
   const address = await providerAddress(config.baseUrl);

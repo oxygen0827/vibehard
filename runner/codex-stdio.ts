@@ -5,6 +5,8 @@ import { randomUUID } from "node:crypto";
 import path from "node:path";
 import { ProjectWorkflow } from "./project-workflow";
 import { KNOWLEDGE_BOUNDARY, knowledgeInput, retrievalInput } from "./project-knowledge";
+import { DESIGN_FILE_BOUNDARY } from "@/lib/agent/design-artifact";
+import { materializeDesign } from "./design-files";
 import { knowledgeManifest, type KnowledgeSnapshot } from "@/lib/agent/knowledge";
 import type { AgentEvent, TaskStart } from "@/lib/agent/protocol";
 import type { RuntimeLlm } from "@/lib/agent/llm";
@@ -233,10 +235,12 @@ export class CodexSession {
 
   async start(task: TaskStart, provider?: RuntimeLlm) {
     const referenceInput = [...knowledgeInput(task.knowledge), ...retrievalInput(task.retrieval)];
+    const designPath = task.design ? await materializeDesign(task.workspaceKey, task.design, task.projectId) : undefined;
+    if (designPath) referenceInput.push({ type: "text", text: `本回合项目方案已保存到工作区：${designPath}。请先读取该文件；它包含用户需求、方案正文、BOM、风险与来源记录。` });
     this.knowledge = task.knowledge;
     this.workflow = process.env.RUNNER_ENGINEERING_WORKFLOW === "true" ? new ProjectWorkflow() : undefined;
     // Explicitly clear an older workflow override when the rollout flag is disabled on resume.
-    const developerInstructions = [this.workflow?.instructions, task.knowledge || task.retrieval ? KNOWLEDGE_BOUNDARY : undefined].filter(Boolean).join("\n\n");
+    const developerInstructions = [this.workflow?.instructions, task.knowledge || task.retrieval ? KNOWLEDGE_BOUNDARY : undefined, task.design ? DESIGN_FILE_BOUNDARY : undefined].filter(Boolean).join("\n\n");
     const parsedArgs = process.env.CODEX_APP_SERVER_ARGS ? JSON.parse(process.env.CODEX_APP_SERVER_ARGS) as unknown : ["app-server", "--listen", "stdio://"];
     if (!Array.isArray(parsedArgs) || !parsedArgs.every((item) => typeof item === "string")) throw new Error("CODEX_APP_SERVER_ARGS must be a JSON string array");
     const command = codexCommand(process.env.CODEX_BIN ?? "codex", parsedArgs, this.workspaceRoot, task.workspaceKey);
@@ -277,7 +281,9 @@ export class CodexSession {
         this.threadId = result?.thread?.id;
       }
       if (!this.threadId) throw new Error("Codex did not return a thread id");
-      this.event("task.started", { input: task.input, model: task.model, ...(this.workflow ? { workflow: this.workflow.metadata } : {}) });
+      this.event("task.started", { input: task.input, model: task.model, ...(this.workflow ? { workflow: this.workflow.metadata } : {}),
+        ...(task.design ? { design: { designId: task.design.designId, sha256: task.design.sha256, path: designPath } } : {}) });
+      if (task.design) this.event("artifact.created", { name: "硬件方案", kind: "design", path: designPath, designId: task.design.designId, sha256: task.design.sha256 });
       const turn = await this.request("turn/start", { threadId: this.threadId, input: [...referenceInput, { type: "text", text: task.input }], cwd: task.workspaceKey, runtimeWorkspaceRoots: [task.workspaceKey], model: task.model, approvalPolicy: "on-request", sandboxPolicy: { type: "readOnly", networkAccess: false } }) as { turn?: { id?: string } } | undefined;
       this.turnId = turn?.turn?.id;
       if (!this.turnId) throw new Error("Codex did not return a turn id");
