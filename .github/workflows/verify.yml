@@ -42,6 +42,8 @@ jobs:
         run: pnpm build:services
       - name: Build platform
         run: pnpm build
+      - name: Verify standalone PDF rendering
+        run: node scripts/verify-pdf-standalone.mjs
       - name: Create disposable databases
         run: |
           node --input-type=module -e '

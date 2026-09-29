@@ -6,7 +6,7 @@ import { copyFileSync, cpSync, existsSync, mkdirSync, readFileSync, writeFileSyn
 import path from 'node:path';
 const [output] = process.argv.slice(2);
 assert.match(output ?? '', /^\/private\/tmp\/vibehard-integration\.[A-Za-z0-9]+$/);
-const name = '20260929-integrated-agent-eda-v1';
+const name = '20260929-integrated-agent-eda-v2';
 const release = path.join(output, name);
 assert.ok(!existsSync(release));
 const run = (cmd, args) => execFileSync(cmd, args, { encoding: 'utf8' }).trim();
