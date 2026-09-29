@@ -8,7 +8,7 @@ import { AUTH_CHANGED_EVENT } from "@/lib/auth";
 import { canReadBoardCatalog } from "@/lib/board-catalog";
 import { apiPath, cn } from "@/lib/utils";
 
-export function CatalogNavLink({ mobile = false }: { mobile?: boolean }) {
+export function CatalogNavLink({ mobile = false, onNavigate }: { mobile?: boolean; onNavigate?: () => void }) {
   const pathname = usePathname();
   const [allowed, setAllowed] = useState(false);
   useEffect(() => {
@@ -31,7 +31,7 @@ export function CatalogNavLink({ mobile = false }: { mobile?: boolean }) {
   }, [pathname]);
   if (!allowed) return null;
   const selected = pathname === "/app/knowledge" || pathname.startsWith("/app/board-library");
-  return <Link href="/app/knowledge" prefetch={false} aria-current={selected ? "page" : undefined} className={cn("items-center gap-2 rounded-lg text-sm font-medium transition-colors hover:bg-muted hover:text-primary", mobile ? "inline-flex px-2 py-2 md:hidden" : "flex px-3 py-2.5", selected ? "bg-primary/10 text-primary" : "text-muted-foreground")}>
+  return <Link href="/app/knowledge" prefetch={false} onClick={onNavigate} aria-current={selected ? "page" : undefined} className={cn("flex min-h-10 items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors hover:bg-muted hover:text-primary", mobile && "md:hidden", selected ? "bg-primary/10 text-primary ring-1 ring-inset ring-primary/10" : "text-muted-foreground")}>
     <Library className="size-4 shrink-0" aria-hidden="true" />知识库
   </Link>;
 }

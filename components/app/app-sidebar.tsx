@@ -18,7 +18,7 @@ import {
   Terminal,
   Wrench,
   Zap,
-  Settings,
+  ExternalLink,
   ShieldCheck,
 } from "lucide-react";
 
@@ -77,19 +77,18 @@ const navSections: NavSection[] = [
   },
 ];
 
-export function AppSidebar() {
+export function AppNavigationSections({ onNavigate, mobile = false }: { onNavigate?: () => void; mobile?: boolean }) {
   const pathname = usePathname();
 
   return (
-    <aside className="hidden w-56 shrink-0 flex-col border-r border-border/70 bg-card/30 p-4 backdrop-blur-xl md:flex">
-      <nav className="flex-1 space-y-6 overflow-y-auto">
+    <>
         {navSections.map((section) => (
           <div key={section.title}>
-            <p className="px-3 pb-1.5 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground/60">
+            <p className="px-3 pb-2 text-[11px] font-semibold tracking-[0.13em] text-muted-foreground">
               {section.title}
             </p>
             <div className="space-y-1">
-              {section.title === "平台管理" && <CatalogNavLink />}
+              {section.title === "平台管理" && <CatalogNavLink mobile={mobile} onNavigate={onNavigate} />}
               {section.items.map((item) => {
                 const Icon = item.icon;
                 const isActive =
@@ -100,11 +99,13 @@ export function AppSidebar() {
                   <Link
                     key={item.href}
                     href={item.href}
+                    onClick={onNavigate}
+                    aria-current={isActive ? "page" : undefined}
                     className={cn(
-                      "group relative flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-all duration-200",
+                      "group relative flex min-h-10 items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors duration-200",
                       isActive
-                        ? "bg-primary/10 text-primary"
-                        : "text-muted-foreground hover:translate-x-0.5 hover:bg-muted hover:text-foreground"
+                        ? "bg-primary/10 text-primary ring-1 ring-inset ring-primary/10"
+                        : "text-muted-foreground hover:bg-muted hover:text-foreground"
                     )}
                   >
                     <span
@@ -113,12 +114,7 @@ export function AppSidebar() {
                         isActive ? "opacity-100 scale-y-100" : "opacity-0 scale-y-50"
                       )}
                     />
-                    <Icon
-                      className={cn(
-                        "h-4 w-4 transition-transform duration-200",
-                        !isActive && "group-hover:scale-110"
-                      )}
-                    />
+                    <Icon className="h-4 w-4 shrink-0" aria-hidden="true" />
                     {item.label}
                   </Link>
                 );
@@ -126,15 +122,23 @@ export function AppSidebar() {
             </div>
           </div>
         ))}
-      </nav>
+    </>
+  );
+}
 
+export function AppSidebar() {
+  return (
+    <aside className="hidden w-60 shrink-0 flex-col border-r border-border/70 bg-card/60 px-3 py-5 backdrop-blur-xl md:flex">
+      <nav aria-label="平台功能" className="flex-1 space-y-6 overflow-y-auto pr-1">
+        <AppNavigationSections />
+      </nav>
       <div className="mt-4 border-t border-border/70 pt-4">
         <Link
-          href="/settings"
+          href="/"
           className="flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium text-muted-foreground transition-colors duration-200 hover:bg-muted hover:text-foreground"
         >
-          <Settings className="h-4 w-4" />
-          设置
+          <ExternalLink className="h-4 w-4" aria-hidden="true" />
+          返回官网
         </Link>
       </div>
     </aside>
