@@ -138,29 +138,54 @@ export function DashboardGrid({ projects, jobs, designUnavailable = false }: {
   designUnavailable?: boolean;
 }) {
   return (
-    <div className="p-6 lg:p-8">
-      {/* 欢迎区 */}
-      <div className="animate-fade-up mb-8">
-        <div className="flex items-center gap-2"><h1 className="text-2xl font-bold tracking-tight text-foreground lg:text-3xl">
-          欢迎使用 VibeHard AI
-        </h1><ModuleHelp module="dashboard" /></div>
-        <p className="mt-2 text-sm text-muted-foreground">
-          选择一个工具开始你的硬件研发工作流
-        </p>
-      </div>
+    <div className="mx-auto max-w-7xl space-y-9 px-4 py-6 sm:px-6 lg:px-8 lg:py-8">
+      <section className="animate-fade-up relative overflow-hidden rounded-2xl bg-slate-950 px-6 py-8 text-white shadow-[0_18px_55px_rgba(15,23,42,0.16)] sm:px-8 lg:px-10 lg:py-10">
+        <div className="pointer-events-none absolute -right-20 -top-36 size-80 rounded-full bg-blue-500/30 blur-3xl" />
+        <div className="pointer-events-none absolute bottom-[-8rem] right-1/4 size-64 rounded-full bg-cyan-400/15 blur-3xl" />
+        <div className="relative max-w-2xl">
+          <p className="mb-3 text-xs font-semibold tracking-[0.2em] text-blue-300">VIBEHARD · 研发工作台</p>
+          <div className="flex items-start gap-2"><h1 className="text-2xl font-semibold tracking-tight sm:text-3xl lg:text-4xl">推进你的硬件项目</h1><span className="[&_button]:text-slate-300 [&_button:hover]:text-white"><ModuleHelp module="dashboard" /></span></div>
+          <p className="mt-4 max-w-xl text-sm leading-7 text-slate-300 sm:text-base">创建 Agent 项目、查找器件资料、整理方案与图纸，在同一个工作台继续你的项目。</p>
+          <div className="mt-6 flex flex-wrap gap-3">
+            <Link href="/app/agent" className="inline-flex min-h-10 items-center gap-2 rounded-lg bg-white px-4 py-2 text-sm font-semibold text-slate-950 transition-colors hover:bg-blue-100">进入 Agent 项目 <ArrowRight className="size-4" aria-hidden="true" /></Link>
+            <Link href="/app/design" className="inline-flex min-h-10 items-center rounded-lg border border-white/30 px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-white/10">生成硬件方案</Link>
+          </div>
+        </div>
+      </section>
 
-      <div className="animate-fade-up mb-8 grid gap-3 sm:grid-cols-2" style={{ animationDelay: "80ms" }}>
-        <Link href="/app/agent" className="rounded-xl border border-border/80 bg-card/95 p-4 backdrop-blur transition-all duration-300 hover:-translate-y-0.5 hover:border-primary/30 hover:shadow-[0_14px_34px_rgba(15,23,42,0.09)]">
-          <p className="text-xs font-medium text-muted-foreground">我的 Agent 项目</p>
-          <p className="mt-1 text-xl font-bold text-primary">{projects.length} 个</p>
-        </Link>
-        <Link href="/app/design" className="rounded-xl border border-border/80 bg-card/95 p-4 backdrop-blur transition-all duration-300 hover:-translate-y-0.5 hover:border-primary/30 hover:shadow-[0_14px_34px_rgba(15,23,42,0.09)]">
-          <p className="text-xs font-medium text-muted-foreground">最近方案任务</p>
-          <p className="mt-1 text-xl font-bold text-foreground">{designUnavailable ? "暂时无法读取" : jobs[0] ? ({ completed: "已完成", failed: "失败", queued: "排队中", running: "生成中" } as Record<string, string>)[jobs[0].status] ?? jobs[0].status : "暂无记录"}</p>
-        </Link>
-      </div>
+      <section aria-labelledby="dashboard-status-heading">
+        <h2 id="dashboard-status-heading" className="mb-4 text-lg font-semibold tracking-tight">我的工作进度</h2>
+        <div className="grid gap-3 sm:grid-cols-2">
+          <Link href="/app/agent" className="rounded-xl border border-border/80 bg-card p-5 transition-colors hover:border-primary/40 hover:bg-primary/[0.03]">
+            <p className="text-xs font-medium text-muted-foreground">我的 Agent 项目</p>
+            <p className="mt-2 text-xl font-bold text-primary">{projects.length} 个</p>
+          </Link>
+          <Link href="/app/design" className="rounded-xl border border-border/80 bg-card p-5 transition-colors hover:border-primary/40 hover:bg-primary/[0.03]">
+            <p className="text-xs font-medium text-muted-foreground">最近方案任务</p>
+            <p className="mt-2 text-xl font-bold text-foreground">{designUnavailable ? "暂时无法读取" : jobs[0] ? ({ completed: "已完成", failed: "失败", queued: "排队中", running: "生成中" } as Record<string, string>)[jobs[0].status] ?? jobs[0].status : "暂无记录"}</p>
+          </Link>
+        </div>
+      </section>
 
-      {/* 工具卡片网格 */}
+      <section aria-labelledby="quick-start-heading">
+        <div className="mb-4 flex items-baseline justify-between gap-3"><h2 id="quick-start-heading" className="text-lg font-semibold tracking-tight">常用路径</h2><span className="text-xs text-muted-foreground">选择下一步</span></div>
+        <div className="grid gap-3 md:grid-cols-3">
+          {[
+            { number: "01", title: "建立项目", description: "在 Agent 工作台创建项目并继续对话。", href: "/app/agent", icon: Bot },
+            { number: "02", title: "查找资料", description: "按芯片型号检索已发布知识与网页线索。", href: "/app/datasheets", icon: BookOpen },
+            { number: "03", title: "识别图纸", description: "上传原理图并查看识别结果与来源。", href: "/app/schematic", icon: Cpu },
+          ].map((item) => {
+            const Icon = item.icon;
+            return <Link key={item.href} href={item.href} className="group flex min-h-32 items-start gap-4 rounded-xl border border-border/80 bg-card p-5 transition-colors hover:border-primary/40 hover:bg-primary/[0.03]">
+              <span className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary"><Icon className="size-5" aria-hidden="true" /></span>
+              <span className="min-w-0"><span className="text-[11px] font-semibold tracking-widest text-primary">{item.number} / START</span><span className="mt-1 flex items-center gap-1 text-sm font-semibold text-foreground">{item.title}<ArrowRight className="size-3.5 transition-transform group-hover:translate-x-1" aria-hidden="true" /></span><span className="mt-1 block text-xs leading-5 text-muted-foreground">{item.description}</span></span>
+            </Link>;
+          })}
+        </div>
+      </section>
+
+      <section aria-labelledby="all-tools-heading">
+        <div className="mb-4"><h2 id="all-tools-heading" className="text-lg font-semibold tracking-tight">全部功能</h2><p className="mt-1 text-sm text-muted-foreground">按任务选择要打开的模块</p></div>
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
         {tools.map((tool, i) => {
           const Icon = tool.icon;
@@ -199,10 +224,11 @@ export function DashboardGrid({ projects, jobs, designUnavailable = false }: {
           );
         })}
       </div>
+      </section>
 
       {/* 最近项目 */}
-      <div className="mt-10">
-        <h2 className="mb-4 text-lg font-semibold text-foreground">最近项目</h2>
+      <section aria-labelledby="recent-projects-heading">
+        <h2 id="recent-projects-heading" className="mb-4 text-lg font-semibold text-foreground">最近项目</h2>
         <div className="overflow-hidden rounded-xl border border-border/80 bg-card/95 backdrop-blur">
           <div className="divide-y divide-border/70">
             {projects.length === 0 && <p className="px-5 py-6 text-sm text-muted-foreground">还没有项目。生成方案时会自动创建，也可以从 Agent 项目工作台新建。</p>}
@@ -228,7 +254,7 @@ export function DashboardGrid({ projects, jobs, designUnavailable = false }: {
             ))}
           </div>
         </div>
-      </div>
+      </section>
     </div>
   );
 }

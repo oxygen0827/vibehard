@@ -13,7 +13,7 @@ export default function AppLayout({
         <div className="auth-grid absolute inset-0 opacity-[0.16] dark:opacity-25" />
       </div>
 
-      <div className="relative z-10 flex h-screen flex-col">
+      <div className="relative z-10 flex h-dvh flex-col">
         <AppNav />
         <div className="flex flex-1 overflow-hidden">
           <AppSidebar />
