@@ -4,15 +4,18 @@ import SchematicPage from "@/app/app/schematic/page";
 import { ProjectKnowledge } from "@/components/app/project-knowledge";
 import { changeKnowledge } from "@/lib/server/knowledge-state";
 
-afterEach(() => { cleanup(); vi.unstubAllGlobals(); });
+afterEach(() => { cleanup(); vi.unstubAllGlobals(); window.history.replaceState(null, "", "/"); });
 const projectId = "c8932037-d7f4-46ba-8ddf-31c68d831326";
-const result = { analysisId: "86552575-9015-4d5c-a071-dda5c0edce1e", model: "vision", generatedAt: "2026-09-19T13:00:00.000Z", fileName: "board.png", fileSha256: "a".repeat(64), draft: { title: "原理图引脚", source: "board.png SHA256", kind: "schematic", content: "## 待确认\nU1 引脚不清晰 <script>bad()</script>" } };
+const result = { analysisId: "86552575-9015-4d5c-a071-dda5c0edce1e", model: "vision", generatedAt: "2026-09-19T13:00:00.000Z", fileName: "board.png", fileSha256: "a".repeat(64), archive: { projectId, documentId: "86552575-9015-4d5c-a071-dda5c0edce1e", path: "documents/schematic-test.md" }, draft: { title: "原理图引脚", source: "board.png SHA256", kind: "schematic", content: "## 待确认\nU1 引脚不清晰 <script>bad()</script>" } };
 const json = (data: unknown, ok = true) => ({ ok, json: async () => data });
 function stream(event: unknown) { return { ok: true, body: new ReadableStream({ start(c) { c.enqueue(new TextEncoder().encode(JSON.stringify(event) + "\n")); c.close(); } }) }; }
 async function analyze() {
   fireEvent.change(screen.getByLabelText("上传原理图"), { target: { files: [new File(["fixture"], "board.png", { type: "image/png" })] } });
   expect(screen.getByRole("button", { name: "开始识别" })).toBeDisabled();
   fireEvent.click(screen.getByRole("checkbox"));
+  expect(screen.getByRole("button", { name: "开始识别" })).toBeDisabled();
+  await screen.findByRole("option", { name: "泰山派" });
+  fireEvent.change(screen.getByLabelText("当前项目"), { target: { value: projectId } });
   fireEvent.click(screen.getByRole("button", { name: "开始识别" }));
 }
 describe("schematic candidate UI", () => {
@@ -28,8 +31,11 @@ describe("schematic candidate UI", () => {
     const { container } = render(<SchematicPage />);
     await analyze();
     const button = await screen.findByRole("button", { name: "申请加入知识库备选" });
-    expect(button).toBeDisabled(); expect(container.querySelector("script")).toBeNull();
-    fireEvent.change(screen.getByLabelText("目标项目"), { target: { value: projectId } });
+    expect(button).toBeEnabled(); expect(container.querySelector("script")).toBeNull();
+    expect(screen.getByText(/已自动归档到当前项目/)).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "回到项目并交给 Agent →" })).toHaveAttribute("href", `/app/agent?project=${projectId}`);
+    const uploadCall = fetcher.mock.calls.find(([url]) => url.endsWith("/api/schematic"))!;
+    expect((uploadCall[1]!.body as FormData).get("projectId")).toBe(projectId);
     fireEvent.click(button); await screen.findByRole("alert");
     fireEvent.click(button);
     const link = await screen.findByRole("link", { name: "查看申请与审核状态 →" });
@@ -44,7 +50,7 @@ describe("schematic candidate UI", () => {
     expect(screen.getByRole("button", { name: "已加入备选" })).toBeDisabled();
   });
   it("does not offer candidate submission when recognition fails", async () => {
-    vi.stubGlobal("fetch", vi.fn(async (url: string) => url.endsWith("/api/projects") ? json({ projects: [] }) : stream({ type: "error", error: "模型服务不可用" })));
+    vi.stubGlobal("fetch", vi.fn(async (url: string) => url.endsWith("/api/projects") ? json({ projects: [{ id: projectId, name: "泰山派" }] }) : stream({ type: "error", error: "模型服务不可用" })));
     render(<SchematicPage />); await analyze();
     expect(await screen.findByRole("alert")).toHaveTextContent("模型服务不可用");
     expect(screen.queryByRole("button", { name: "申请加入知识库备选" })).toBeNull();

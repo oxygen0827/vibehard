@@ -29,7 +29,9 @@ export async function readSchematicUpload(request: Request) {
       : bytes.subarray(0, 5).toString() === "%PDF-" ? "application/pdf" : null;
   const extension = mimeType === "image/png" ? /\.png$/i : mimeType === "image/jpeg" ? /\.jpe?g$/i : /\.pdf$/i;
   if (!mimeType || !extension.test(file.name) || (file.type && file.type !== mimeType && file.type !== "application/octet-stream")) throw new LlmRequestError("仅支持内容与扩展名一致的 PNG / JPG / PDF", 400);
-  // This is signature validation, not a full PDF/image parser or malware scan. Never execute/retain uploads.
+  // Signature validation is not a malware scan. Originals are private, attachment-only, never executable.
   const filename = file.name.replace(/[\x00-\x1f\x7f/\\]/g, "_").slice(-180);
-  return { attachment: { filename, mimeType, base64: bytes.toString("base64") } satisfies LlmAttachment, sha256: createHash("sha256").update(bytes).digest("hex") };
+  return { attachment: { filename, mimeType, base64: bytes.toString("base64") } satisfies LlmAttachment,
+    projectId: form.get("projectId"), requestId: form.get("requestId"), bytes,
+    sha256: createHash("sha256").update(bytes).digest("hex") };
 }

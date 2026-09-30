@@ -4,6 +4,7 @@ import type { DesignResult } from "@/lib/agent/llm";
 import type { DesignDiagnostics } from "@/lib/agent/design-diagnostics";
 import type { ModuleManifest } from "@/lib/eda/module-package";
 import type { ModuleDefinition } from "@/lib/eda/modules";
+import type { SchematicResult } from "@/lib/agent/schematic";
 import {
   boolean,
   integer,
@@ -81,6 +82,24 @@ export const designJobs = pgTable("design_jobs", {
   index("design_jobs_queue_idx").on(table.status, table.createdAt),
   index("design_jobs_project_idx").on(table.projectId, table.createdAt),
 ]);
+
+// Private project archives, independent from reviewed/published knowledge.
+export const projectDocuments = pgTable("project_documents", {
+  id: uuid("id").primaryKey(),
+  userId: uuid("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  projectId: uuid("project_id").notNull().references(() => projects.id, { onDelete: "cascade" }),
+  fileName: text("file_name").notNull(),
+  fileSha256: text("file_sha256").notNull(),
+  mimeType: text("mime_type").notNull(),
+  byteSize: integer("byte_size").notNull(),
+  objectKey: text("object_key").notNull(),
+  originalStored: boolean("original_stored").notNull().default(false),
+  status: text("status").$type<"processing" | "completed" | "failed">().notNull().default("processing"),
+  result: jsonb("result").$type<SchematicResult>(),
+  error: text("error"),
+  syncedAt: timestamp("synced_at", { withTimezone: true }),
+  ...timestamps,
+}, table => [index("project_documents_project_idx").on(table.projectId, table.createdAt)]);
 
 // Small reviewed document library; not arbitrary uploads or a vector index.
 export const projectKnowledge = pgTable("project_knowledge", {

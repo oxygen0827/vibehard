@@ -51,6 +51,7 @@ jobs:
             const sql = postgres("postgres://postgres:local-test-only@127.0.0.1:5432/postgres");
             await sql.unsafe("create database vibehard_design_test");
             await sql.unsafe("create database vibehard_rag_test");
+            await sql.unsafe("create database vibehard_documents_test");
             await sql.end();
           '
       - name: Migrate design test database
@@ -71,3 +72,12 @@ jobs:
           DATABASE_URL: postgres://postgres:local-test-only@127.0.0.1:5432/vibehard_rag_test
           VIBEHARD_RAG_TEST_DATABASE: "1"
         run: pnpm exec vitest run __tests__/shared-knowledge-postgres.test.ts
+      - name: Migrate project document test database
+        env:
+          DATABASE_URL: postgres://postgres:local-test-only@127.0.0.1:5432/vibehard_documents_test
+        run: pnpm db:migrate
+      - name: Test private schematic archive and Agent file handoff
+        env:
+          DATABASE_URL: postgres://postgres:local-test-only@127.0.0.1:5432/vibehard_documents_test
+          VIBEHARD_DOCUMENT_TEST_DATABASE: "1"
+        run: pnpm exec vitest run __tests__/project-documents-postgres.test.ts

@@ -1,0 +1,43 @@
+import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { afterEach, expect, it, vi } from "vitest";
+import { AgentWorkbench } from "@/components/app/agent-workbench";
+import SchematicPage from "@/app/app/schematic/page";
+const projectId = "00000000-0000-4000-8000-000000000071";
+const documentId = "00000000-0000-4000-8000-000000000072";
+const threadId = "00000000-0000-4000-8000-000000000073";
+afterEach(() => { cleanup(); vi.unstubAllGlobals(); window.history.replaceState(null, "", "/"); });
+it("opens the selected project's archived material in a conversation, without automatically sending a model task", async () => {
+  const fetcher = vi.fn(async (url: string, init?: RequestInit) => {
+    if (url.endsWith("/api/projects")) return Response.json({ projects: [{ id: projectId, name: "原理图测试项目", defaultModel: "fake" }] });
+    if (url.endsWith("/api/models")) return Response.json({ models: [{ id: "test-model", providerId: "test", model: "fake", displayName: "Test" }] });
+    if (url.endsWith("/api/runners")) return Response.json({ runners: [] });
+    if (url.endsWith("/threads")) return Response.json(init?.method === "POST" ? { thread: { id: threadId, title: "资料分析" } } : { threads: [] });
+    if (url.endsWith("/artifacts")) return Response.json({ artifacts: [] });
+    if (url.includes("/api/design?")) return Response.json({ jobs: [] });
+    if (url.endsWith("/documents")) return Response.json({ documents: [{ id: documentId, projectId, title: "私有原理图分析", status: "completed", originalStored: true, path: "documents/schematic-test.md", fileName: "board.pdf", createdAt: "2026-09-30T00:00:00Z", syncedAt: null }] });
+    if (url.endsWith(`/api/threads/${threadId}`)) return Response.json({ events: [], approvals: [], artifacts: [] });
+    throw new Error("unexpected request");
+  });
+  vi.stubGlobal("fetch", fetcher); vi.stubGlobal("EventSource", class { addEventListener() {} close() {} });
+  render(<AgentWorkbench />);
+  expect(await screen.findByText("私有原理图分析")).toBeInTheDocument();
+  expect(screen.getByText("已归档 · 下次 Agent 任务前同步")).toBeInTheDocument();
+  expect(screen.getByRole("link", { name: "添加原理图资料 →" })).toHaveAttribute("href", `/app/schematic?project=${projectId}`);
+  expect(screen.getByRole("link", { name: "下载原图" })).toHaveAttribute("href", `/api/projects/${projectId}/documents/${documentId}?format=source`);
+  fireEvent.click(screen.getByRole("button", { name: "让 Agent 分析项目资料" }));
+  await waitFor(() => expect((screen.getByPlaceholderText("描述要交给 Agent 的任务...") as HTMLTextAreaElement).value).toContain("documents/"));
+  expect(screen.getByRole("button", { name: "发送任务" })).toBeEnabled();
+  expect(fetcher.mock.calls.some(([url]) => url.endsWith("/turns"))).toBe(false);
+});
+it("carries a URL project only after verifying it is in the current user's project list", async () => {
+  window.history.replaceState(null, "", `/app/schematic?project=${projectId}`);
+  vi.stubGlobal("fetch", vi.fn(async () => Response.json({ projects: [{ id: projectId, name: "本项目" }] })));
+  const view = render(<SchematicPage />);
+  await waitFor(() => expect(screen.getByLabelText("当前项目")).toHaveValue(projectId));
+  view.unmount();
+  window.history.replaceState(null, "", "/app/schematic?project=another-user-project");
+  render(<SchematicPage />);
+  await screen.findByRole("option", { name: "本项目" });
+  expect(screen.getByLabelText("当前项目")).toHaveValue("");
+  expect(screen.getByRole("button", { name: "开始识别" })).toBeDisabled();
+});

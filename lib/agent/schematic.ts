@@ -2,7 +2,7 @@ import { z } from "zod";
 import { KNOWLEDGE_CONTENT_LIMIT, knowledgeDraftSchema } from "./knowledge";
 
 export const SCHEMATIC_FILE_LIMIT = 5 * 1024 * 1024;
-export const SCHEMATIC_DRAFT_NOTICE = "> AI 原理图识别草案，未经工程师审核或上板验证。请对照原图核验；原文件未在平台持久保存。\n\n";
+export const SCHEMATIC_DRAFT_NOTICE = "> AI 原理图识别草案，未经工程师审核或上板验证。请对照项目归档原图核验，不作为已验证的电气参数。\n\n";
 // Reserve exactly the server-added notice; a valid draft must fit the knowledge limit.
 export const SCHEMATIC_MARKDOWN_LIMIT = KNOWLEDGE_CONTENT_LIMIT - SCHEMATIC_DRAFT_NOTICE.length;
 export const schematicModelResultSchema = z.object({
@@ -13,6 +13,7 @@ export const schematicResultSchema = z.object({
   analysisId: z.uuid(), model: z.string(), generatedAt: z.iso.datetime(),
   fileName: z.string(), fileSha256: z.string().regex(/^[a-f0-9]{64}$/),
   draft: knowledgeDraftSchema,
+  archive: z.object({ projectId: z.uuid(), documentId: z.uuid(), path: z.string() }).optional(),
 });
 export type SchematicResult = z.infer<typeof schematicResultSchema>;
 export const SCHEMATIC_SYSTEM = `你是原理图资料提取助手。只分析本次上传的图纸，不联网、不执行文件或工具，不使用固定示例替代识别。

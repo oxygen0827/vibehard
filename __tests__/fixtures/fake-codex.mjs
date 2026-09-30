@@ -5,6 +5,17 @@ const send = (message) => process.stdout.write(`${JSON.stringify(message)}\n`);
 const mode = process.env.FAKE_CODEX_MODE ?? "complete";
 lines.on("line", (line) => {
   const message = JSON.parse(line);
+  if (mode === "project-files" && ["thread/start", "thread/resume"].includes(message.method) && !message.params.developerInstructions?.includes("未经人工审核")) {
+    send({ id: message.id, error: { message: "Project archive boundary missing" } }); return;
+  }
+  if (mode === "project-files" && message.method === "turn/start") {
+    const reference = message.params.input.find(item => item.text?.includes("本回合私有项目资料已校验"));
+    const files = reference?.text.split("\n").slice(1) ?? [];
+    if (!files.length || files.some(file => !readFileSync(file, "utf8").includes("SCHEMATIC_ARCHIVE_FIXTURE"))) {
+      send({ id: message.id, error: { message: "Archived schematic not readable in real child workspace" } }); return;
+    }
+    send({ method: "item/completed", params: { item: { type: "commandExecution", id: "archive-read", command: "read archived schematic", status: "completed", exitCode: 0 } } });
+  }
   if (mode === "design" && ["thread/start", "thread/resume"].includes(message.method)
     && !message.params.developerInstructions?.includes("仅有方案而没有源码时")) {
     send({ id: message.id, error: { message: "Project design instructions missing" } }); return;

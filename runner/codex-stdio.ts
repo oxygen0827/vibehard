@@ -7,6 +7,8 @@ import { ProjectWorkflow } from "./project-workflow";
 import { KNOWLEDGE_BOUNDARY, knowledgeInput, retrievalInput } from "./project-knowledge";
 import { DESIGN_FILE_BOUNDARY } from "@/lib/agent/design-artifact";
 import { materializeDesign } from "./design-files";
+import { materializeProjectFiles } from "./project-files";
+import { PROJECT_FILES_BOUNDARY, projectFilesManifest } from "@/lib/agent/project-document";
 import { knowledgeManifest, type KnowledgeSnapshot } from "@/lib/agent/knowledge";
 import type { AgentEvent, TaskStart } from "@/lib/agent/protocol";
 import type { RuntimeLlm } from "@/lib/agent/llm";
@@ -237,10 +239,14 @@ export class CodexSession {
     const referenceInput = [...knowledgeInput(task.knowledge), ...retrievalInput(task.retrieval)];
     const designPath = task.design ? await materializeDesign(task.workspaceKey, task.design, task.projectId) : undefined;
     if (designPath) referenceInput.push({ type: "text", text: `本回合项目方案已保存到工作区：${designPath}。请先读取该文件；它包含用户需求、方案正文、BOM、风险与来源记录。` });
+    if (task.projectFiles) {
+      const paths = await materializeProjectFiles(task.workspaceKey, task.projectFiles, task.projectId);
+      if (paths.length) referenceInput.push({ type: "text", text: `本回合私有项目资料已校验并保存到工作区，请先读取这些文件（未人工复核）：\n${paths.join("\n")}` });
+    }
     this.knowledge = task.knowledge;
     this.workflow = process.env.RUNNER_ENGINEERING_WORKFLOW === "true" ? new ProjectWorkflow() : undefined;
     // Explicitly clear an older workflow override when the rollout flag is disabled on resume.
-    const developerInstructions = [this.workflow?.instructions, task.knowledge || task.retrieval ? KNOWLEDGE_BOUNDARY : undefined, task.design ? DESIGN_FILE_BOUNDARY : undefined].filter(Boolean).join("\n\n");
+    const developerInstructions = [this.workflow?.instructions, task.knowledge || task.retrieval ? KNOWLEDGE_BOUNDARY : undefined, task.design ? DESIGN_FILE_BOUNDARY : undefined, task.projectFiles?.files.length ? PROJECT_FILES_BOUNDARY : undefined].filter(Boolean).join("\n\n");
     const parsedArgs = process.env.CODEX_APP_SERVER_ARGS ? JSON.parse(process.env.CODEX_APP_SERVER_ARGS) as unknown : ["app-server", "--listen", "stdio://"];
     if (!Array.isArray(parsedArgs) || !parsedArgs.every((item) => typeof item === "string")) throw new Error("CODEX_APP_SERVER_ARGS must be a JSON string array");
     const command = codexCommand(process.env.CODEX_BIN ?? "codex", parsedArgs, this.workspaceRoot, task.workspaceKey);
@@ -282,7 +288,9 @@ export class CodexSession {
       }
       if (!this.threadId) throw new Error("Codex did not return a thread id");
       this.event("task.started", { input: task.input, model: task.model, ...(this.workflow ? { workflow: this.workflow.metadata } : {}),
+        ...(task.projectFiles ? { projectFiles: projectFilesManifest(task.projectFiles) } : {}),
         ...(task.design ? { design: { designId: task.design.designId, sha256: task.design.sha256, path: designPath } } : {}) });
+      for (const file of task.projectFiles ? projectFilesManifest(task.projectFiles).files : []) this.event("artifact.created", { ...file, name: file.title, kind: "project_document" });
       if (task.design) this.event("artifact.created", { name: "硬件方案", kind: "design", path: designPath, designId: task.design.designId, sha256: task.design.sha256 });
       const turn = await this.request("turn/start", { threadId: this.threadId, input: [...referenceInput, { type: "text", text: task.input }], cwd: task.workspaceKey, runtimeWorkspaceRoots: [task.workspaceKey], model: task.model, approvalPolicy: "on-request", sandboxPolicy: { type: "readOnly", networkAccess: false } }) as { turn?: { id?: string } } | undefined;
       this.turnId = turn?.turn?.id;
