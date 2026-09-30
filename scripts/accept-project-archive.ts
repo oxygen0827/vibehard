@@ -45,7 +45,7 @@ async function main() {
   const candidate = process.argv[2] === "candidate";
   assert.ok(candidate || process.argv[2] === "production");
   const unified = process.env.ALLOW_UNIFIED_RELEASE_ACCEPTANCE === "synthetic-two-accounts";
-  const release = unified ? "20260930-unified-platform-v1" : "20260930-project-archive-v1";
+  const release = unified ? "20260930-unified-platform-v2" : "20260930-project-archive-v1";
   assert.equal(new URL(process.env.DATABASE_URL!).pathname, candidate ? (unified ? "/vibehard_unified_acceptance_20260930" : "/vibehard_archive_acceptance_20260930") : "/vibehard");
   const base = candidate ? "http://127.0.0.1:3211/vibehard" : "https://ldcx.tech/vibehard";
   const started = Date.now(); const config = await runtimeLlm("agent"); assert.ok(config);

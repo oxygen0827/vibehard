@@ -5,7 +5,7 @@ import { spawnSync } from 'node:child_process';
 import { copyFileSync, existsSync, mkdirSync, readFileSync, readlinkSync, renameSync, symlinkSync, writeFileSync } from 'node:fs';
 import { parseEnv } from 'node:util';
 import { request } from 'node:http';
-const root='/opt/vibehard/releases/20260930-unified-platform-v1';
+const root='/opt/vibehard/releases/20260930-unified-platform-v2';
 const previous='/opt/vibehard/releases/20260930-project-archive-v1';
 const state='/opt/vibehard/test-state/20260930-unified-platform';
 const node='/opt/vibehard/runtime/node-v22.23.1';
@@ -53,16 +53,22 @@ async function edaHealth(){const env=parseEnv(readFileSync('/etc/vibehard/eda-ma
 const cleanup=()=>{for(const unit of candidate)run('systemctl',['stop',unit]);};
 async function restore(){idle();run('systemctl',['stop',...units]);for(const u of units)copyFileSync(`${root}/backup/${u}`,`/etc/systemd/system/${u}`);const target=JSON.parse(readFileSync(`${root}/backup/BACKUP.json`)).edaLink;symlinkSync(target,'/opt/vibehard/eda-manager/current.restore');renameSync('/opt/vibehard/eda-manager/current.restore','/opt/vibehard/eda-manager/current');run('systemctl',['daemon-reload']);run('systemctl',['start',...starts]);await ready(3210);verifyWeb('https://ldcx.tech');}
 if(mode==='prepare'){
-  assert.equal(prop('vibehard.service','WorkingDirectory'),`${previous}/standalone`);assert.ok(!existsSync(state));
-  assert.equal(query('postgres',`select count(*) from pg_database where datname='${dbName}';`),'0');
-  mkdirSync(state,{mode:0o700});mkdirSync(`${root}/evidence`,{mode:0o700});
-  const password=randomBytes(32).toString('hex');query('postgres',`CREATE ROLE ${dbName} LOGIN PASSWORD '${password}'; CREATE DATABASE ${dbName} OWNER ${dbName};`);
-  const env={...platform,DATABASE_URL:`postgres://${dbName}:${password}@127.0.0.1:5432/${dbName}`,LLM_SETTINGS_SECRET:platform.LLM_SETTINGS_SECRET||platform.SESSION_SECRET,SESSION_SECRET:randomBytes(32).toString('hex'),RUNNER_REGISTRATION_TOKEN:randomBytes(32).toString('hex'),INVITE_CODES:randomBytes(32).toString('hex'),NODE_ENV:'production',NEXT_PUBLIC_BASE_PATH:'/vibehard',VIBEHARD_RETRIEVAL_SOCKET:socket};
-  writeFileSync(`${state}/candidate.env`,Object.entries(env).map(([k,v])=>`${k}=${JSON.stringify(v)}`).join('\n')+'\n',{mode:0o600});
+  assert.equal(prop('vibehard.service','WorkingDirectory'),`${previous}/standalone`);
+  mkdirSync(`${root}/evidence`,{mode:0o700});
+  if(!existsSync(state)){
+    assert.equal(query('postgres',`select count(*) from pg_database where datname='${dbName}';`),'0');mkdirSync(state,{mode:0o700});
+    const password=randomBytes(32).toString('hex');query('postgres',`CREATE ROLE ${dbName} LOGIN PASSWORD '${password}'; CREATE DATABASE ${dbName} OWNER ${dbName};`);
+    const env={...platform,DATABASE_URL:`postgres://${dbName}:${password}@127.0.0.1:5432/${dbName}`,LLM_SETTINGS_SECRET:platform.LLM_SETTINGS_SECRET||platform.SESSION_SECRET,SESSION_SECRET:randomBytes(32).toString('hex'),RUNNER_REGISTRATION_TOKEN:randomBytes(32).toString('hex'),INVITE_CODES:randomBytes(32).toString('hex'),NODE_ENV:'production',NEXT_PUBLIC_BASE_PATH:'/vibehard',VIBEHARD_RETRIEVAL_SOCKET:socket};
+    writeFileSync(`${state}/candidate.env`,Object.entries(env).map(([k,v])=>`${k}=${JSON.stringify(v)}`).join('\n')+'\n',{mode:0o600});
+  }
+  const env=parseEnv(readFileSync(`${state}/candidate.env`,'utf8'));assert.equal(new URL(env.DATABASE_URL).pathname,`/${dbName}`);
   run(node,[`${root}/services/migrate.cjs`],{cwd:`${root}/source`,env:{...process.env,...env}});
+  // Resume only an unused, known isolated preparation; never overwrite an acceptance or production database.
+  assert.equal(query(dbName,'select count(*) from users;'),'0');assert.equal(query(dbName,'select count(*) from projects;'),'0');
   for(const table of ['llm_settings','model_profiles','shared_knowledge']){
     const rows=JSON.parse(query('vibehard',`select coalesce(json_agg(t),'[]'::json) from ${table} t;`));
-    for(const row of rows)query(dbName,`insert into ${table} select * from json_populate_record(null::${table},'${JSON.stringify(row).replaceAll("'","''")}');`);
+    for(const row of rows){if(table==='shared_knowledge')row.created_by=null;query(dbName,`insert into ${table} select * from json_populate_record(null::${table},'${JSON.stringify(row).replaceAll("'","''")}') on conflict do nothing;`);}
+    assert.equal(query(dbName,`select count(*) from ${table};`),String(rows.length));
   }
   save('prepared',{at:new Date().toISOString(),database:dbName,noProductionMigration:true,protection:protect()});console.log('Isolated database prepared; no user/project data copied');
 }

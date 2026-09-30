@@ -5,7 +5,7 @@ import { execFileSync } from 'node:child_process';
 import { copyFileSync, cpSync, existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 const output=process.argv[2];assert.match(output??'',/^\/private\/tmp\/vibehard-unified-release\.[A-Za-z0-9]+$/);
-const name='20260930-unified-platform-v1';const release=path.join(output,name);assert.ok(!existsSync(release));
+const name='20260930-unified-platform-v2';const release=path.join(output,name);assert.ok(!existsSync(release));
 const run=(c,a)=>execFileSync(c,a,{encoding:'utf8'}).trim();
 const hash=p=>createHash('sha256').update(readFileSync(p)).digest('hex');
 assert.equal(run('git',['status','--porcelain']),'','Package a clean commit');
