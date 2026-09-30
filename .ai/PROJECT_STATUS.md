@@ -1,5 +1,7 @@
 # 项目状态
 
+- 2026-09-30 18:04 历史发布清理完成：明确授权后完整私有备份 6.57 GiB、SHA/完整解码/逐文件验证；删除 42 旧目录和 33 旧压缩包，保留当前版、跨组件回滚依赖和仍被预检引用的目录。根盘约 11.1 GiB 可用/71%，releases 约 1.75 GiB。18:05 公网页面保护、BOM、检索、EDA、回滚文件与配置哈希通过；所有服务 PID 未变，云端/设备心跳约 5 秒、两条连接。无数据库/知识/用户工程/Docker/VibeBoard 清理或重启。备份仅本机临时私有保存，不是永久灾备；历史回滚需先恢复旧目录，见 `docs/release-unified-platform-20260930.md`。
+
 - 2026-09-30 15:44 已统一上线：`20260930-unified-platform-v2` 包含聊天固定区域及全部云端组件；PR #34 与默认 CI 全绿，候选/正式真实方案、RAG 引用、原理图归档、Agent 实读/ZIP/双账号通过。六服务同版本且 active，配置/索引不变，VibeBoard/nginx 未重启。旧版本未清理：完整备份下载被安全审核要求明确授权，问题已发出，暂未答复；根盘约 1.4 GiB/97%。详见 `docs/release-unified-platform-20260930.md`，优先完成授权备份与按回滚依赖清理。
 
 - 2026-09-30 14:02 只读容量盘点：根盘仅余 2.00 GiB（95% 使用），主要为 VibeHard releases 10.86 GiB、Docker 7.84 GiB、VibeBoard 4.52 GiB；知识索引 102 MiB、整实例 PostgreSQL 157 MiB。未清理或重启；发布前先规划按组件保留的退役白名单，不能删除仍被 Worker/检索/EDA 引用的旧 release，也不能直接 prune 按需 EDA 镜像。另见 VibeBoard 数据库备份服务 failed，未诊断。
