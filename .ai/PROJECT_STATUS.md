@@ -1,5 +1,7 @@
 # 项目状态
 
+- 2026-09-30 13:30 已发布：`20260930-project-archive-v1` 配套网页/Runner/Gateway 和增量 0009。PR #32 与默认合并 `de93e6a` CI 全绿；388 常规、20 隔离数据库及 Linux PDF 像素通过。隔离及正式公网两个真实合成链路通过，正式识别 13.0 秒、全链路 19.9 秒，含私有原图下载、双账号拒绝、同请求重放、Agent 工具实际读 Markdown 和 ZIP 哈希回查。保护服务/既有凭据未变；3211 已停，磁盘约 2.1 GB。设备 Runner 尚不支持新资料载荷、生产人工 UI 点击未验。详见 `docs/release-project-archive-20260930.md`；以下本地状态为历史。
+
 - 2026-09-30 本地实现、未发布：在独立 `codex/agent-project-ux` 工作树打通原理图识别前选项目、原图私有 OSS/结果数据库归档、项目资料列表与下载、Runner 任务前校验并落盘 `documents/`。新增 0009 迁移与 `project-documents-v1` 可选载荷；公共知识审核不变。隔离数据库和测试 Agent 子进程已贯通，真实云端 OSS/模型尚未验收。前一轮项目概览 UX 保留；主工作区与生产未改。发布须配套网页、Runner、Gateway 和增量迁移，详见 `docs/project-document-archive.md`。
 
 - 2026-09-29 19:18 已发布：工作台 UI `20260929-platform-ui-v1`。PR #30 平台 CI 全绿并合并为 `26323ad`；从前一正式芯片检索版完整源码仅叠加 6 个 UI 文件和 1 项测试，1133 文件哈希通过。24 项定向测试、类型/lint/构建、候选及公网 PCB/Demo/鉴权保护通过；零活跃 Agent/设计任务切换，仅平台重启，其他关键服务 PID 未变。移动端菜单、真实进度卡片与导航入口已更新；生产登录态人工视觉点击待验。根盘约 2.5 GB 可用。见 `docs/current-status.md` 与 `docs/deployment-ldcx.md`。

@@ -1,5 +1,13 @@
 # ldcx.tech deployment
 
+## Project archive release, 2026-09-30 13:30 CST (current)
+
+Platform, cloud Runner and Gateway now use `/opt/vibehard/releases/20260930-project-archive-v1/` (web under `standalone/`, services under `services/`). Additive migration `0009_project_documents` is applied. PR #32 and default merge `de93e6a` passed CI; release source `0d0c345` has the same tree. The 1156-source manifest preserves the complete previous overlay, including PCB/Demo. Archive SHA256: `c5d3cf56733b661ad6cf39a87664d3304cdc1ef664394ab92d1e63bf5c7e883e`.
+
+Isolated and public production acceptance used fresh synthetic member accounts: real private OSS, visual model, persisted document, actual Agent tool read, cross-account denial and replay without a second model call all passed; production ZIP matched the archived Markdown hash. Production elapsed 19.9 seconds, including 13.0-second recognition. PCB/Demo/BOM/auth checks passed before and after activation. Design worker, retrieval, EDA manager, VibeBoard, nginx and existing credentials were unchanged. Only the platform loads the new root-only `/etc/vibehard/project-archive.env`. Cloud Runner has the new documents capability; the device Runner does not yet.
+
+Backup units/dump are in `backup/`; evidence in `evidence/`, with `ACTIVATED.json` at release root. After verifying idle tasks, run `source/scripts/deploy-project-archive-release.mjs rollback` with the bundled Node 22 runtime to restore the prior three units; retain the additive table and archives, never restore an old dump over new data. Candidate 3211 is stopped. Free disk about 2.1 GB (95% used); no historical releases were removed. Exact acceptance IDs, hashes, limits and rollback command: [release record](release-project-archive-20260930.md).
+
 ## Platform UI release, 2026-09-29 19:18 CST
 
 The active platform is `/opt/vibehard/releases/20260929-platform-ui-v1/standalone` (PID 1034083 at verification). It overlays six UI runtime files and one test on the full hash-verified source of `20260929-chip-search-v1`; `RELEASE.json` verifies all 1133 files. The versioned archive `/opt/vibehard/releases/vibehard-20260929-platform-ui-v1.tar.gz` has SHA256 `2359daa018af1ae1fce3fe5389f76261361190e99922725475aaeb7e9a1b9a3f`. Code PR #30 passed platform CI and merged as `26323ad`. The original platform unit is stored at `20260929-platform-ui-v1/backup/vibehard.service`.
