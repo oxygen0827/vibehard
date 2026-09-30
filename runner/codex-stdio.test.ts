@@ -7,9 +7,29 @@ import { createHash, randomUUID } from "node:crypto";
 import { mkdtemp, realpath, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { designArtifactPath } from "@/lib/agent/design-artifact";
+import { checkDesignMaterials } from "@/lib/agent/design-materials";
+import { designMarkdown, type DesignJob } from "@/lib/agent/design-jobs";
+import type { RetrievalEvidence } from "@/lib/agent/retrieval-payload";
 
 describe("CodexSession", () => {
   afterEach(() => vi.unstubAllEnvs());
+  it("materializes the saved materials report and source excerpt before a child Agent actually reads them", async () => {
+    vi.stubEnv("CODEX_BIN", process.execPath);
+    vi.stubEnv("CODEX_APP_SERVER_ARGS", JSON.stringify([path.resolve("__tests__/fixtures/fake-codex.mjs")]));
+    vi.stubEnv("CODEX_PROVIDER_ENV_ALLOWLIST", "FAKE_CODEX_MODE"); vi.stubEnv("FAKE_CODEX_MODE", "materials");
+    const workspace = await realpath(await mkdtemp(path.join(tmpdir(), "vibehard-material-turn-")));
+    const bom = [{ item: "sensor", model: "SHT40", qty: 1, estCost: "¥10（估算）" }];
+    const retrieval: RetrievalEvidence = { status: "matched", method: "keyword-chunks-fts5-v1", references: [{ id: randomUUID(), scope: "platform", title: "SHT40 数据手册", source: "SHT40.pdf#page=1", version: 1, sha256: "a".repeat(64), reviewStatus: "auto-indexed", excerpt: "MATERIALS_SOURCE_FIXTURE" }] };
+    const job = { id: randomUUID(), projectId: randomUUID(), projectName: "Fixture", requirement: "test", completedAt: "2026-09-30T00:00:00Z", result: { bom, retrieval, materials: checkDesignMaterials(bom, retrieval), architecture: ["I2C"], interfaces: ["I2C"], risks: [{ level: "低", desc: "unverified" }] } } as DesignJob;
+    const markdown = designMarkdown(job);
+    const design = { projectId: job.projectId, designId: job.id, markdown, sha256: createHash("sha256").update(markdown).digest("hex") };
+    const events: AgentEvent[] = []; const session = new CodexSession(event => events.push(event), path.dirname(workspace));
+    try {
+      await session.start({ ...envelope(), type: "task.start", taskId: randomUUID(), projectId: job.projectId, threadId: randomUUID(), workspaceKey: workspace, input: "检查配套资料", model: "fake", design });
+      await vi.waitFor(() => expect(events.some(event => event.type === "task.completed")).toBe(true));
+      expect(events.some(event => event.type === "tool.completed" && JSON.stringify(event.data).includes("materials-read"))).toBe(true);
+    } finally { session.dispose(); await rm(workspace, { recursive: true, force: true }); }
+  });
   it("provides a readable saved design file before starting the model turn", async () => {
     vi.stubEnv("CODEX_BIN", process.execPath);
     vi.stubEnv("CODEX_APP_SERVER_ARGS", JSON.stringify([path.resolve("__tests__/fixtures/fake-codex.mjs")]));

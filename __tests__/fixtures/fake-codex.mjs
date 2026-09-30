@@ -5,6 +5,15 @@ const send = (message) => process.stdout.write(`${JSON.stringify(message)}\n`);
 const mode = process.env.FAKE_CODEX_MODE ?? "complete";
 lines.on("line", (line) => {
   const message = JSON.parse(line);
+  if (mode === "materials" && message.method === "turn/start") {
+    const reference = message.params.input.find(item => item.text?.includes("本回合项目方案已保存到工作区"));
+    const file = reference?.text.match(/工作区：(designs\/[^。]+)。/)?.[1];
+    const content = file ? readFileSync(file, "utf8") : "";
+    if (!["项目资料包 · 配套检查", "来源 1（芯片手册）", "未人工复核", "MATERIALS_SOURCE_FIXTURE"].every(text => content.includes(text))) {
+      send({ id: message.id, error: { message: "Material report and source excerpt not readable in child workspace" } }); return;
+    }
+    send({ method: "item/completed", params: { item: { type: "commandExecution", id: "materials-read", command: "read project materials", status: "completed", exitCode: 0 } } });
+  }
   if (mode === "project-files" && ["thread/start", "thread/resume"].includes(message.method) && !message.params.developerInstructions?.includes("未经人工审核")) {
     send({ id: message.id, error: { message: "Project archive boundary missing" } }); return;
   }

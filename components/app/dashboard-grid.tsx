@@ -90,12 +90,12 @@ const tools = [
   {
     id: "embedded",
     title: "嵌入式开发",
-    description: "查看嵌入式开发流程演示；实际 RV1126B 网页应用部署请从“设备开发”入口使用。",
+    description: "选择已有项目，在共用 Agent 会话中读取资料、制定开发计划并申请受控修改；真实设备部署仍需单独确认执行器。",
     icon: MonitorSmartphone,
     color: "text-teal-500",
     bgColor: "bg-teal-500/10",
     borderColor: "hover:border-teal-500/35",
-    stats: "流程演示",
+    stats: "项目 Agent",
   },
   {
     id: "prompts",

@@ -132,6 +132,7 @@ export function DesignWorkbench({ projectId }: { projectId?: string }) {
         <div className="mt-3 flex flex-wrap items-center gap-4 text-sm"><Link className="text-primary underline" href={`/app/agent?project=${selected.projectId}`}>进入 Agent 项目</Link><Link className="text-primary underline" href={`/app/agent/${selected.projectId}/designs`}>项目全部方案</Link>
           {selected.status === "failed" && <Button variant="outline" disabled={sending || Boolean(activeJob)} onClick={() => void submit(selected.requirement, selected.projectId)}>在原项目重试</Button>}
           {selected.status === "completed" && <a className="text-primary underline" href={apiPath(`/api/design/${selected.id}/download`)}>下载方案 Markdown</a>}
+          {selected.status === "completed" && <a className="text-primary underline" href={apiPath(`/api/design/${selected.id}/materials`)}>下载项目资料包 ZIP</a>}
         </div>
         {selected.model && <p className="mt-2 text-xs text-muted-foreground">模型：{selected.model} · 内置规则版本：{selected.knowledgeVersion}</p>}
         {selected.result && <DesignResult result={selected.result} />}

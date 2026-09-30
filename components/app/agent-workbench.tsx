@@ -3,7 +3,7 @@ import { ProjectDocuments } from "@/components/app/project-documents";
 import { selectProjectInUrl } from "@/components/app/project-selector";
 import { ModuleHelp } from "@/components/app/module-help";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { AlertTriangle, Check, CircleStop, FolderKanban, Loader2, MessageSquare, Plus, Send, Terminal, Wrench, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -17,6 +17,7 @@ import { RetrievalEvidence } from "./retrieval-evidence";
 import { AgentReasoning } from "./agent-reasoning";
 import { AgentConversationViewport } from "./agent-conversation-viewport";
 import { designStatus, type DesignJobSummary } from "@/lib/agent/design-jobs";
+import { projectWorkflows, type ProjectWorkflowMode } from "@/lib/agent/project-workflow";
 
 type Project = { id: string; name: string; workspaceKey: string; defaultModel: string; runnerKey?: string | null };
 type Thread = { id: string; title: string; codexThreadId?: string | null };
@@ -66,12 +67,14 @@ function eventText(event: AgentEvent) {
   return "";
 }
 
-export function AgentWorkbench() {
+export function AgentWorkbench({ mode = "agent" }: { mode?: ProjectWorkflowMode }) {
+  const workflow = projectWorkflows[mode];
   const [projects, setProjects] = useState<Project[]>([]);
   const [threads, setThreads] = useState<Thread[]>([]);
   const [models, setModels] = useState<Model[]>([]);
   const [runners, setRunners] = useState<Runner[]>([]);
   const [projectId, setProjectId] = useState("");
+  const activeProject = useRef("");
   const [threadId, setThreadId] = useState("");
   const [events, setEvents] = useState<AgentEvent[]>([]);
   const [approvals, setApprovals] = useState<Approval[]>([]);
@@ -107,9 +110,11 @@ export function AgentWorkbench() {
         setRunners(runnerResponse.runners);
         setNewRunnerKey(runnerResponse.runners.find((item) => item.runnerKey === "cloud-runner")?.runnerKey ?? runnerResponse.runners[0]?.runnerKey ?? "");
         const requestedProject = new URLSearchParams(window.location.search).get("project");
-        const firstProject = projectResponse.projects.find(project => project.id === requestedProject) ?? projectResponse.projects[0];
+        const firstProject = requestedProject ? projectResponse.projects.find(project => project.id === requestedProject) : projectResponse.projects[0];
+        if (requestedProject && !firstProject) setError("链接中的项目不存在或无权访问，请重新选择项目；不会改用其他项目。");
         if (firstProject) { setThreadsLoading(true); setDesignLoading(true); setArtifactsLoading(true); }
         setProjectId(firstProject?.id ?? "");
+        activeProject.current = firstProject?.id ?? "";
         setModelProfileId(modelResponse.models.find((item) => item.model === firstProject?.defaultModel)?.id ?? modelResponse.models[0]?.id ?? "");
       })
       .catch((reason) => { if (active) setError(reason instanceof Error ? reason.message : "加载失败"); })
@@ -223,6 +228,7 @@ export function AgentWorkbench() {
   const selectProject = (project: Project) => {
     setMobilePanel(null);
     setProjectId(project.id);
+    activeProject.current = project.id;
     setView("overview");
     setThreadsLoading(true);
     setDesignLoading(true);
@@ -234,6 +240,7 @@ export function AgentWorkbench() {
     setThreadsError(false);
     setError("");
     setThreadId("");
+    setInput("");
     setThreads([]);
     resetThreadData();
     const defaultProfile = models.find((item) => item.model === project.defaultModel);
@@ -263,6 +270,7 @@ export function AgentWorkbench() {
     if (!projectId) return null;
     try {
       const response = await json<{ thread: Thread }>(`/api/projects/${projectId}/threads`, { method: "POST" });
+      if (activeProject.current !== projectId) return null;
       setThreads((current) => [response.thread, ...current]);
       selectThread(response.thread.id);
       return response.thread;
@@ -280,6 +288,7 @@ export function AgentWorkbench() {
       const existingThread = threadId || threads[0]?.id;
       if (existingThread) selectThread(existingThread);
       else if (!(await createThread())) return;
+      if (activeProject.current !== projectId) return;
       if (latest) setInput(current => current.trim() ? current : `请读取本项目最新完成的硬件方案（需求：${latest.requirement.slice(0, 300)}），先说明方案的关键设计、待核验风险和下一步可执行工作。未经我确认，不要修改工程文件。`);
       setView("conversation");
     } finally { setOpeningConversation(false); }
@@ -295,7 +304,7 @@ export function AgentWorkbench() {
         method: "POST",
         body: JSON.stringify({ input, model: profile.model, providerId: profile.providerId }),
       });
-      setInput("");
+      if (activeProject.current === projectId) setInput("");
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : "任务提交失败");
     } finally {
@@ -360,6 +369,19 @@ export function AgentWorkbench() {
   const connectionColor = connection === "connected" ? "bg-emerald-500" : connection === "idle" ? "bg-muted-foreground" : "bg-amber-500";
 
   return <div aria-label="Agent 项目工作区" className="flex h-full min-h-0 min-w-0 flex-col overflow-hidden">
+    <header className="shrink-0 space-y-2 border-b bg-card/60 px-4 py-3">
+      <div className="flex flex-wrap items-center gap-3"><h1 className="font-semibold">{workflow.title}</h1><ModuleHelp module={mode} />
+        <select aria-label="当前工作项目" className="min-w-0 max-w-full rounded-md border bg-background p-1.5 text-sm" value={projectId}
+          disabled={sending || openingConversation} onChange={event => {
+            const project = projects.find(item => item.id === event.target.value);
+            if (project) { selectProjectInUrl(project.id); selectProject(project); }
+          }}><option value="" disabled>请选择项目</option>{projects.map(project => <option key={project.id} value={project.id}>{project.name}</option>)}</select>
+        {projectId && <nav aria-label="项目工作入口" className="flex flex-wrap gap-3 text-sm">
+          {(["agent", "debug", "embedded"] as const).map(target => <Link key={target} aria-current={target === mode ? "page" : undefined} className="text-primary" href={`/app/${target}?project=${encodeURIComponent(projectId)}`}>{projectWorkflows[target].title}</Link>)}
+        </nav>}
+      </div>
+      {mode !== "agent" && <p className="text-xs text-muted-foreground">与 Agent 项目共用资料、会话、审批和产物。先读取资料制定计划，再确认实际执行；页面不会模拟设备连接、编译或烧录成功。事件连接不代表 USB 已连接。</p>}
+    </header>
     <div className="flex shrink-0 items-center justify-between gap-2 border-b border-border/70 px-3 py-2 lg:hidden">
       <Button size="sm" variant="ghost" aria-controls="agent-project-list" aria-expanded={mobilePanel === "projects"} onClick={() => setMobilePanel(current => current === "projects" ? null : "projects")}>项目列表</Button>
       <span className="min-w-0 truncate text-xs text-muted-foreground">{projects.find(project => project.id === projectId)?.name ?? "选择项目"}</span>
@@ -367,10 +389,10 @@ export function AgentWorkbench() {
     </div>
     <div className="grid min-h-0 flex-1 grid-cols-1 grid-rows-[minmax(0,1fr)] lg:grid-cols-[240px_minmax(0,1fr)_300px]">
     <aside id="agent-project-list" aria-label="项目列表" className={`${mobilePanel === "projects" ? "block" : "hidden"} min-h-0 min-w-0 overflow-y-auto overscroll-contain border-r border-border/70 bg-card/40 p-4 lg:block`}>
-      <div className="mb-4 flex items-center justify-between"><div className="flex items-center gap-1"><h1 className="text-sm font-semibold">Agent 项目</h1><ModuleHelp module="agent" /></div><Button size="icon" variant="ghost" className="h-7 w-7" title="新建项目" onClick={createProject}><Plus className="h-4 w-4" /></Button></div>
+      <div className="mb-4 flex items-center justify-between"><div className="flex items-center gap-1"><h2 className="text-sm font-semibold">项目列表</h2></div><Button size="icon" variant="ghost" className="h-7 w-7" title="新建项目" onClick={createProject}><Plus className="h-4 w-4" /></Button></div>
       <div className="mb-2 flex gap-2"><Input value={newProject} onChange={(event) => setNewProject(event.target.value)} onKeyDown={(event) => event.key === "Enter" && void createProject()} placeholder="项目名称" className="h-8 text-xs" /></div>
       <select aria-label="项目执行器" value={newRunnerKey} onChange={(event) => setNewRunnerKey(event.target.value)} className="mb-3 h-8 w-full rounded-md border border-border bg-background px-2 text-xs" disabled={!runners.length}><option value="">暂无可用执行器</option>{runners.map((runner) => <option key={runner.runnerKey} value={runner.runnerKey}>{runner.name}{runner.capabilities.includes("usb-device") ? " · USB 设备" : " · 云端"}</option>)}</select>
-      <div className="space-y-1">{projects.map((project) => <button key={project.id} onClick={() => { selectProjectInUrl(project.id); selectProject(project); }} className={`flex w-full items-center gap-2 rounded-md px-2.5 py-2 text-left text-sm ${project.id === projectId ? "bg-primary/10 text-primary" : "text-muted-foreground hover:bg-muted"}`}><FolderKanban className="h-4 w-4" /><span className="truncate">{project.name}</span></button>)}</div>
+      <div className="space-y-1">{projects.map((project) => <button key={project.id} disabled={sending || openingConversation} onClick={() => { selectProjectInUrl(project.id); selectProject(project); }} className={`flex w-full items-center gap-2 rounded-md px-2.5 py-2 text-left text-sm ${project.id === projectId ? "bg-primary/10 text-primary" : "text-muted-foreground hover:bg-muted"}`}><FolderKanban className="h-4 w-4" /><span className="truncate">{project.name}</span></button>)}</div>
       {projectId && <Link href={`/app/agent/${projectId}/knowledge`} className="mt-3 block rounded-md border p-2 text-center text-sm text-primary">项目知识库 · 审核与版本</Link>}
       {projectId && <Link href={`/app/agent/${projectId}/designs`} className="mt-2 block rounded-md border p-2 text-center text-sm text-primary">方案记录 · 进度与下载</Link>}
       {projects.length === 0 && <p className="text-xs text-muted-foreground">还没有项目</p>}
@@ -380,6 +402,15 @@ export function AgentWorkbench() {
       {projectId && <nav aria-label="项目视图" className="flex shrink-0 gap-2 border-b border-border/70 px-5 py-3"><Button size="sm" variant={view === "overview" ? "default" : "ghost"} onClick={() => setView("overview")}>项目概览</Button><Button size="sm" variant={view === "conversation" ? "default" : "ghost"} onClick={() => void openProjectConversation()} disabled={threadsLoading || threadsError || openingConversation}>Agent 会话</Button></nav>}
       {view === "overview" && projectId ? <div className="min-h-0 flex-1 space-y-5 overflow-y-auto overscroll-contain p-5">
         <div><h2 className="text-lg font-semibold">{projects.find(project => project.id === projectId)?.name} · 项目概览</h2><p className="mt-1 text-sm text-muted-foreground">这里保存方案、原理图资料、会话与项目产物；资料是工程分析起点，不代表固件已经生成。</p></div>
+        <section aria-label="项目执行准备" className="space-y-3 rounded-xl border bg-card p-4">
+          <h3 className="font-semibold">{mode === "agent" ? "资料与下一步" : `${workflow.title}准备`}</h3>
+          <p className="text-sm text-muted-foreground">项目绑定执行器：{runners.find(runner => runner.runnerKey === projects.find(project => project.id === projectId)?.runnerKey)?.name ?? projects.find(project => project.id === projectId)?.runnerKey ?? "未指定"}。绑定关系不代表节点当前可执行；提交任务时由服务端核验。云端项目不能仅因电脑插上 USB 就操作本地设备。</p>
+          <Button disabled={threadsLoading || threadsError || openingConversation} onClick={() => {
+            setInput(workflow.prompt);
+            void openProjectConversation();
+          }}>{workflow.action}</Button>
+          <p className="text-xs text-muted-foreground">只预填任务，不自动调用模型。打开会话检查后发送；设备绑定与实际读写须单独确认。</p>
+        </section>
         <ProjectDocuments key={projectId} projectId={projectId} disabled={threadsLoading || threadsError || openingConversation} onAnalyze={() => {
           setInput("请先读取本项目 documents/ 下归档的原理图分析文档，列出已识别的外设、接口与引脚、来源位置和待确认项，再给出开发调试建议。区分 AI 识别草案与实测事实，不要把缺少源码说成没有项目资料；未经我确认不要修改文件或操作设备。");
           void openProjectConversation();
@@ -389,7 +420,7 @@ export function AgentWorkbench() {
           {designLoading && <p className="text-sm text-muted-foreground">正在读取方案…</p>}
           {designError && <p role="alert" className="text-sm text-amber-600">{designError}</p>}
           {!designLoading && !designError && designs.length === 0 && <p className="text-sm text-muted-foreground">暂无方案。可先到方案生成提交需求，或直接开始 Agent 会话。</p>}
-          <div className="space-y-3">{designs.slice(0, 3).map(design => <div key={design.id} className="rounded-lg border p-3"><p className="text-xs text-muted-foreground">{designStatus[design.status]} · {new Date(design.createdAt).toLocaleString("zh-CN")}</p><p className="mt-1 break-words text-sm font-medium">{design.requirement}</p><div className="mt-3 flex flex-wrap gap-3 text-sm"><Link href={`/app/agent/${projectId}/designs`} className="text-primary">查看方案记录</Link>{design.status === "completed" && <a href={apiPath(`/api/design/${design.id}/download`)} className="text-primary">下载方案 Markdown</a>}</div></div>)}</div>
+          <div className="space-y-3">{designs.slice(0, 3).map(design => <div key={design.id} className="rounded-lg border p-3"><p className="text-xs text-muted-foreground">{designStatus[design.status]} · {new Date(design.createdAt).toLocaleString("zh-CN")}</p><p className="mt-1 break-words text-sm font-medium">{design.requirement}</p><div className="mt-3 flex flex-wrap gap-3 text-sm"><Link href={`/app/agent/${projectId}/designs`} className="text-primary">查看方案记录</Link>{design.status === "completed" && <><a href={apiPath(`/api/design/${design.id}/download`)} className="text-primary">下载方案 Markdown</a><a href={apiPath(`/api/design/${design.id}/materials`)} className="text-primary">下载项目资料包 ZIP</a></>}</div></div>)}</div>
           {designs.some(design => design.status === "completed") && <Button className="mt-4" onClick={() => void openProjectConversation(true)} disabled={threadsLoading || threadsError || openingConversation}>{openingConversation ? "正在打开会话…" : "基于最新方案继续"}</Button>}
           {!designLoading && !designError && designs.length === 0 && <Button className="mt-4" onClick={() => void openProjectConversation()} disabled={threadsLoading || threadsError || openingConversation}>开始 Agent 会话</Button>}
         </section>
@@ -416,7 +447,7 @@ export function AgentWorkbench() {
           ? <AgentReasoning key={event.eventId} text={eventText(event)} />
           : <div key={event.eventId} className={`rounded-md border p-3 text-sm ${event.type === "command.output" ? "border-border/60 bg-muted/40 font-mono text-xs" : "border-border/70 bg-card"}`}><div className="mb-1 flex items-center gap-2 text-[11px] text-muted-foreground"><Wrench className="h-3 w-3" />{event.type}</div><p className="whitespace-pre-wrap break-words leading-6">{eventText(event)}</p><WorkflowEvidence data={event.data} /></div>)}
       </AgentConversationViewport>
-      <div aria-label="任务输入区" className="shrink-0 border-t border-border/70 bg-background/95 p-3 sm:p-4"><div className="mx-auto w-full max-w-4xl"><Textarea value={input} onChange={(event) => setInput(event.target.value)} onKeyDown={(event) => { if ((event.metaKey || event.ctrlKey) && event.key === "Enter") void send(); }} placeholder="描述要交给 Agent 的任务..." className="h-20 min-h-20 resize-none overflow-y-auto sm:h-[90px] sm:min-h-[90px]" /><div className="mt-2 flex items-center justify-between gap-3"><p className="text-xs text-muted-foreground">{!threadId ? "请先新建或选择会话。" : !modelProfileId ? "请先在管理台配置可用模型。" : !input.trim() ? "先描述你希望 Agent 完成的工作，再发送任务。" : "检查任务内容后点击发送；打开会话本身不会调用模型。"}</p><Button onClick={send} disabled={sending || !threadId || !input.trim() || !modelProfileId} className="shrink-0 gap-2">{sending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}{sending ? "提交中" : "发送任务"}</Button></div></div></div>
+      <div aria-label="任务输入区" className="shrink-0 border-t border-border/70 bg-background/95 p-3 sm:p-4"><div className="mx-auto w-full max-w-4xl"><Textarea value={input} onChange={(event) => setInput(event.target.value)} onKeyDown={(event) => { if ((event.metaKey || event.ctrlKey) && event.key === "Enter") void send(); }} placeholder="描述要交给 Agent 的任务..." className="h-20 min-h-20 resize-none overflow-y-auto sm:h-[90px] sm:min-h-[90px]" /><div className="mt-2 flex items-center justify-between gap-3"><p className="text-xs text-muted-foreground">{!threadId ? "请先新建或选择会话。" : !modelProfileId ? "请先在管理台配置可用模型。" : !input.trim() ? "先描述你希望 Agent 完成的工作，再发送任务。" : "检查任务内容后点击发送；打开会话本身不会调用模型。"}</p><Button onClick={send} disabled={sending || taskState === "运行中" || !threadId || !input.trim() || !modelProfileId} className="shrink-0 gap-2">{sending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}{sending ? "提交中" : "发送任务"}</Button></div></div></div>
       </> : null}
     </section>
 

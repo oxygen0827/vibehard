@@ -18,6 +18,8 @@ import { requestUser } from "@/lib/server/http";
 import { claimDesign, enqueueDesign, finishDesign, getDesign, listDesigns, listDesignDiagnostics, saveDesignDiagnostics } from "@/lib/server/design-job-store";
 import { GET as detail } from "@/app/api/design/[id]/route";
 import { GET as download } from "@/app/api/design/[id]/download/route";
+import { GET as materialsDownload } from "@/app/api/design/[id]/materials/route";
+import { unzipSync, strFromU8 } from "fflate";
 import { POST } from "@/app/api/design/route";
 import { processNextDesign } from "@/lib/server/design-job-worker";
 import { latestProjectBom } from "@/lib/server/project-bom";
@@ -173,6 +175,8 @@ if (enabled) {
     const ctx = { params: Promise.resolve({ id: job.id }) };
     expect((await detail(req(outsider), ctx)).status).toBe(404);
     expect((await download(req(outsider), ctx)).status).toBe(404);
+    expect((await materialsDownload(req(outsider), ctx)).status).toBe(404);
+    expect((await materialsDownload(req(owner), ctx)).status).toBe(409);
     expect((await download(req(owner), ctx)).status).toBe(409);
     expect((await detail(new NextRequest("https://example.invalid/api/design"), ctx)).status).toBe(401);
     expect(await requireDb().select().from(projects).where(eq(projects.userId, outsider.id))).toHaveLength(0);
@@ -241,6 +245,11 @@ if (enabled) {
     expect(await processNextDesign()).toBe(true);
     expect((await getDesign(owner.id, first.id))?.result).toMatchObject({ ...result, retrieval: { status: "no-match", references: [] } });
     const successful = await getDesign(owner.id, first.id);
+    expect(successful?.result?.materials).toMatchObject({ version: "generation-evidence-v1", items: [{ bomIndex: 0, status: "ambiguous" }] });
+    const packageReply = await materialsDownload(req(owner), { params: Promise.resolve({ id: first.id }) });
+    expect(packageReply.status).toBe(200);
+    const packageFiles = unzipSync(new Uint8Array(await packageReply.arrayBuffer()));
+    expect(JSON.parse(strFromU8(packageFiles["manifest.json"]))).toMatchObject({ projectId: first.projectId, designId: first.id });
     expect(successful?.result?.bom[0].referencePrice).toEqual({ kind: "estimate", display: "¥5（估算）" });
     expect(await latestProjectBom(owner.id, first.projectId, first.id)).toMatchObject({ priceRecorded: true,
       items: [{ model: "MCU", referencePrice: { kind: "estimate", display: "¥5（估算）" } }] });

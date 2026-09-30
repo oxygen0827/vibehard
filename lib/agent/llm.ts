@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { retrievalEvidenceSchema } from "./retrieval-payload";
 import type { BomReferencePrice } from "@/lib/bom-price-snapshots";
+import { materialReportSchema } from "./design-materials";
 
 export const llmPurpose = z.enum(["design", "agent"]);
 export type LlmPurpose = z.infer<typeof llmPurpose>;
@@ -35,6 +36,7 @@ export const designResultSchema = z.object({
   risks: z.array(z.object({ level: z.enum(["高", "中", "低"]), desc: line })).min(1).max(30),
   // Added by the server after parsing model output; never trust model-provided citations.
   retrieval: retrievalEvidenceSchema.optional(),
+  materials: materialReportSchema.optional(),
 });
 type ModelDesignResult = z.infer<typeof designResultSchema>;
 export type DesignResult = Omit<ModelDesignResult, "bom"> & {

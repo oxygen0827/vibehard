@@ -2,6 +2,7 @@ import { z } from "zod";
 import type { DesignResult } from "./llm";
 import type { DesignDiagnostics } from "./design-diagnostics";
 import { recordedOrCurrentBomPrice } from "@/lib/bom-price-snapshots";
+import { materialReportMarkdown } from "./design-materials";
 
 export const designJobInput = z.object({
   requestId: z.uuid(),
@@ -33,5 +34,6 @@ export function designMarkdown(job: DesignJob) {
       const price = recordedOrCurrentBomPrice(x);
       return `- ${x.item}：${x.model} × ${x.qty}；参考单价 ${price.display}${price.kind === "estimate" ? "" : `（${price.supplier} ${price.supplierSku}，${price.minimumQuantity}+ 件，${price.checkedAt} 核查${price.kind === "supplier-reference" ? "，缺货仅供参考" : ""}，${price.sourceUrl}）`}`;
     }),
-    "## 接口", ...job.result.interfaces.map(x => `- ${x}`), "## 风险", ...job.result.risks.map(x => `- [${x.level}] ${x.desc}`)].join("\n\n");
+    "## 接口", ...job.result.interfaces.map(x => `- ${x}`), "## 风险", ...job.result.risks.map(x => `- [${x.level}] ${x.desc}`),
+    ...(job.result.materials ? [materialReportMarkdown(job.result.materials)] : [])].join("\n\n");
 }
