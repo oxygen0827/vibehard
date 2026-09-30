@@ -15,6 +15,12 @@ import type { RuntimeLlm } from "@/lib/agent/llm";
 import { createCanvas, loadImage } from "@napi-rs/canvas";
 
 vi.mock("@/lib/server/llm-client", async original => ({ ...await original<typeof import("@/lib/server/llm-client")>(), callLlm: vi.fn(), providerAddress: vi.fn().mockResolvedValue({ address: "8.8.8.8", family: 4 }) }));
+vi.mock("@/lib/server/project-document-storage", () => ({ assertProjectStorageConfigured: vi.fn(), putProjectOriginal: vi.fn(), ProjectStorageError: class extends Error {} }));
+vi.mock("@/lib/server/project-documents", () => ({
+  beginProjectDocument: vi.fn(async (_user, _project, input) => ({ created: true, document: { id: input.id, objectKey: "private-test-source" } })),
+  markOriginalStored: vi.fn(async () => undefined), completeProjectDocument: vi.fn(async (_id, result) => result), failProjectDocument: vi.fn(async () => undefined),
+}));
+const selectedProjects = new Map<string, string>();
 function pdfBytes(pageCount = 1) {
   const fontId = pageCount + 3;
   const pageIds = Array.from({ length: pageCount }, (_, index) => index + 3);
@@ -45,10 +51,14 @@ beforeEach(() => { globalThis.__vibehardLlmSettings?.clear(); globalThis.__vibeh
 async function fixture(configured = true) {
   const user = await createUser({ email: `${crypto.randomUUID()}@example.invalid`, passwordHash: "test", inviteCode: "test" });
   if (configured) await saveLlm({ purpose: "design", baseUrl: "https://example.com/v1", model: "vision-test", protocol: "responses", apiKey: "test-api-key", revision: null }, user.id);
-  return { user, cookie: `vibehard_session=${createSessionToken(user)}` };
+  const cookie = `vibehard_session=${createSessionToken(user)}`;
+  const project = await createProject(user.id, { name: "识别测试", workspaceKey: crypto.randomUUID() });
+  selectedProjects.set(cookie, project.id);
+  return { user, cookie };
 }
 function upload(cookie = "", file = pdf) {
   const form = new FormData(); form.set("file", file);
+  form.set("projectId", selectedProjects.get(cookie) ?? crypto.randomUUID()); form.set("requestId", crypto.randomUUID());
   return new NextRequest("https://example.com/api/schematic", { method: "POST", headers: { Cookie: cookie }, body: form });
 }
 describe("schematic upload and protocol", () => {

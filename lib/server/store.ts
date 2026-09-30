@@ -11,6 +11,7 @@ import {
   modelProfiles,
   projects,
   projectKnowledge,
+  projectDocuments,
   runnerCommands,
   runnerNodes,
   users,
@@ -28,6 +29,8 @@ import { prepareRetrieval } from "./retrieval-dispatch";
 import { knowledgeManifest } from "@/lib/agent/knowledge";
 import { latestProjectDesign, requireDesignRunner } from "./design-artifacts";
 import { designArtifactPath, designArtifactSchema } from "@/lib/agent/design-artifact";
+import { projectFilesForTurn, requireProjectFilesRunner } from "./project-documents";
+import { projectFilesSchema, projectFilePath } from "@/lib/agent/project-document";
 
 type UserRecord = typeof users.$inferSelect;
 type ProjectRecord = typeof projects.$inferSelect;
@@ -133,6 +136,15 @@ export async function listThreads(userId: string, projectId: string) {
   return db.select().from(agentThreads).where(eq(agentThreads.projectId, projectId)).orderBy(desc(agentThreads.updatedAt));
 }
 
+export async function listProjectArtifacts(userId: string, projectId: string) {
+  if (!(await ownedProject(userId, projectId))) return null;
+  const rows = !db
+    ? memory.artifacts.filter(artifact => artifact.projectId === projectId).sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime()).slice(0, 100)
+    : await db.select({ id: artifacts.id, name: artifacts.name, kind: artifacts.kind, path: artifacts.path })
+      .from(artifacts).where(eq(artifacts.projectId, projectId)).orderBy(desc(artifacts.createdAt)).limit(100);
+  return rows.map(({ id, name, kind, path }) => ({ id, name, kind, path }));
+}
+
 export async function createThread(userId: string, projectId: string, title?: string) {
   const project = await ownedProject(userId, projectId);
   if (!project) return null;
@@ -202,6 +214,10 @@ export async function createTurn(userId: string, threadId: string, input: string
     if (design) { requireDesignRunner(runner); startMessage.design = design.artifact; }
     const previousDesign = previousStart?.design as { sha256?: string } | undefined;
     const designChanged = Boolean(thread.codexThreadId && previousDesign?.sha256 !== design?.artifact.sha256);
+    const projectFiles = await projectFilesForTurn(userId, owned.project.id, tx);
+    if (projectFiles.files.length) { requireProjectFilesRunner(runner); startMessage.projectFiles = projectFiles; }
+    const previousFiles = previousStart?.projectFiles as { revision?: string } | undefined;
+    const filesChanged = Boolean(thread.codexThreadId && previousFiles?.revision !== (projectFiles.files.length ? projectFiles.revision : undefined));
     startMessage.knowledge = prepareKnowledge(publishedSnapshot(documents), thread.codexThreadId, previous, runner);
     const previousRetrieval = (await tx.select({ payload: agentEvents.payload }).from(agentEvents).innerJoin(agentTurns, eq(agentTurns.id, agentEvents.turnId))
       .where(and(eq(agentTurns.threadId, threadId), eq(agentEvents.type, "knowledge.retrieved"))).orderBy(desc(agentEvents.sequence)).limit(1))[0]?.payload.retrieval;
@@ -209,7 +225,7 @@ export async function createTurn(userId: string, threadId: string, input: string
     const retrieved = await retrieveAuthorizedKnowledge({ userId, projectId: owned.project.id, query, purpose: "agent" }, tx);
     const dispatch = prepareRetrieval(retrieved, thread.codexThreadId, previousRetrieval, runner);
     startMessage.retrieval = dispatch.payload;
-    startMessage.codexThreadId = startMessage.knowledge.contextReset || dispatch.contextReset || designChanged ? undefined : thread.codexThreadId ?? undefined;
+    startMessage.codexThreadId = startMessage.knowledge.contextReset || dispatch.contextReset || designChanged || filesChanged ? undefined : thread.codexThreadId ?? undefined;
     await tx.insert(agentTurns).values(record);
     const turnIds = (await tx.select({ id: agentTurns.id }).from(agentTurns).where(eq(agentTurns.threadId, threadId))).map(t => t.id);
     const sequence = (await tx.select({ value: max(agentEvents.sequence) }).from(agentEvents).where(inArray(agentEvents.turnId, turnIds)))[0]?.value ?? -1;
@@ -414,6 +430,15 @@ export async function ingestRunnerEvent(message: RunnerEvent) {
           && source.data.sha256 === event.data.sha256 && designArtifactPath(source.data) === event.data.path) {
           await tx.insert(artifacts).values({ id: source.data.designId, projectId: currentTurn.projectId, name: "硬件方案", kind: "design", path: designArtifactPath(source.data) })
             .onConflictDoUpdate({ target: artifacts.id, set: { path: designArtifactPath(source.data), updatedAt: now() } });
+        }
+      } else if (event.data.kind === "project_document") {
+        const command = (await tx.select({ payload: runnerCommands.payload }).from(runnerCommands)
+          .where(and(eq(runnerCommands.taskId, message.taskId), eq(runnerCommands.runnerKey, message.runnerKey), eq(runnerCommands.type, "task.start"))).limit(1))[0];
+        const payload = projectFilesSchema.safeParse(command?.payload.projectFiles);
+        const file = payload.success ? payload.data.files.find(file => file.documentId === event.data.documentId) : undefined;
+        if (file && file.projectId === currentTurn.projectId && file.sha256 === event.data.sha256 && projectFilePath(file) === event.data.path) {
+          await tx.insert(artifacts).values({ id: file.documentId, projectId: currentTurn.projectId, name: file.title, kind: "project_document", path: projectFilePath(file) }).onConflictDoNothing();
+          await tx.update(projectDocuments).set({ syncedAt: now() }).where(and(eq(projectDocuments.id, file.documentId), eq(projectDocuments.projectId, currentTurn.projectId)));
         }
       } else await tx.insert(artifacts).values({ projectId: currentTurn.projectId, turnId: message.taskId, name: String(event.data.name ?? "Agent artifact"), kind: String(event.data.kind ?? "file"), path: String(event.data.path ?? "") });
     }

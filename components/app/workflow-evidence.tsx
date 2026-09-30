@@ -2,12 +2,15 @@
 
 import { Button } from "@/components/ui/button";
 import type { knowledgeManifest } from "@/lib/agent/knowledge";
+import { z } from "zod";
+const projectFilesEvidence = z.object({ files: z.array(z.object({ documentId: z.uuid(), title: z.string(), path: z.string(), sha256: z.string() })).max(20) });
 
 export function WorkflowEvidence({ data }: { data: Record<string, unknown> }) {
   const metadata = data.workflow as { id?: string; version?: string } | undefined;
   const report = typeof data.workflowReport === "string" ? data.workflowReport : undefined;
   const knowledge = data.knowledge as ReturnType<typeof knowledgeManifest> | undefined;
   const design = data.design as { path?: string } | undefined;
+  const privateFiles = projectFilesEvidence.safeParse(data.projectFiles);
   function download() {
     const url = URL.createObjectURL(new Blob([report ?? ""], { type: "text/markdown;charset=utf-8" }));
     const link = document.createElement("a");
@@ -18,6 +21,11 @@ export function WorkflowEvidence({ data }: { data: Record<string, unknown> }) {
   }
   return <>
     {typeof design?.path === "string" && <p className="mt-2 break-all text-xs text-muted-foreground">本轮方案文件：{design.path}</p>}
+    {privateFiles.success && privateFiles.data.files.length > 0 && <details className="mt-2 rounded border p-3 text-xs text-muted-foreground">
+      <summary className="cursor-pointer">本轮私有项目资料：{privateFiles.data.files.length} 份已同步 · 未人工复核</summary>
+      <p className="mt-2">已校验并放入工作区；实际读取命令见下方工具记录。这不是知识库发布或硬件验证证明。</p>
+      {privateFiles.data.files.map(file => <div key={file.documentId} className="mt-2 break-all"><p>{file.title}</p><p>{file.path}</p><p>SHA256：{file.sha256}</p></div>)}
+    </details>}
     {knowledge && Array.isArray(knowledge.documents) && <div className="mt-2 text-xs text-muted-foreground">
       <p>本轮项目知识：{knowledge.documents.length ? knowledge.documents.map(doc => `${doc.title} v${doc.version}`).join("、") : "未加载正式资料"}（本轮固定快照，不代表硬件验证通过）</p>
       {knowledge.contextReset && <p className="mt-1 text-amber-600">知识版本变更，已重建模型上下文；旧对话仍保留在网页，但本轮需写全任务需求。</p>}

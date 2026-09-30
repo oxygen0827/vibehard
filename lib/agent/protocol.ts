@@ -2,6 +2,7 @@ import { z } from "zod";
 import { knowledgeSnapshotSchema, type KnowledgeSnapshot } from "./knowledge";
 import { retrievalPayloadSchema, type RetrievalPayload } from "./retrieval-payload";
 import { designArtifactSchema, type DesignArtifact } from "./design-artifact";
+import { projectFilesSchema, type ProjectFiles } from "./project-document";
 
 export const RUNNER_PROTOCOL_VERSION = 1 as const;
 
@@ -62,6 +63,7 @@ export interface TaskStart extends Envelope {
   knowledge?: KnowledgeSnapshot;
   retrieval?: RetrievalPayload;
   design?: DesignArtifact;
+  projectFiles?: ProjectFiles;
 }
 
 export interface TaskInterrupt extends Envelope {
@@ -157,6 +159,7 @@ const taskStartSchema = envelopeSchema.extend({
   knowledge: knowledgeSnapshotSchema.optional(),
   retrieval: retrievalPayloadSchema.optional(),
   design: designArtifactSchema.optional(),
+  projectFiles: projectFilesSchema.optional(),
 });
 
 const taskInterruptSchema = envelopeSchema.extend({

@@ -1,5 +1,7 @@
 # 文档索引
 
+- [统一项目选择与原理图资料归档](project-document-archive.md)：本地第一条项目链路、私有 OSS/数据库/Runner 目录、权限与失败边界及待发布门槛。
+
 - [原理图正文校验发布](release-schematic-result-20260929.md)：5952 字符上限、同图正式 DeepSeek 验收、平台发布及回滚。
 
 - [RV1126B 设备入口发布](release-rv1126b-entry-20260928.md)：独立 VibeBoard 入口说明、前端候选/正式保护检查、边界与回滚。

@@ -1,19 +1,24 @@
-// Explicit post-deployment synthetic test; no project writes or account changes.
+// Explicit post-deployment synthetic test. Archives a source/result in an explicitly selected test project.
 import assert from "node:assert/strict";
-import { createHmac, randomUUID } from "node:crypto";
-import { spawnSync } from "node:child_process";
+import { randomUUID } from "node:crypto";
 assert.equal(process.env.ALLOW_SCHEMATIC_MODEL_TEST, "synthetic-only");
-const database = new URL(process.env.DATABASE_URL); assert.equal(database.pathname, "/vibehard");
-const env = { ...process.env, PGHOST: database.hostname, PGPORT: database.port || "5432", PGUSER: decodeURIComponent(database.username), PGPASSWORD: decodeURIComponent(database.password), PGDATABASE: "vibehard" };
-const query = spawnSync("/usr/bin/psql", ["-X", "-t", "-A", "-c", "select json_build_object('id',id,'email',email,'name',name,'role',role) from users where email='ldkj@admin.com' and role='admin'"], { env, encoding: "utf8" });
-assert.equal(query.status, 0); const user = JSON.parse(query.stdout.trim()); assert.ok(user);
-const payload = Buffer.from(JSON.stringify({ ...user, exp: Date.now() + 300_000 })).toString("base64url");
-const headers = { Cookie: `vibehard_session=${payload}.${createHmac("sha256", process.env.SESSION_SECRET).update(payload).digest("base64url")}` };
+assert.equal(process.env.ALLOW_SCHEMATIC_ARCHIVE_TEST, "synthetic-project");
+const projectId = process.env.SCHEMATIC_TEST_PROJECT_ID;
+assert.match(projectId ?? "", /^[a-f0-9-]{36}$/i, "Select an owned, disposable acceptance project explicitly");
 const base = "https://ldcx.tech/vibehard";
+// Use a dedicated acceptance account via the normal login endpoint. No DB secrets or forged sessions.
+assert.ok(process.env.SCHEMATIC_TEST_EMAIL && process.env.SCHEMATIC_TEST_PASSWORD, "Dedicated test account credentials are required");
+const login = await fetch(`${base}/api/auth/login`, { method: "POST", headers: { "Content-Type": "application/json" },
+  body: JSON.stringify({ email: process.env.SCHEMATIC_TEST_EMAIL, password: process.env.SCHEMATIC_TEST_PASSWORD }), signal: AbortSignal.timeout(15_000) });
+assert.equal(login.status, 200, "Test account login failed");
+const sessionCookie = login.headers.getSetCookie().find(cookie => cookie.startsWith("vibehard_session="))?.split(";")[0];
+assert.ok(sessionCookie, "Missing test session");
+const headers = { Cookie: sessionCookie };
 const small = process.argv[2] === "--small";
 async function upload(bytes, name) {
   const form = new FormData(); form.set("file", new Blob([bytes], { type: "application/pdf" }), name);
-  return fetch(`${base}/api/schematic`, { method: "POST", headers, body: form, signal: AbortSignal.timeout(110_000) });
+  form.set("projectId", projectId); form.set("requestId", randomUUID());
+  return fetch(`${base}/api/schematic`, { method: "POST", headers, body: form, signal: AbortSignal.timeout(150_000) });
 }
 if (!small) {
   const tooLarge = await upload(Buffer.alloc(5 * 1024 * 1024 + 1), "oversized.pdf");
@@ -43,4 +48,5 @@ const result = events.find(event => event.type === "result")?.result; assert.ok(
 assert.ok((result.draft.title + result.draft.content).includes(marker));
 assert.ok(result.draft.content.includes("R7") && result.draft.content.includes("D2"));
 assert.equal(result.draft.kind, "schematic"); assert.match(result.fileSha256, /^[a-f0-9]{64}$/);
+assert.equal(result.archive?.projectId, projectId); assert.ok(result.archive?.path.startsWith("documents/"));
 console.log(JSON.stringify({ publicModelRequest: true, fileBytes: Buffer.byteLength(pdf), model: result.model, markerRead: true, componentsRead: ["R7", "D2"], heartbeatCount: events.filter(event => event.type === "heartbeat").length, elapsedSeconds: (Date.now() - started) / 1000, noKnowledgeSubmitted: true }));
