@@ -5,6 +5,7 @@ const entries = {
   "knowledge-batch-control": "scripts/knowledge-batch-control.ts",
   "accept-agent-retrieval": "scripts/accept-agent-retrieval.ts",
   "accept-project-archive": "scripts/accept-project-archive.ts",
+  "accept-retrieval-load": "scripts/accept-retrieval-load.ts",
   "knowledge-retrieval": "scripts/knowledge-retrieval-worker.ts",
   "design-worker": "scripts/design-worker.ts",
   gateway: "gateway/index.ts",

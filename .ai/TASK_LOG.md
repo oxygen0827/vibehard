@@ -4,6 +4,26 @@
 
 真实任务条目从本行下方开始。
 
+## 2026-09-30 Task: 完整 VibeHard 版本统一发布准备
+
+- Authorization: 用户确认将聊天区优化一起上线，并统一服务后清理旧发布包；不动独立 VibeBoard、Docker、数据或设备。
+- Scope: 增加完整打包/分阶段发布脚本、独立候选 Worker 与检索负载门槛；既有真实归档验收扩展可选方案/RAG/BOM 验证，旧验收模式兼容。
+- Evidence: 本地 394 常规测试通过/22 跳过，类型/lint/服务构建通过；GitHub 默认分支与基线一致。当前尚未激活或清理，完整旧目录下载被安全审核阻止，已明确询问用户对可能含敏感备份的本机下载授权；不绕过该限制。详见 `docs/release-unified-platform-20260930.md`。
+
+## 2026-09-30 Task: 服务器容量与目录只读盘点
+
+- Scope: 用户要求解释仅剩 2 GB 并列目录；只读 SSH 元数据，无删除、重启、部署、模型调用或密钥正文读取。
+- Evidence: 13:58–14:02 根盘总 39.01 GiB/已用 35.21/可用 2.00，95%；VibeHard releases 10.86 GiB（48 目录、35 压缩包共 2.42 GiB），Docker 7.84 GiB，VibeBoard 4.52 GiB（历史发布 3.50）。当前平台 release 仅 203 MiB，知识索引目录 102 MiB，整个 PostgreSQL 数据目录 157 MiB；主要是历史交付物/镜像积累，非知识原件撑满。
+- Boundary: Worker/检索/EDA 仍依赖不同旧日期 release；按需 EDA 镜像无运行容器不代表可删。未认定具体删除白名单，未改服务器。发现 VibeBoard 备份服务 failed，原因未诊断。详细脱敏目录报告在 `/private/tmp/vibehard-server-storage-20260930.md`，不提交服务器原始日志。
+
+## 2026-09-30 Task: Agent 会话固定区域与历史滚动
+
+- Scope: 用户希望像 Codex 一样在固定区域阅读对话；独立 `codex/agent-chat-scroll` 基于 `fdb8436`，不改主工作区未提交内容，只调整前端布局、滚动交互及测试。
+- Change: 会话外层从最小高度改为受屏幕高度约束，消息区独立滚动、输入框固定；流式回复仅在读者位于底部时跟随，上翻历史/展开推理或证据暂停跟随，“回到最新”恢复。两侧栏独立滚动；窄屏用项目/审批按钮切换，不堆叠挤出会话。
+- Evidence: 新增 6 项滚动回归，完整 Vitest 394 通过/22 条件跳过，TypeScript、定向 ESLint、`NEXT_PUBLIC_BASE_PATH=/vibehard pnpm build` 通过。`scripts/verify-agent-chat-ui.mjs` 使用本机临时内存注册与合成 SSE，验证桌面/手机/小屏/平板四种尺寸、长历史/流式增长/无空格长文本、输入区可见、历史停留和窄屏面板切换；无整页或消息横向溢出。
+- Browser finding: 补测实际展开长推理时复现原生 `toggle` 晚于布局变更，自动跟随可能抢先跳转；改为在 summary 点击捕获阶段暂停，保留 toggle 处理程序式展开。浏览器重新验证展开后的当前位置及后续消息不抢焦点通过；临时浏览器与内存开发服务已停止。
+- Boundary: 未提交、推送或上线；未调用真实模型、未修改认证、数据库、审批语义、Runner 协议或生产服务。本轮 22 项数据库/KiCad 条件测试未运行，不以合成 UI 验收宣称后端端到端通过。
+
 ## 2026-09-30 Task: 发布统一项目选择与原理图归档
 
 - Authorization: 用户要求上线；独立工作树，未改主工作区未提交内容。

@@ -15,9 +15,9 @@ export default function AppLayout({
 
       <div className="relative z-10 flex h-dvh flex-col">
         <AppNav />
-        <div className="flex flex-1 overflow-hidden">
+        <div className="flex min-h-0 flex-1 overflow-hidden">
           <AppSidebar />
-          <div className="flex-1 overflow-y-auto">{children}</div>
+          <div className="min-w-0 flex-1 overflow-y-auto">{children}</div>
         </div>
       </div>
     </main>
