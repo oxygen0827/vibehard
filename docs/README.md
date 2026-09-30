@@ -1,6 +1,6 @@
 # 文档索引
 
-- [项目资料配套与统一工作入口](project-materials-workflow.md)：本地第一阶段的方案配套检查、项目资料包和真实 Agent 共用页面；尚未上线，含检索范围、设备边界和验收记录。
+- [项目资料配套与统一工作入口](project-materials-workflow.md)：已上线的方案配套检查、项目资料包和真实 Agent 共用页面；含检索范围、设备边界，[发布验收与回滚](release-project-materials-20260930.md)。
 
 - [完整运行版本统一发布与保留策略](release-unified-platform-20260930.md)：9/30 六服务统一上线、真实验收、完整回滚集合、历史版本备份清理及恢复边界。
 
