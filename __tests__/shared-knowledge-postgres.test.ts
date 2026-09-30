@@ -2,7 +2,7 @@
 import { randomUUID } from "node:crypto";
 import { eq, inArray } from "drizzle-orm";
 import { afterEach, describe, expect, it, vi } from "vitest";
-vi.mock('@/lib/server/retrieval-client', () => ({ queryPrivateIndex: vi.fn().mockResolvedValue({ sources: [], revision: 'a'.repeat(64) }) }));
+vi.mock('@/lib/server/retrieval-client', () => ({ queryPrivateIndex: vi.fn().mockResolvedValue({ sources: [], revision: 'a'.repeat(64) }), privateIndexRevision: vi.fn().mockResolvedValue('a'.repeat(64)) }));
 import { queryPrivateIndex } from '@/lib/server/retrieval-client';
 import { retrieveAuthorizedKnowledge } from '@/lib/server/knowledge-retrieval-service';
 import { requireDb } from "@/lib/db";

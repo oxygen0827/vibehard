@@ -29,7 +29,7 @@ vi.mock("@/lib/server/project-document-storage", async original => ({
 }));
 vi.mock("@/lib/server/llm-settings", async original => ({ ...await original<typeof import("@/lib/server/llm-settings")>(), runtimeLlm: vi.fn().mockResolvedValue({ model: "isolated-vision", baseUrl: "https://example.invalid", apiKey: "fixture-not-real", protocol: "responses" }) }));
 vi.mock("@/lib/server/llm-client", async original => ({ ...await original<typeof import("@/lib/server/llm-client")>(), callLlm: vi.fn() }));
-vi.mock("@/lib/server/retrieval-client", () => ({ queryPrivateIndex: vi.fn().mockResolvedValue({ sources: [], revision: "a".repeat(64) }) }));
+vi.mock("@/lib/server/retrieval-client", () => ({ queryPrivateIndex: vi.fn().mockResolvedValue({ sources: [], revision: "a".repeat(64) }), privateIndexRevision: vi.fn().mockResolvedValue("a".repeat(64)) }));
 const enabled = process.env.VIBEHARD_DOCUMENT_TEST_DATABASE === "1";
 if (enabled) {
   const url = new URL(process.env.DATABASE_URL!);

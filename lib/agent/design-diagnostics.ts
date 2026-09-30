@@ -1,4 +1,4 @@
-export const designPhases = { queue: "排队", config: "读取模型配置", retrieval: "检索知识库", model: "请求模型", validation: "解析与校验", saving: "保存方案" } as const;
+export const designPhases = { queue: "排队", config: "读取模型配置", retrieval: "检索知识库", model: "请求模型", validation: "解析与校验", materials: "逐器件资料补检索", saving: "保存方案" } as const;
 export type DesignPhase = keyof typeof designPhases;
 export type DesignErrorCode = "CONFIG_MISSING" | "DNS" | "CONNECT" | "RATE_LIMIT" | "QUOTA" | "AUTH" | "PROTOCOL" | "OUTPUT_LIMIT" | "TIMEOUT" | "FORMAT" | "LEASE_EXPIRED" | "QUEUE_EXPIRED" | "RETRIEVAL" | "STORAGE" | "INTERNAL";
 export type PhaseTiming = { phase: DesignPhase; startedAt: string; endedAt?: string; durationMs?: number };

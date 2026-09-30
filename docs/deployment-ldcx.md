@@ -1,6 +1,10 @@
 # ldcx.tech deployment
 
-## Unified release and retention, 2026-09-30 18:05 CST (current)
+## Project materials release, 2026-09-30 19:18 CST (current)
+
+Only platform/API and design worker now use `/opt/vibehard/releases/20260930-project-materials-v1`; Runner, Gateway, restricted retrieval, EDA manager and knowledge CLI remain on `20260930-unified-platform-v2`. Retain both. PR #36 and merged default CI passed, as did isolated and public real-model generation, package hashes/ownership, actual Agent file reads and project ZIP contents. No production migration, index/configuration/credential changes or device operation. Two prior units and a readable database backup are retained; candidate 3211 is stopped. See [release evidence and the two-service rollback command](release-project-materials-20260930.md).
+
+## Unified release and retention, 2026-09-30 18:05 CST (previous)
 
 The platform, cloud Runner, Gateway, design worker, restricted retrieval and EDA manager all load code from `/opt/vibehard/releases/20260930-unified-platform-v2`. The knowledge CLI is also bundled there. This preserves the complete previous source overlay, PCB/Demo assets, databases, project files, indexes and configuration. Exact release hashes, real-model acceptance and the current rollback command are in [the unified release record](release-unified-platform-20260930.md).
 

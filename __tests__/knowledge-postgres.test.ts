@@ -1,6 +1,6 @@
 import { eq } from "drizzle-orm";
 import { describe, expect, it, vi } from "vitest";
-vi.mock('@/lib/server/retrieval-client', () => ({ queryPrivateIndex: vi.fn().mockResolvedValue({ sources: [], revision: 'a'.repeat(64) }) }));
+vi.mock('@/lib/server/retrieval-client', () => ({ queryPrivateIndex: vi.fn().mockResolvedValue({ sources: [], revision: 'a'.repeat(64) }), privateIndexRevision: vi.fn().mockResolvedValue('a'.repeat(64)) }));
 import { queryPrivateIndex } from '@/lib/server/retrieval-client';
 import { requireDb } from "@/lib/db";
 import { runnerCommands, users } from "@/lib/db/schema";

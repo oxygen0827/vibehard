@@ -2,6 +2,7 @@ import { mkdir, readFile } from "node:fs/promises";
 import { build } from "esbuild";
 
 const entries = {
+  "accept-project-material-lock": "scripts/accept-project-material-lock.ts",
   "accept-project-materials": "scripts/accept-project-materials.ts",
   "knowledge-batch-control": "scripts/knowledge-batch-control.ts",
   "accept-agent-retrieval": "scripts/accept-agent-retrieval.ts",

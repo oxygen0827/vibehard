@@ -8,9 +8,10 @@ import { DatabaseSync } from 'node:sqlite';
 import { atomicControl, evaluateBatch, fileHash, indexBuildId, lockControl, registerBatch, requireBatchAdministrator, selectedBatch, transitionBatch, validateBatchPackage } from '@/lib/server/knowledge-batch-control';
 import { closeIndexedKnowledge, searchIndexedKnowledge } from '@/lib/server/oss-knowledge-index';
 import { createRetrievalServer, indexPolicy, searchIndexSet } from '@/lib/server/retrieval-daemon';
-import { queryPrivateIndex } from '@/lib/server/retrieval-client';
+import { queryPrivateIndex, privateIndexRevision } from '@/lib/server/retrieval-client';
 import type { BatchManifest } from '@/lib/server/knowledge-batch-policy';
 import { activateInSet, ACTIVE_INDEX_BUDGET, checkIndexSetBudget, indexSet } from '@/lib/server/knowledge-index-set';
+import { supplementDesignMaterials } from '@/lib/server/project-material-lock';
 
 const roots: string[] = [];
 afterEach(() => { closeIndexedKnowledge(); delete process.env.VIBEHARD_DISABLED_SOURCES_FILE; for (const p of roots.splice(0)) rmSync(p, { recursive: true }); });
@@ -52,8 +53,15 @@ describe('controlled shared ingestion', () => {
     const server=createRetrievalServer(paths); await new Promise<void>(resolve=>server.listen(socket,resolve));
     try {
       const [esp,rv]=await Promise.all([queryPrivateIndex('ESP32-S3 schematic USB'),queryPrivateIndex('RV1106 schematic USB')]);
+      expect(await privateIndexRevision()).toBe(esp.revision);
       expect(esp.sources.map(s=>s.version.sha256)).toEqual([a.sha]); expect(rv.sources.map(s=>s.version.sha256)).toEqual([b.sha]);
       expect(rv.sources[0].version.source).toContain('#page=3&part=1');
+      const projectId = randomUUID();
+      const boardLock = await supplementDesignMaterials({ userId: randomUUID(), projectId, designId: randomUUID(), bom: [{ model: 'ESP32-S3-Touch-LCD-2.8C' }, { model: 'ESP32-S3-Touch-LCD-2.8D' }] }, new AbortController().signal, 8000,
+        { load: async () => ({ projectId, sources: [], publishedRevision: [] }), revision: privateIndexRevision, search: queryPrivateIndex });
+      expect(boardLock.items.map(item=>item.status)).toEqual(['matched','missing']);
+      expect(boardLock.references[0]).toMatchObject({ version: 2, sha256: a.sha, reviewStatus: 'auto-indexed' });
+      expect(boardLock.references[0].source).toContain('#page=3&part=1');
       const timings:number[]=[];
       for(let i=0;i<30;i++) await Promise.all(['ESP32-S3 schematic','RV1106 schematic'].map(async query=>{
         const start=performance.now(); const result=await queryPrivateIndex(query); timings.push(performance.now()-start);
@@ -62,6 +70,7 @@ describe('controlled shared ingestion', () => {
       timings.sort((x,y)=>x-y); expect(timings[56]).toBeLessThan(500);
       expect(process.memoryUsage().rss).toBeLessThan(384*1024**2);
       atomicControl(disabled,[a.sha]); const revoked=await queryPrivateIndex('ESP32-S3 schematic');
+      expect(await privateIndexRevision()).toBe(revoked.revision);
       expect(revoked.sources).toEqual([]); expect(revoked.revision).not.toBe(esp.revision);
       expect((await queryPrivateIndex('RV1106 schematic')).sources).toHaveLength(1);
       expect(await searchIndexSet('ESP32-S3-Unknown-Variant-999 schematic',paths,new Set())).toEqual([]);

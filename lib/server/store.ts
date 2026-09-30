@@ -24,10 +24,10 @@ import { publicLlm } from "./llm-settings";
 import { getProjectKnowledge } from "./knowledge-store";
 import { publishedSnapshot } from "./knowledge-state";
 import { prepareKnowledge } from "./knowledge-dispatch";
-import { retrieveAuthorizedKnowledge } from "./knowledge-retrieval-service";
+import { retrieveProjectMaterials } from "./project-material-lock";
 import { prepareRetrieval } from "./retrieval-dispatch";
 import { knowledgeManifest } from "@/lib/agent/knowledge";
-import { latestProjectDesign, requireDesignRunner } from "./design-artifacts";
+import { latestProjectDesign, requireDesignRunner, designArtifactForTurn } from "./design-artifacts";
 import { designArtifactPath, designArtifactSchema } from "@/lib/agent/design-artifact";
 import { projectFilesForTurn, requireProjectFilesRunner } from "./project-documents";
 import { projectFilesSchema, projectFilePath } from "@/lib/agent/project-document";
@@ -211,9 +211,8 @@ export async function createTurn(userId: string, threadId: string, input: string
     const previous = previousStart?.knowledge;
     const runner = (await tx.select().from(runnerNodes).where(eq(runnerNodes.runnerKey, owned.project.runnerKey ?? process.env.DEFAULT_RUNNER_KEY ?? "local-runner")).limit(1))[0];
     const design = await latestProjectDesign(userId, owned.project.id, tx);
-    if (design) { requireDesignRunner(runner); startMessage.design = design.artifact; }
+    if (design) requireDesignRunner(runner);
     const previousDesign = previousStart?.design as { sha256?: string } | undefined;
-    const designChanged = Boolean(thread.codexThreadId && previousDesign?.sha256 !== design?.artifact.sha256);
     const projectFiles = await projectFilesForTurn(userId, owned.project.id, tx);
     if (projectFiles.files.length) { requireProjectFilesRunner(runner); startMessage.projectFiles = projectFiles; }
     const previousFiles = previousStart?.projectFiles as { revision?: string } | undefined;
@@ -222,7 +221,11 @@ export async function createTurn(userId: string, threadId: string, input: string
     const previousRetrieval = (await tx.select({ payload: agentEvents.payload }).from(agentEvents).innerJoin(agentTurns, eq(agentTurns.id, agentEvents.turnId))
       .where(and(eq(agentTurns.threadId, threadId), eq(agentEvents.type, "knowledge.retrieved"))).orderBy(desc(agentEvents.sequence)).limit(1))[0]?.payload.retrieval;
     const query = design ? `${input}\n项目方案需求：${design.requirement}`.slice(0, 50000) : input;
-    const retrieved = await retrieveAuthorizedKnowledge({ userId, projectId: owned.project.id, query, purpose: "agent" }, tx);
+    const materials = await retrieveProjectMaterials({ userId, projectId: owned.project.id, query, designId: design?.job.id,
+      bom: design?.job.result?.bom, lock: design?.job.result?.materialsLock }, tx);
+    if (design) startMessage.design = designArtifactForTurn(design.job, materials.lockState);
+    const designChanged = Boolean(thread.codexThreadId && previousDesign?.sha256 !== startMessage.design?.sha256);
+    const retrieved = materials.retrieval;
     const dispatch = prepareRetrieval(retrieved, thread.codexThreadId, previousRetrieval, runner);
     startMessage.retrieval = dispatch.payload;
     startMessage.codexThreadId = startMessage.knowledge.contextReset || dispatch.contextReset || designChanged || filesChanged ? undefined : thread.codexThreadId ?? undefined;
@@ -230,7 +233,7 @@ export async function createTurn(userId: string, threadId: string, input: string
     const turnIds = (await tx.select({ id: agentTurns.id }).from(agentTurns).where(eq(agentTurns.threadId, threadId))).map(t => t.id);
     const sequence = (await tx.select({ value: max(agentEvents.sequence) }).from(agentEvents).where(inArray(agentEvents.turnId, turnIds)))[0]?.value ?? -1;
     await tx.insert(agentEvents).values({ turnId: record.id, eventId: randomUUID(), type: "knowledge.retrieved", sequence: sequence + 1,
-      payload: { retrieval: dispatch.evidence, contextReset: dispatch.contextReset, origin: "platform" } });
+      payload: { retrieval: dispatch.evidence, contextReset: dispatch.contextReset, origin: materials.cached ? "project-material-lock" : "platform", materialLockState: materials.lockState } });
     await tx.insert(runnerCommands).values({ taskId: record.id, runnerKey: owned.project.runnerKey ?? process.env.DEFAULT_RUNNER_KEY ?? "local-runner", type: startMessage.type, payload: startMessage as unknown as Record<string, unknown> });
     await tx.insert(auditLogs).values({ userId, projectId: owned.project.id, action: "turn.queued", metadata: { turnId: record.id, model } });
   });

@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { execFileSync, spawnSync } from 'node:child_process';
 const ssh = ['-o', 'UseKeychain=yes', '-o', 'BatchMode=yes', '-i', '/Users/hushaohong/.ssh/ldcx_vibeboard_deploy', 'root@47.102.197.71'];
 for (const [database, tests] of [
-  ['vibehard_design_test', ['__tests__/design-postgres.test.ts', '__tests__/store-postgres.test.ts', '__tests__/knowledge-postgres.test.ts']],
+  ['vibehard_design_test', ['__tests__/design-postgres.test.ts', '__tests__/store-postgres.test.ts', '__tests__/knowledge-postgres.test.ts', '__tests__/project-material-lock-postgres.test.ts']],
   ['vibehard_rag_test', ['__tests__/shared-knowledge-postgres.test.ts']],
 ]) {
   // Credentials only in memory/environment, never command arguments or logs.

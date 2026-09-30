@@ -25,7 +25,7 @@ export function exactPart(model: string): string | null {
   if (parts.length !== 1 || /或|同类|待选|待定|系列|兼容|\bor\b/i.test(model)) return null;
   return parts[0];
 }
-function referenceKind(title: string, source: string): keyof typeof materialKinds {
+export function referenceKind(title: string, source: string): keyof typeof materialKinds {
   // Classify the document label, never an arbitrary occurrence in an excerpt.
   const label = `${title} ${source.split("#", 1)[0].split("/").at(-1)}`;
   if (/原理图|schematic/i.test(label)) return "schematic";
@@ -33,6 +33,12 @@ function referenceKind(title: string, source: string): keyof typeof materialKind
   if (/datasheet|reference.?manual|数据手册|技术手册/i.test(label)) return "datasheet";
   if (/驱动|示例|driver|example|demo/i.test(label)) return "example";
   return "other";
+}
+export function referenceMatchesPart(model: string, reference: { title: string; source: string }) {
+  const file = reference.source.split("#", 1)[0].split("/").at(-1) ?? "";
+  const words = `${reference.title} ${file.replace(/\.(pdf|md|txt|html?)$/i, "")}`.toUpperCase().match(/[A-Z0-9]+(?:[-_.+][A-Z0-9]+)*/g) ?? [];
+  // Only strip a document-type suffix, never a board/chip variant suffix.
+  return words.some(word => word === model || word.replace(/[-_](?:DATASHEET|SCHEMATIC|PINMAP|PINOUT|MANUAL|DRIVER|EXAMPLE|DEMO)(?:[-_](?:CN|EN|ZH|V\d+))*$/, "") === model);
 }
 export function checkDesignMaterials(bom: { model: string }[], evidence: RetrievalEvidence, now = new Date()): MaterialReport {
   return materialReportSchema.parse({

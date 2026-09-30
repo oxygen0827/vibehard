@@ -8,11 +8,13 @@ import { publishedSnapshot } from "./knowledge-state";
 import { queryPrivateIndex } from "./retrieval-client";
 
 const input = z.object({ userId: z.uuid(), projectId: z.uuid().optional(), query: z.string().min(1).max(50000), purpose: z.enum(["design", "agent", "eda"]) });
+export type KnowledgeReader = Pick<ReturnType<typeof requireDb>, "select">;
+export type AuthorizedCorpus = { projectId?: string; sources: RetrievalSource[]; publishedRevision: (string | number)[][] };
 export class RetrievalAccessError extends Error { readonly status = 404; constructor() { super("项目不存在或无权访问"); } }
 // One policy for all callers, including worker jobs; never accept sources or
 // review labels from browsers. Accept a transaction to preserve Agent snapshot consistency.
-export async function retrieveAuthorizedKnowledge(request: z.infer<typeof input>, database: Pick<ReturnType<typeof requireDb>, "select"> = requireDb()) {
-  const { userId, projectId, query, purpose } = input.parse(request);
+export async function loadAuthorizedCorpus(request: z.infer<typeof input>, database: KnowledgeReader = requireDb()): Promise<AuthorizedCorpus> {
+  const { userId, projectId, purpose } = input.parse(request);
   if (purpose !== "eda" && !projectId) throw new RetrievalAccessError();
   const actor = (await database.select({ id: users.id }).from(users).where(eq(users.id, userId)).limit(1))[0];
   if (!actor) throw new RetrievalAccessError();
@@ -27,10 +29,21 @@ export async function retrieveAuthorizedKnowledge(request: z.infer<typeof input>
     if (version) sources.push({ scope: "platform", id: entry.id, version });
   }
   const publishedRevision = sources.map(s => [s.scope, s.id, s.version.version, s.version.sha256]).sort((a, b) => JSON.stringify(a).localeCompare(JSON.stringify(b)));
+  return { projectId, sources, publishedRevision };
+}
+export function corpusRevision(corpus: AuthorizedCorpus, indexRevision: string) {
+  return createHash("sha256").update(JSON.stringify({ projectId: corpus.projectId ?? null, publishedRevision: corpus.publishedRevision, indexRevision })).digest("hex");
+}
+export async function retrieveAuthorizedKnowledge(request: z.infer<typeof input>, database: KnowledgeReader = requireDb(), signal?: AbortSignal) {
+  const { query, purpose } = input.parse(request);
+  const corpus = await loadAuthorizedCorpus(request, database);
+  signal?.throwIfAborted();
+  const sources = [...corpus.sources];
   let indexRevision = "unavailable"; let unavailable = false;
-  try { const indexed = await queryPrivateIndex(query); indexRevision = indexed.revision; sources.push(...indexed.sources); }
+  try { const indexed = await queryPrivateIndex(query, signal); indexRevision = indexed.revision; sources.push(...indexed.sources); }
   catch { unavailable = true; }
+  signal?.throwIfAborted();
   const result = retrieveKnowledge(query, sources, purpose === "agent");
   return { ...result, ...(unavailable ? { status: "partial" as const, warnings: ["INDEX_UNAVAILABLE" as const] } : {}),
-    revision: createHash("sha256").update(JSON.stringify({ projectId: projectId ?? null, publishedRevision, indexRevision })).digest("hex") };
+    revision: corpusRevision(corpus, indexRevision) };
 }

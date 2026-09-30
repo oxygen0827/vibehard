@@ -439,9 +439,11 @@ export function AgentWorkbench({ mode = "agent" }: { mode?: ProjectWorkflowMode 
       <div className="flex shrink-0 justify-end border-b border-border/40 px-5 py-1"><button onClick={() => void refreshModels()} className="text-xs text-primary hover:underline">刷新模型列表</button></div>
       <AgentConversationViewport key={threadId} revision={events.at(-1)?.eventId ?? "empty"}>
         {messages.length === 0 && <div className="flex flex-col items-center justify-center py-10 text-center text-sm text-muted-foreground"><Terminal className="mb-3 h-8 w-8 text-primary/60" /><p>选择项目并发送第一个 Agent 任务</p></div>}
-        {events.filter(event => event.type === "knowledge.retrieved" && event.data.origin === "platform").map(event => {
+        {events.filter(event => event.type === "knowledge.retrieved" && ["platform", "project-material-lock"].includes(String(event.data.origin))).map(event => {
           const parsed = retrievalEvidenceSchema.safeParse(event.data.retrieval);
-          return parsed.success ? <details key={event.eventId}><summary className="text-xs">本回合检索 · {new Date(event.timestamp).toLocaleString()}</summary><RetrievalEvidence value={parsed.data} /></details> : null;
+          return parsed.success ? <details key={event.eventId}><summary className="text-xs">本回合检索 · {event.data.origin === "project-material-lock" ? "复用已核验项目资料锁 · " : ""}{new Date(event.timestamp).toLocaleString()}</summary>
+            {event.data.materialLockState && !["active", "absent"].includes(String(event.data.materialLockState)) ? <p className="mt-2 text-xs text-amber-600">项目资料锁不可复用，已改用本回合检索；历史文件不能作为当前有效证据。</p> : null}
+            <RetrievalEvidence value={parsed.data} /></details> : null;
         })}
         {messages.map((event) => event.type === "reasoning"
           ? <AgentReasoning key={event.eventId} text={eventText(event)} />

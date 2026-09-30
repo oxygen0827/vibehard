@@ -62,7 +62,9 @@ jobs:
         env:
           DATABASE_URL: postgres://postgres:local-test-only@127.0.0.1:5432/vibehard_design_test
           VIBEHARD_DESIGN_TEST_DATABASE: "1"
-        run: pnpm exec vitest run __tests__/design-postgres.test.ts __tests__/store-postgres.test.ts __tests__/knowledge-postgres.test.ts
+        # These files intentionally exercise the same global design queue lock.
+        # Separate processes cannot safely share it while injecting slow locks.
+        run: pnpm exec vitest run __tests__/design-postgres.test.ts __tests__/store-postgres.test.ts __tests__/knowledge-postgres.test.ts __tests__/project-material-lock-postgres.test.ts --maxWorkers=1
       - name: Migrate RAG test database
         env:
           DATABASE_URL: postgres://postgres:local-test-only@127.0.0.1:5432/vibehard_rag_test

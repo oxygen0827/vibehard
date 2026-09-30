@@ -10,6 +10,7 @@ import { runtimeLlm } from "./llm-settings";
 import { retrieveDesignKnowledge } from "./design-knowledge";
 import { retrievalEvidence } from "@/lib/agent/retrieval-payload";
 import { checkDesignMaterials } from "@/lib/agent/design-materials";
+import { supplementDesignMaterials } from "./project-material-lock";
 
 // The hard deadline includes configuration lookup and DNS, not only the TLS request.
 export async function boundedDesign<T>(work: (signal: AbortSignal) => Promise<T>, timeoutMs = DESIGN_MODEL_MS) {
@@ -22,11 +23,11 @@ export async function boundedDesign<T>(work: (signal: AbortSignal) => Promise<T>
   } finally { clearTimeout(timer); controller.abort(); }
 }
 // Isolation tests exercise this exact queue/worker path; no automatic retries.
-const defaults = { claimDesign, finishDesign, saveDesignDiagnostics, runtimeLlm, retrieveDesignKnowledge, callLlm };
+const defaults = { claimDesign, finishDesign, saveDesignDiagnostics, runtimeLlm, retrieveDesignKnowledge, callLlm, supplementDesignMaterials };
 export class DesignStorageUnavailableError extends Error {
   constructor() { super("Design storage deadline exceeded; recycle worker connections"); this.name = "DesignStorageUnavailableError"; }
 }
-export async function processNextDesign(deps = defaults, timeoutMs = DESIGN_MODEL_MS) {
+export async function processNextDesign(deps: Omit<typeof defaults, "supplementDesignMaterials"> & Partial<Pick<typeof defaults, "supplementDesignMaterials">> = defaults, timeoutMs = DESIGN_MODEL_MS) {
   // A pool wait/queue lock must not prevent the supervisor recycling this process.
   let job;
   try { job = await boundedDesign(() => deps.claimDesign(), Math.min(5000, timeoutMs)); }
@@ -62,12 +63,15 @@ export async function processNextDesign(deps = defaults, timeoutMs = DESIGN_MODE
       let raw;
       try { raw = JSON.parse(text.replace(/^```(?:json)?\s*/i, "").replace(/\s*```$/, "")); }
       catch { throw new LlmRequestError("模型返回的方案格式不正确，请手动重试", 502, "FORMAT"); }
-      const parsed = designResultSchema.omit({ retrieval: true, materials: true }).safeParse(raw);
+      const parsed = designResultSchema.omit({ retrieval: true, materials: true, materialsLock: true }).safeParse(raw);
       if (!parsed.success) throw new LlmRequestError("模型返回的方案字段不完整，请手动重试", 502, "FORMAT");
+      await stage("materials");
+      const materialsLock = await (deps.supplementDesignMaterials ?? supplementDesignMaterials)({ userId: job.userId, projectId: job.projectId,
+        designId: job.id, bom: parsed.data.bom }, signal, Math.max(0, Math.min(8000, executionDeadline - Date.now() - 1000)));
       await stage("saving");
       const evidence = retrievalEvidence(retrieval);
       const saved = await deps.finishDesign(job.id, job.leaseToken!, { result: { ...freezeBomPrices(parsed.data), retrieval: evidence,
-        materials: checkDesignMaterials(parsed.data.bom, evidence) }, model: config.model, knowledgeVersion: HARDWARE_DESIGN_KNOWLEDGE.version, diagnostics: structuredClone(diagnostics) }, executionDeadline);
+        materials: checkDesignMaterials(parsed.data.bom, evidence), materialsLock }, model: config.model, knowledgeVersion: HARDWARE_DESIGN_KNOWLEDGE.version, diagnostics: structuredClone(diagnostics) }, executionDeadline);
       if (!saved) throw new LlmRequestError("任务保存期限或租约已失效，请手动重试", 409, Date.now() >= executionDeadline ? "TIMEOUT" : "LEASE_EXPIRED");
     }, Math.max(1, executionDeadline - Date.now()));
   } catch (error) {

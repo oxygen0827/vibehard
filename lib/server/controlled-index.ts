@@ -31,7 +31,9 @@ export function searchControlledIndex(db: DatabaseSync, manifest: BatchManifest,
     const hex = createHash('sha256').update(`${manifest.batchId}:${row.id}`).digest('hex');
     seen.add(row.id); counts.set(row.source_sha, (counts.get(row.source_sha) ?? 0) + 1);
     result.push({ scope: 'platform', id: `${hex.slice(0,8)}-${hex.slice(8,12)}-5${hex.slice(13,16)}-a${hex.slice(17,20)}-${hex.slice(20,32)}`, reviewStatus: 'auto-indexed',
-      version: { title: path.split('/').at(-1)!, source: `${path}#page=${row.page}&part=${row.part}`, kind: 'manual', content: row.text,
+      // Label an exact board only after matching the immutable, approved
+      // manifest association. A directory name alone is not identity evidence.
+      version: { title: `${boards.length === 1 && source.boards.includes(boards[0]) ? boards[0] + ' · ' : ''}${path.split('/').at(-1)!}`.slice(0,1000), source: `${path}#page=${row.page}&part=${row.part}`, kind: 'manual', content: row.text,
         version: manifest.version, sha256: row.source_sha, reviewedBy: manifest.reviewMethod, reviewedAt: manifest.createdAt } });
     if (result.length >= 12) break;
   }

@@ -3,6 +3,7 @@ import { afterEach, expect, it, vi } from "vitest";
 import { processNextDesign } from "@/lib/server/design-job-worker";
 import { LlmRequestError, upstreamError, llmRequestBody } from "@/lib/server/llm-client";
 import { expiredDiagnostics, queuedDiagnostics } from "@/lib/agent/design-diagnostics";
+vi.mock("@/lib/server/project-material-lock", () => ({ supplementDesignMaterials: vi.fn().mockResolvedValue(undefined) }));
 
 const result = { architecture: ["MCU"], bom: [{ item: "主控", model: "MCU", qty: 1, estCost: "¥5 估算" }], interfaces: ["UART"], risks: [{ level: "低", desc: "核验" }] };
 function fixture() {
@@ -17,7 +18,7 @@ function fixture() {
 afterEach(() => vi.useRealTimers());
 it("records ordered phases and model revision without input, key, raw response, and only one model call", async () => {
   const deps = fixture(); await processNextDesign(deps);
-  expect(deps.saveDesignDiagnostics.mock.calls.map(c => c[2].currentPhase)).toEqual(["config", "retrieval", "model", "validation", "saving"]);
+  expect(deps.saveDesignDiagnostics.mock.calls.map(c => c[2].currentPhase)).toEqual(["config", "retrieval", "model", "validation", "materials", "saving"]);
   expect(deps.callLlm).toHaveBeenCalledTimes(1);
   const d = deps.finishDesign.mock.calls[0][2].diagnostics;
   expect(d).toMatchObject({ modelRevision: "revision-1", currentPhase: "saving" });
