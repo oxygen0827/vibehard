@@ -1,10 +1,31 @@
 # 2026-09-30 完整版本统一发布与保留策略
 
+## 实际发布结果：已上线，历史清理尚未执行
+
+- 15:44 正式切换 `20260930-unified-platform-v2`。发布源 `d0c7683dac3f64802a49634bb4dac8896d164cd7`；PR #34 合并为 `8ea2808bf5519f1c3fbb8ecc8fac7f050618f6bc`，树完全一致。PR 与合并后默认分支 CI 均成功，含 394 常规测试、20 项独立数据库测试和 Linux PDF 像素验收。
+- 发布压缩包 SHA256：`c787e98a74393f940e4d881661ad5fecf7c7c16ab47d5d56c40127de90a1ea00`。包内包含 9 个服务/验收 bundle、完整源码和 standalone；知识 CLI 入口现在为新 release 的 `services/knowledge-batch-control.cjs`。
+- 隔离检索 60 次双并发，P95 32.75 ms、最大 51.39 ms、零失败，MemoryPeak 39,268,352 字节。候选真实方案 21.933 秒、2 条引用，原理图识别 9.332 秒，完整验收 43.937 秒。
+- 正式公网真实方案 21.066 秒、2 条自动索引引用，原件 SHA/页/片段与索引可回查；识别 12.120 秒，全链路 43.096 秒。两个新合成普通账号正常登录，BOM/方案/原图/正文/Agent 跨账号拒绝、重放不重复模型、真实工具读取文件及 ZIP 哈希一致性通过。没有编辑既有用户项目，没有操作设备，没有自动重试付费任务。
+- 正式合成项目 `daa27a9c-f208-4679-a60d-9cddfabe7d9c`，方案任务 `54d87420-c487-4dc6-bf24-a7f9db01748d`，Agent 回合 `bd40590b-7da2-44a2-855f-12778445ca17`；完整证据留在新 release 的 `evidence/production-acceptance.json`。
+- EDA manager 的新旧源码 SHA 均为 `0d344c588dcc6c9fed580b984abcbe7efd62ab6b224cec78606288406c768205`，现用镜像 ID `sha256:9a6e2b863edc70d7a35025efa2219a25caa9a9b2dbeade89268a9b31909edc9e` 未改。实际 Python 环境下 manager 13 项测试通过、切换后授权健康检查通过；本轮未重新执行真实布线/硬件精度验收。
+- 平台/设计 Worker/Runner/Gateway/检索/EDA manager PID 分别为 `1059304/1059303/1059297/1059296/1059295/1059294`，六个服务 active、NRestarts=0，代码均引用新 release。Runner 工作目录依旧 `/opt/vibehard/cloud-runner`，其代码 bundle 已统一；运行状态和项目文件不搬入发布目录。EDA 辅助链接也已更新。
+- 15:46 云端/设备 Runner 心跳年龄 3/2 秒、Gateway 有两条连接。VibeBoard/nginx PID、私密配置、Runner credential、索引和控制文件哈希未变。候选已停、3211 空闲；候选网页 SIGTERM 返回 143 留下的失败标记在核对 PID=0 后清除，不是生产崩溃或 OOM。
+- 无生产数据库迁移。新 release `backup/` 保存六个旧单元、EDA 旧链接及数据库 dump（485743 字节，SHA256 `ebb10750a3d1c0a2cad154dfad92f21e6c844e4923bd283dfe801d53e9696fde`），`pg_restore --list` 可读；没有执行正式库恢复。
+- **历史版本未删除**。完整旧 release 下载包含潜在敏感备份，安全审核要求用户明确批准本机目的地；已询问、尚未收到该项回复，未通过其他通道绕过。当前根盘约 1.4 GiB 可用/97% 已用，包含本轮未激活 v1 和正式 v2 工件；需要后续完成授权备份与精确保留清理，不应继续堆积发布包。
+
+回滚入口（先确认任务与 EDA 桌面空闲）：
+
+```sh
+/opt/vibehard/runtime/node-v22.23.1 /opt/vibehard/releases/20260930-unified-platform-v2/source/scripts/deploy-unified-platform-20260930.mjs rollback
+```
+
+当前保留全部旧目录，回滚依赖尚完整。后续保留集合必须包含旧平台/Runner/Gateway `20260930-project-archive-v1`、旧 Worker `20260928-bom-price-freeze-v1`、旧检索 `20260928-audit-fixes-v1`、旧 EDA manager `20260929-integrated-agent-eda-v2`，以及备份 EDA 链接所指的 `20260925-eda-isolated-v2`；不要只留旧网页目录。CLI 的上一份运行包 `20260928-knowledge-control-v2` 也应先保留。
+
 ## 任务范围
 
 用户确认将固定聊天区一并上线，并将 VibeHard 的网页/API、Runner、Gateway、方案 Worker、检索 Worker、EDA manager 与批量知识管理 CLI 收敛到同一个不可变 release。数据库、OSS 原件、索引版本、用户工作区、模型配置及 Runner 凭据不变；不清理 Docker 或独立 VibeBoard。
 
-候选版本：`20260930-unified-platform-v2`。此文当前为发布准备记录，不能据此认为已上线。v1 停在隔离准备阶段，从未激活：共享知识创建者外键指向未复制的用户；v2 仅清空隔离副本的可空创建者字段，保留正文版本与审核记录，不复制真实账号。只允许恢复没有用户或项目的已知隔离准备库。
+以下为发布准备与约束记录，实际结果以上节为准。v1 停在隔离准备阶段，从未激活：共享知识创建者外键指向未复制的用户；v2 仅清空隔离副本的可空创建者字段，保留正文版本与审核记录，不复制真实账号。只允许恢复没有用户或项目的已知隔离准备库。
 
 ## 代码与验收
 
