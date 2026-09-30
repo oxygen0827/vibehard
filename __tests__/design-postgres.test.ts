@@ -26,7 +26,7 @@ import { latestProjectBom } from "@/lib/server/project-bom";
 import { callLlm, LlmRequestError } from "@/lib/server/llm-client";
 vi.mock("@/lib/server/llm-settings", () => ({ runtimeLlm: vi.fn().mockResolvedValue({ model: "isolated-test", baseUrl: "https://example.invalid", apiKey: "fixture-not-real", protocol: "responses" }), publicLlm: vi.fn() }));
 vi.mock("@/lib/server/llm-client", async original => ({ ...await original<typeof import("@/lib/server/llm-client")>(), callLlm: vi.fn() }));
-vi.mock('@/lib/server/retrieval-client', () => ({ queryPrivateIndex: vi.fn().mockResolvedValue({ sources: [], revision: 'a'.repeat(64) }) }));
+vi.mock('@/lib/server/retrieval-client', () => ({ queryPrivateIndex: vi.fn().mockResolvedValue({ sources: [], revision: 'a'.repeat(64) }), privateIndexRevision: vi.fn().mockResolvedValue('a'.repeat(64)) }));
 
 // Never run against a normal DATABASE_URL. Requires a disposable local cluster.
 const enabled = process.env.VIBEHARD_DESIGN_TEST_DATABASE === "1";
@@ -253,7 +253,7 @@ if (enabled) {
     expect(successful?.result?.bom[0].referencePrice).toEqual({ kind: "estimate", display: "¥5（估算）" });
     expect(await latestProjectBom(owner.id, first.projectId, first.id)).toMatchObject({ priceRecorded: true,
       items: [{ model: "MCU", referencePrice: { kind: "estimate", display: "¥5（估算）" } }] });
-    expect(successful?.diagnostics?.phases.map(p => p.phase)).toEqual(["queue", "config", "retrieval", "model", "validation", "saving"]);
+    expect(successful?.diagnostics?.phases.map(p => p.phase)).toEqual(["queue", "config", "retrieval", "model", "validation", "materials", "saving"]);
     expect(successful?.diagnostics?.phases.every(p => p.durationMs !== undefined)).toBe(true);
     const admin = (await listDesignDiagnostics()).find(j => j.id === first.id)!;
     expect(Object.keys(admin).sort()).toEqual(["completedAt", "createdAt", "diagnostics", "id", "status"]);

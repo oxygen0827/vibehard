@@ -10,7 +10,7 @@ export function indexPolicy(indexPath: string) {
   const meta = z.object({ sqliteSha256: z.string().regex(/^[a-f0-9]{64}$/), manifestSha256: z.string().optional() }).parse(JSON.parse(readFileSync(`${indexPath}.meta.json`, "utf8")));
   const file = process.env.VIBEHARD_DISABLED_SOURCES_FILE;
   const disabled = file ? z.array(z.string().regex(/^[a-f0-9]{64}$/)).max(10000).parse(JSON.parse(readFileSync(file, "utf8"))) : [];
-  return { disabled: new Set(disabled), revision: createHash("sha256").update(JSON.stringify([meta.sqliteSha256, meta.manifestSha256 ?? null, [...disabled].sort()])).digest("hex") };
+  return { disabled: new Set(disabled), revision: createHash("sha256").update(JSON.stringify(["verified-board-label-v1", meta.sqliteSha256, meta.manifestSha256 ?? null, [...disabled].sort()])).digest("hex") };
 }
 export function indexSetPolicy(paths: readonly string[], policy = indexPolicy) {
   if (!paths.length || paths.length > MAX_ACTIVE_INDEXES) throw Error('ACTIVE_INDEX_LIMIT');
@@ -39,14 +39,16 @@ export function createRetrievalServer(indexPath: string | readonly string[], sea
   let active = 0;
   const server = createServer(async (req, res) => {
     const reply = (status: number, value: unknown) => { res.writeHead(status, { "Content-Type": "application/json", "Cache-Control": "no-store" }); res.end(JSON.stringify(value)); };
-    if (req.method !== "POST" || req.url !== "/query") { reply(404, { error: "NOT_FOUND" }); req.resume(); return; }
+    if (req.method !== "POST" || !["/query", "/revision"].includes(req.url ?? "")) { reply(404, { error: "NOT_FOUND" }); req.resume(); return; }
     if (active >= 2) { reply(503, { error: "BUSY" }); req.resume(); return; }
     active++;
     try {
       let bytes = 0; const chunks: Buffer[] = [];
       for await (const value of req) { const chunk = Buffer.from(value); bytes += chunk.length; if (bytes > 64000) { reply(413, { error: "LIMIT" }); return; } chunks.push(chunk); }
-      const { query } = z.object({ query: z.string().min(1).max(12000) }).strict().parse(JSON.parse(Buffer.concat(chunks).toString("utf8")));
+      const body: unknown = JSON.parse(Buffer.concat(chunks).toString("utf8"));
       const current = indexSetPolicy(paths, policy);
+      if (req.url === "/revision") { z.object({}).strict().parse(body); reply(200, { revision: current.revision }); return; }
+      const { query } = z.object({ query: z.string().min(1).max(12000) }).strict().parse(body);
       const sources = await searchIndexSet(query, paths, current.disabled, search);
       reply(200, { sources, revision: current.revision });
     } catch { if (!res.headersSent) reply(503, { error: "INDEX_UNAVAILABLE" }); }

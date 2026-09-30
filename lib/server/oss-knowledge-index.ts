@@ -202,7 +202,8 @@ export async function searchIndexedKnowledge(requirement: string, indexPath = pr
     if (count >= MAX_PER_FILE) continue;
     byFile.set(row.source_sha, count + 1);
     result.push({ scope: "platform", id: referenceId(row.id), reviewStatus: "auto-indexed",
-      version: { title: citationPath.split("/").at(-1) ?? citationPath,
+      // boardRows selected only hashes in the verified association snapshot.
+      version: { title: `${board && boardMatches ? board + " · " : ""}${citationPath.split("/").at(-1) ?? citationPath}`.slice(0, 1000),
         source: `${citationPath}#page=${row.page}&part=${row.part}`, kind: "manual", content: row.text,
         version: 1, sha256: row.source_sha, reviewedBy: "automatic_rules_v1", reviewedAt: "2026-09-26T00:00:00.000Z" } });
     if (result.length >= MAX_SOURCES) break;

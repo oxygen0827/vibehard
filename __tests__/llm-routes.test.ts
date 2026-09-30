@@ -15,6 +15,7 @@ import { claimDesign, finishDesign } from "@/lib/server/design-job-store";
 import { retrieveDesignKnowledge } from "@/lib/server/design-knowledge";
 import { listProviderModels } from "@/lib/server/llm-models";
 vi.mock("@/lib/server/llm-models", () => ({ listProviderModels: vi.fn() }));
+vi.mock("@/lib/server/project-material-lock", async original => ({ ...await original<typeof import("@/lib/server/project-material-lock")>(), supplementDesignMaterials: vi.fn().mockResolvedValue(undefined) }));
 vi.mock("@/lib/server/design-knowledge", () => ({ retrieveDesignKnowledge: vi.fn().mockResolvedValue({ status: "no-match", method: "keyword-chunks-v1", references: [], context: "" }) }));
 vi.mock("@/lib/server/design-job-store", () => ({ claimDesign: vi.fn(), finishDesign: vi.fn().mockResolvedValue(true), saveDesignDiagnostics: vi.fn().mockResolvedValue(true), enqueueDesign: vi.fn(), listDesigns: vi.fn(), DesignJobError: class extends Error {} }));
 

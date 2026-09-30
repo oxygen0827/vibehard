@@ -8,6 +8,7 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { retrieveKnowledge } from "@/lib/agent/knowledge-retrieval";
 import { designMessages } from "@/lib/agent/design-prompt";
 import { closeIndexedKnowledge, searchIndexedKnowledge } from "@/lib/server/oss-knowledge-index";
+import { referenceMatchesPart } from "@/lib/agent/design-materials";
 
 let directory: string;
 let indexPath: string;
@@ -79,6 +80,8 @@ describe("restricted private FTS retrieval", () => {
     const base = await searchIndexedKnowledge("ESP32-S3-LCD-2.8C 开发方案", indexPath, boardAssociations);
     expect(base.map(hit => hit.version.sha256)).toEqual(["1".repeat(64)]);
     expect(base[0].version.source).toContain("/ESP32-S3-LCD-2.8C/");
+    expect(referenceMatchesPart("ESP32-S3-LCD-2.8C", { title: base[0].version.title, source: base[0].version.source })).toBe(true);
+    expect(referenceMatchesPart("ESP32-S3-LCD-2.8B", { title: base[0].version.title, source: base[0].version.source })).toBe(false);
     expect((await searchIndexedKnowledge("ESP32-S3-LCD-2.8C 引脚", indexPath, boardAssociations)).map(hit => hit.version.sha256)).toEqual(["1".repeat(64)]);
     const hits = await searchIndexedKnowledge("ESP32-S3-Touch-LCD-2 原理图", indexPath, boardAssociations);
     expect(hits.map(hit => hit.version.sha256)).toEqual(["f".repeat(64)]);

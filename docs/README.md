@@ -1,5 +1,7 @@
 # 文档索引
 
+- [逐器件补检索与项目资料版本锁](project-material-lock.md)：本地实现的最终 BOM 补检索、版本/来源哈希锁、Agent 复用及停用/更新失效规则；未发布。
+
 - [项目资料配套与统一工作入口](project-materials-workflow.md)：已上线的方案配套检查、项目资料包和真实 Agent 共用页面；含检索范围、设备边界，[发布验收与回滚](release-project-materials-20260930.md)。
 
 - [完整运行版本统一发布与保留策略](release-unified-platform-20260930.md)：9/30 六服务统一上线、真实验收、完整回滚集合、历史版本备份清理及恢复边界。

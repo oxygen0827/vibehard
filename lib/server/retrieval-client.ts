@@ -7,12 +7,11 @@ const source = z.object({ scope: z.literal("platform"), id: z.uuid(), reviewStat
 }) });
 const reply = z.object({ revision: z.string().regex(/^[a-f0-9]{64}$/), sources: z.array(source).max(12) });
 // No fetch URL from the caller: private Unix socket only, never an HTTP browser route.
-export async function queryPrivateIndex(query: string, signal?: AbortSignal): Promise<{ revision: string; sources: RetrievalSource[] }> {
+async function privateRequest(path: string, body: string, signal?: AbortSignal) {
   const socketPath = process.env.VIBEHARD_RETRIEVAL_SOCKET;
   if (!socketPath || !socketPath.startsWith("/")) throw new Error("Private index unavailable");
-  const body = JSON.stringify({ query: query.slice(0, 12000) });
   const payload = await new Promise<string>((resolve, reject) => {
-    const req = request({ socketPath, path: "/query", method: "POST", signal: signal ? AbortSignal.any([signal, AbortSignal.timeout(1500)]) : AbortSignal.timeout(1500),
+    const req = request({ socketPath, path, method: "POST", signal: signal ? AbortSignal.any([signal, AbortSignal.timeout(1500)]) : AbortSignal.timeout(1500),
       headers: { "Content-Type": "application/json", "Content-Length": Buffer.byteLength(body) } }, res => {
       const chunks: Buffer[] = []; let bytes = 0;
       res.on("data", (part: Buffer) => { bytes += part.length; if (bytes > 128000) req.destroy(new Error("Index response limit")); else chunks.push(part); });
@@ -21,5 +20,12 @@ export async function queryPrivateIndex(query: string, signal?: AbortSignal): Pr
     });
     req.on("error", () => reject(new Error("Private index unavailable"))); req.end(body);
   });
-  return reply.parse(JSON.parse(payload));
+  return JSON.parse(payload) as unknown;
+}
+export async function queryPrivateIndex(query: string, signal?: AbortSignal): Promise<{ revision: string; sources: RetrievalSource[] }> {
+  return reply.parse(await privateRequest("/query", JSON.stringify({ query: query.slice(0, 12000) }), signal));
+}
+// Checks activation/revocation policy without opening SQLite or doing FTS.
+export async function privateIndexRevision(signal?: AbortSignal): Promise<string> {
+  return reply.pick({ revision: true }).parse(await privateRequest("/revision", "{}", signal)).revision;
 }

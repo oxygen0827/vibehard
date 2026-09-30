@@ -125,6 +125,26 @@ it("explains the first step when the account has no Agent project", async () => 
   expect(screen.queryByText("审批队列")).not.toBeInTheDocument();
 });
 
+it("displays service-recorded locked citations in a conversation rather than hiding cached evidence", async () => {
+  const threadId = "00000000-0000-4000-8000-000000000003";
+  vi.stubGlobal("EventSource", class { addEventListener() {} close() {} });
+  vi.stubGlobal("fetch", vi.fn(async (url: string) => {
+    if (url.endsWith("/api/projects")) return Response.json({ projects: [{ id: projectId, name: "温度项目", defaultModel: "test-model" }] });
+    if (url.endsWith("/api/models")) return Response.json({ models: [{ id: "model-1", model: "test-model", displayName: "测试模型" }] });
+    if (url.endsWith("/api/runners")) return Response.json({ runners: [] });
+    if (url.endsWith(`/api/projects/${projectId}/threads`)) return Response.json({ threads: [{ id: threadId, title: "资料分析" }] });
+    if (url.endsWith(`/api/projects/${projectId}/artifacts`)) return Response.json({ artifacts: [] });
+    if (url.includes(`/api/design?projectId=${projectId}`)) return Response.json({ jobs: [], nextOffset: null });
+    if (url.endsWith(`/api/threads/${threadId}`)) return Response.json({ approvals: [], artifacts: [], events: [{ eventId: "locked-event", sequence: 0, timestamp: "2026-09-30T00:00:00.000Z", type: "knowledge.retrieved", data: {
+      origin: "project-material-lock", materialLockState: "active", retrieval: { status: "matched", method: "keyword-chunks-v1", references: [{ id: crypto.randomUUID(), scope: "platform", title: "SHT40 手册", source: "manual.md#part=1", sha256: "a".repeat(64), version: 2, excerpt: "锁定参考" }] },
+    } }] });
+    throw new Error(`Unexpected request: ${url}`);
+  }));
+  render(<AgentWorkbench />); fireEvent.click(await screen.findByRole("button", { name: "开始 Agent 会话" }));
+  const summary = await screen.findByText(/复用已核验项目资料锁/); fireEvent.click(summary);
+  expect(screen.getByText("SHT40 手册 · v2")).toBeVisible();
+});
+
 it("does not create a duplicate conversation when the existing list cannot be loaded", async () => {
   vi.stubGlobal("fetch", vi.fn(async (url: string) => {
     if (url.endsWith("/api/projects")) return Response.json({ projects: [{ id: projectId, name: "温湿度监测器", defaultModel: "test-model", runnerKey: "cloud-runner" }] });

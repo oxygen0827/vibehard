@@ -3,6 +3,7 @@ import { strToU8, zipSync } from "fflate";
 import { designMarkdown, type DesignJob } from "@/lib/agent/design-jobs";
 import { materialReportMarkdown, MATERIAL_CHECK_BOUNDARY } from "@/lib/agent/design-materials";
 import { projectBomCsv } from "./project-bom";
+import { materialLockMarkdown } from "@/lib/agent/material-lock";
 
 // A small reproducible reference package, not an OSS download or firmware bundle.
 // No paths are accepted from a user, model, filename or source label.
@@ -23,9 +24,20 @@ export function designMaterialPackage(job: DesignJob) {
     return { file, scope: reference.scope, id: reference.id, version: reference.version, source: reference.source,
       sourceSha256: reference.sha256, reviewStatus: reference.reviewStatus ?? "published-at-generation" };
   });
+  if (result.materialsLock) {
+    texts["materials/lock.json"] = JSON.stringify(result.materialsLock, null, 2);
+    texts["materials/components.md"] = materialLockMarkdown(result.materialsLock);
+    for (const [index, reference] of result.materialsLock.references.entries()) {
+      const file = `references/components/source-${String(index + 1).padStart(2, "0")}.md`;
+      texts[file] = `# ${reference.title}\n\n版本：${reference.version}\n来源位置：${reference.source}\n来源记录 SHA256：${reference.sha256}\n${reference.reviewStatus === "auto-indexed" ? "未人工复核" : "锁定时已发布，适配性未验证"}\n\n${reference.excerpt}\n`;
+      references.push({ file, scope: reference.scope, id: reference.id, version: reference.version, source: reference.source,
+        sourceSha256: reference.sha256, reviewStatus: reference.reviewStatus ?? "published-at-generation" });
+    }
+  }
   const files = Object.entries(texts).map(([path, content]) => ({ path, bytes: Buffer.byteLength(content), sha256: createHash("sha256").update(content).digest("hex") }));
   texts["manifest.json"] = JSON.stringify({ format: "project-materials-v1", projectId: job.projectId, designId: job.id,
-    generatedAt: job.completedAt, retrievalStatus: result.retrieval?.status ?? "unrecorded", files, references }, null, 2);
+    generatedAt: job.completedAt, retrievalStatus: result.retrieval?.status ?? "unrecorded", files, references,
+    ...(result.materialsLock ? { materialsLockHash: result.materialsLock.hash } : {}) }, null, 2);
   if (Object.values(texts).reduce((total, value) => total + Buffer.byteLength(value), 0) > 512 * 1024) throw new Error("资料包超过 512 KiB 上限");
   // Fixed ZIP metadata makes repeated downloads hash-stable for the same input.
   return zipSync(Object.fromEntries(Object.entries(texts).map(([name, content]) => [name, [strToU8(content), { mtime: new Date(2020, 0, 1) }]])), { level: 1 });
