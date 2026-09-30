@@ -1,12 +1,18 @@
 // Exercise the deployed dependency tree, not the development node_modules.
 import assert from 'node:assert/strict';
 import { createRequire } from 'node:module';
-import { resolve } from 'node:path';
+import { resolve, sep } from 'node:path';
+import { realpathSync } from 'node:fs';
 import { pathToFileURL } from 'node:url';
 const root=resolve(process.argv[2] || '.next/standalone');
 const require=createRequire(`${root}/server.js`);
+const pdfPath=realpathSync(require.resolve('pdfjs-dist/legacy/build/pdf.mjs'));
+const canvasPath=realpathSync(require.resolve('@napi-rs/canvas'));
+assert.ok(pdfPath.startsWith(realpathSync(root)+sep),`PDF dependency escapes standalone: ${pdfPath}`);
+assert.ok(canvasPath.startsWith(realpathSync(root)+sep),`Canvas dependency escapes standalone: ${canvasPath}`);
+assert.equal(realpathSync(createRequire(pdfPath).resolve('@napi-rs/canvas')),canvasPath,'PDF and renderer must share one native Canvas instance');
 const {createCanvas}=require('@napi-rs/canvas');
-const {getDocument}=await import(pathToFileURL(require.resolve('pdfjs-dist/legacy/build/pdf.mjs')));
+const {getDocument}=await import(pathToFileURL(pdfPath));
 const objects=['<< /Type /Catalog /Pages 2 0 R >>','<< /Type /Pages /Kids [3 0 R] /Count 1 >>','<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Contents 4 0 R >>'];
 const content='0 0 0 rg 72 700 100 12 re f';
 objects.push(`<< /Length ${content.length} >>\nstream\n${content}\nendstream`);
