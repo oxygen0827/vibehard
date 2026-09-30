@@ -15,6 +15,7 @@ import { WorkflowEvidence } from "./workflow-evidence";
 import { retrievalEvidenceSchema } from "@/lib/agent/retrieval-payload";
 import { RetrievalEvidence } from "./retrieval-evidence";
 import { AgentReasoning } from "./agent-reasoning";
+import { AgentConversationViewport } from "./agent-conversation-viewport";
 import { designStatus, type DesignJobSummary } from "@/lib/agent/design-jobs";
 
 type Project = { id: string; name: string; workspaceKey: string; defaultModel: string; runnerKey?: string | null };
@@ -94,6 +95,7 @@ export function AgentWorkbench() {
   const [threadsLoading, setThreadsLoading] = useState(false);
   const [threadsError, setThreadsError] = useState(false);
   const [openingConversation, setOpeningConversation] = useState(false);
+  const [mobilePanel, setMobilePanel] = useState<"projects" | "details" | null>(null);
 
   useEffect(() => {
     let active = true;
@@ -219,6 +221,7 @@ export function AgentWorkbench() {
   };
 
   const selectProject = (project: Project) => {
+    setMobilePanel(null);
     setProjectId(project.id);
     setView("overview");
     setThreadsLoading(true);
@@ -356,8 +359,14 @@ export function AgentWorkbench() {
   const connectionLabel = connection === "connected" ? "事件已连接" : connection === "reconnecting" ? "正在重连" : connection === "connecting" ? "正在连接" : "未连接";
   const connectionColor = connection === "connected" ? "bg-emerald-500" : connection === "idle" ? "bg-muted-foreground" : "bg-amber-500";
 
-  return <div className="grid min-h-full gap-0 lg:grid-cols-[240px_minmax(0,1fr)_300px]">
-    <aside className="border-r border-border/70 bg-card/40 p-4">
+  return <div aria-label="Agent 项目工作区" className="flex h-full min-h-0 min-w-0 flex-col overflow-hidden">
+    <div className="flex shrink-0 items-center justify-between gap-2 border-b border-border/70 px-3 py-2 lg:hidden">
+      <Button size="sm" variant="ghost" aria-controls="agent-project-list" aria-expanded={mobilePanel === "projects"} onClick={() => setMobilePanel(current => current === "projects" ? null : "projects")}>项目列表</Button>
+      <span className="min-w-0 truncate text-xs text-muted-foreground">{projects.find(project => project.id === projectId)?.name ?? "选择项目"}</span>
+      <Button size="sm" variant="ghost" aria-controls="agent-project-details" aria-expanded={mobilePanel === "details"} onClick={() => setMobilePanel(current => current === "details" ? null : "details")}>{error ? "查看错误" : `审批与产物${approvals.length ? ` (${approvals.length})` : ""}`}</Button>
+    </div>
+    <div className="grid min-h-0 flex-1 grid-cols-1 grid-rows-[minmax(0,1fr)] lg:grid-cols-[240px_minmax(0,1fr)_300px]">
+    <aside id="agent-project-list" aria-label="项目列表" className={`${mobilePanel === "projects" ? "block" : "hidden"} min-h-0 min-w-0 overflow-y-auto overscroll-contain border-r border-border/70 bg-card/40 p-4 lg:block`}>
       <div className="mb-4 flex items-center justify-between"><div className="flex items-center gap-1"><h1 className="text-sm font-semibold">Agent 项目</h1><ModuleHelp module="agent" /></div><Button size="icon" variant="ghost" className="h-7 w-7" title="新建项目" onClick={createProject}><Plus className="h-4 w-4" /></Button></div>
       <div className="mb-2 flex gap-2"><Input value={newProject} onChange={(event) => setNewProject(event.target.value)} onKeyDown={(event) => event.key === "Enter" && void createProject()} placeholder="项目名称" className="h-8 text-xs" /></div>
       <select aria-label="项目执行器" value={newRunnerKey} onChange={(event) => setNewRunnerKey(event.target.value)} className="mb-3 h-8 w-full rounded-md border border-border bg-background px-2 text-xs" disabled={!runners.length}><option value="">暂无可用执行器</option>{runners.map((runner) => <option key={runner.runnerKey} value={runner.runnerKey}>{runner.name}{runner.capabilities.includes("usb-device") ? " · USB 设备" : " · 云端"}</option>)}</select>
@@ -367,9 +376,9 @@ export function AgentWorkbench() {
       {projects.length === 0 && <p className="text-xs text-muted-foreground">还没有项目</p>}
     </aside>
 
-    <section className="flex min-h-[620px] min-w-0 flex-col">
-      {projectId && <nav aria-label="项目视图" className="flex gap-2 border-b border-border/70 px-5 py-3"><Button size="sm" variant={view === "overview" ? "default" : "ghost"} onClick={() => setView("overview")}>项目概览</Button><Button size="sm" variant={view === "conversation" ? "default" : "ghost"} onClick={() => void openProjectConversation()} disabled={threadsLoading || threadsError || openingConversation}>Agent 会话</Button></nav>}
-      {view === "overview" && projectId ? <div className="flex-1 space-y-5 overflow-y-auto p-5">
+    <section className={`${mobilePanel ? "hidden" : "flex"} min-h-0 min-w-0 flex-col overflow-hidden lg:flex`}>
+      {projectId && <nav aria-label="项目视图" className="flex shrink-0 gap-2 border-b border-border/70 px-5 py-3"><Button size="sm" variant={view === "overview" ? "default" : "ghost"} onClick={() => setView("overview")}>项目概览</Button><Button size="sm" variant={view === "conversation" ? "default" : "ghost"} onClick={() => void openProjectConversation()} disabled={threadsLoading || threadsError || openingConversation}>Agent 会话</Button></nav>}
+      {view === "overview" && projectId ? <div className="min-h-0 flex-1 space-y-5 overflow-y-auto overscroll-contain p-5">
         <div><h2 className="text-lg font-semibold">{projects.find(project => project.id === projectId)?.name} · 项目概览</h2><p className="mt-1 text-sm text-muted-foreground">这里保存方案、原理图资料、会话与项目产物；资料是工程分析起点，不代表固件已经生成。</p></div>
         <ProjectDocuments key={projectId} projectId={projectId} disabled={threadsLoading || threadsError || openingConversation} onAnalyze={() => {
           setInput("请先读取本项目 documents/ 下归档的原理图分析文档，列出已识别的外设、接口与引脚、来源位置和待确认项，再给出开发调试建议。区分 AI 识别草案与实测事实，不要把缺少源码说成没有项目资料；未经我确认不要修改文件或操作设备。");
@@ -390,15 +399,15 @@ export function AgentWorkbench() {
           {artifacts.length > 0 ? <div className="space-y-2">{artifacts.map(artifact => <div key={artifact.id} className="rounded-lg border p-3"><p className="text-sm font-medium">{artifact.name}</p><p className="mt-1 break-all font-mono text-xs text-muted-foreground">{artifact.path}</p></div>)}</div> : !artifactsLoading && !artifactsError && <p className="text-sm text-muted-foreground">暂无已登记的工作区产物。上方已完成的方案可先下载 Markdown；同步到执行器后，方案文件会显示在这里。</p>}
         </section>
       </div> : null}
-      {!projectId && <div className="flex flex-1 flex-col items-center justify-center gap-3 px-6 text-center"><FolderKanban className="h-10 w-10 text-primary/60" /><h2 className="text-lg font-semibold">还没有 Agent 项目</h2><p className="max-w-md text-sm text-muted-foreground">先从左侧填写项目名称并点击＋创建工作区，或在方案生成页提交需求，让平台自动建立项目。</p><Link href="/app/design" className="rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground">先生成硬件方案</Link></div>}
+      {!projectId && <div className="flex min-h-0 flex-1 flex-col items-center gap-3 overflow-y-auto px-6 py-10 text-center"><FolderKanban className="h-10 w-10 shrink-0 text-primary/60" /><h2 className="text-lg font-semibold">还没有 Agent 项目</h2><p className="max-w-md text-sm text-muted-foreground">先在项目列表填写名称并点击＋创建工作区，或在方案生成页提交需求，让平台自动建立项目。</p><Link href="/app/design" className="rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground">先生成硬件方案</Link></div>}
       {view === "conversation" && projectId ? <>
-      <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border/70 px-5 py-3">
+      <div className="flex shrink-0 flex-wrap items-center justify-between gap-2 border-b border-border/70 px-4 py-2 sm:px-5 sm:py-3">
         <div className="flex min-w-0 items-center gap-2"><MessageSquare className="h-4 w-4 shrink-0 text-primary" /><select value={threadId} onChange={(event) => selectThread(event.target.value)} className="min-w-0 max-w-56 bg-transparent text-sm font-medium outline-none" disabled={!threads.length}><option value="">选择会话</option>{threads.map((thread) => <option key={thread.id} value={thread.id}>{thread.title}</option>)}</select><Button size="icon" variant="ghost" className="h-7 w-7 shrink-0" title="新建会话" onClick={createThread} disabled={!projectId}><Plus className="h-4 w-4" /></Button></div>
         <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground"><span className={`h-2 w-2 rounded-full ${connectionColor}`} /><span>{connectionLabel}</span><span className="border-l border-border pl-2">{taskState}</span><Button size="icon" variant="ghost" className="h-7 w-7" title="中断当前任务" onClick={interrupt} disabled={!threadId}><CircleStop className="h-4 w-4" /></Button><select value={modelProfileId} onChange={(event) => setModelProfileId(event.target.value)} className="max-w-48 rounded-md border border-border bg-background px-2 py-1 text-xs" disabled={!models.length}>{models.map((item) => <option key={item.id} value={item.id}>{item.displayName}</option>)}</select></div>
       </div>
-      <div className="flex justify-end border-b border-border/40 px-5 py-1"><button onClick={() => void refreshModels()} className="text-xs text-primary hover:underline">刷新模型列表</button></div>
-      <div className="flex-1 space-y-3 overflow-y-auto p-5">
-        {messages.length === 0 && <div className="flex h-full min-h-[300px] flex-col items-center justify-center text-center text-sm text-muted-foreground"><Terminal className="mb-3 h-8 w-8 text-primary/60" /><p>选择项目并发送第一个 Agent 任务</p></div>}
+      <div className="flex shrink-0 justify-end border-b border-border/40 px-5 py-1"><button onClick={() => void refreshModels()} className="text-xs text-primary hover:underline">刷新模型列表</button></div>
+      <AgentConversationViewport key={threadId} revision={events.at(-1)?.eventId ?? "empty"}>
+        {messages.length === 0 && <div className="flex flex-col items-center justify-center py-10 text-center text-sm text-muted-foreground"><Terminal className="mb-3 h-8 w-8 text-primary/60" /><p>选择项目并发送第一个 Agent 任务</p></div>}
         {events.filter(event => event.type === "knowledge.retrieved" && event.data.origin === "platform").map(event => {
           const parsed = retrievalEvidenceSchema.safeParse(event.data.retrieval);
           return parsed.success ? <details key={event.eventId}><summary className="text-xs">本回合检索 · {new Date(event.timestamp).toLocaleString()}</summary><RetrievalEvidence value={parsed.data} /></details> : null;
@@ -406,12 +415,12 @@ export function AgentWorkbench() {
         {messages.map((event) => event.type === "reasoning"
           ? <AgentReasoning key={event.eventId} text={eventText(event)} />
           : <div key={event.eventId} className={`rounded-md border p-3 text-sm ${event.type === "command.output" ? "border-border/60 bg-muted/40 font-mono text-xs" : "border-border/70 bg-card"}`}><div className="mb-1 flex items-center gap-2 text-[11px] text-muted-foreground"><Wrench className="h-3 w-3" />{event.type}</div><p className="whitespace-pre-wrap break-words leading-6">{eventText(event)}</p><WorkflowEvidence data={event.data} /></div>)}
-      </div>
-      <div className="border-t border-border/70 p-4"><Textarea value={input} onChange={(event) => setInput(event.target.value)} onKeyDown={(event) => { if ((event.metaKey || event.ctrlKey) && event.key === "Enter") void send(); }} placeholder="描述要交给 Agent 的任务..." className="min-h-[90px] resize-none" /><div className="mt-2 flex items-center justify-between gap-3"><p className="text-xs text-muted-foreground">{!threadId ? "请先新建或选择会话。" : !modelProfileId ? "请先在管理台配置可用模型。" : !input.trim() ? "先描述你希望 Agent 完成的工作，再发送任务。" : "检查任务内容后点击发送；打开会话本身不会调用模型。"}</p><Button onClick={send} disabled={sending || !threadId || !input.trim() || !modelProfileId} className="gap-2">{sending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}{sending ? "提交中" : "发送任务"}</Button></div></div>
+      </AgentConversationViewport>
+      <div aria-label="任务输入区" className="shrink-0 border-t border-border/70 bg-background/95 p-3 sm:p-4"><div className="mx-auto w-full max-w-4xl"><Textarea value={input} onChange={(event) => setInput(event.target.value)} onKeyDown={(event) => { if ((event.metaKey || event.ctrlKey) && event.key === "Enter") void send(); }} placeholder="描述要交给 Agent 的任务..." className="h-20 min-h-20 resize-none overflow-y-auto sm:h-[90px] sm:min-h-[90px]" /><div className="mt-2 flex items-center justify-between gap-3"><p className="text-xs text-muted-foreground">{!threadId ? "请先新建或选择会话。" : !modelProfileId ? "请先在管理台配置可用模型。" : !input.trim() ? "先描述你希望 Agent 完成的工作，再发送任务。" : "检查任务内容后点击发送；打开会话本身不会调用模型。"}</p><Button onClick={send} disabled={sending || !threadId || !input.trim() || !modelProfileId} className="shrink-0 gap-2">{sending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}{sending ? "提交中" : "发送任务"}</Button></div></div></div>
       </> : null}
     </section>
 
-    <aside className="border-l border-border/70 bg-card/30 p-4">
+    <aside id="agent-project-details" aria-label="审批与产物" className={`${mobilePanel === "details" ? "block" : "hidden"} min-h-0 min-w-0 overflow-y-auto overscroll-contain border-l border-border/70 bg-card/30 p-4 lg:block`}>
       {error && <div className="mb-3 flex gap-2 rounded-md border border-red-500/20 bg-red-500/10 p-2 text-xs text-red-500"><AlertTriangle className="h-4 w-4 shrink-0" />{error}<button className="ml-auto" onClick={() => setError("")} title="关闭"><X className="h-3 w-3" /></button></div>}
       {!projectId ? <div className="space-y-3 text-sm"><h3 className="font-semibold">项目与会话</h3><p className="text-muted-foreground">项目用于保存方案、工作区和产物；会话用于围绕该项目持续交给 Agent 任务。创建项目本身不会调用模型。</p></div> : view === "overview" ? <div className="space-y-4 text-sm"><h3 className="font-semibold">下一步怎么做</h3><ol className="list-inside list-decimal space-y-3 text-muted-foreground"><li>已有图纸？点击“添加原理图资料”，选定本项目后识别并自动归档。</li><li>点击“让 Agent 分析项目资料”或“基于最新方案继续”，打开会话并预填任务。</li><li>检查任务后自行发送；需要写文件或操作设备时，再核对审批内容。</li></ol><p className="rounded-lg border p-3 text-xs text-muted-foreground">私有资料在下次 Agent 任务前同步到工作区；原图从项目资料单独下载。工程 ZIP 包含已同步正文，不重复打包 OSS 原图。</p></div> : <>
       <div className="mb-4 flex items-center justify-between"><span className="text-xs font-semibold uppercase text-muted-foreground">审批队列</span>{approvals.length > 0 && <span className="rounded-full bg-amber-500/10 px-2 py-0.5 text-[11px] font-medium text-amber-500">{approvals.length}</span>}</div>
@@ -423,5 +432,6 @@ export function AgentWorkbench() {
       <div className="my-5 border-t border-border/70" /><div className="mb-3 flex items-center justify-between gap-2"><p className="text-xs font-semibold uppercase text-muted-foreground">产物</p><Button variant="outline" size="sm" disabled={downloading} onClick={() => void downloadProject()}>{downloading ? "打包中…" : "下载工程"}</Button></div>{artifactsError ? <p role="alert" className="text-xs text-amber-600">{artifactsError}</p> : artifactsLoading ? <p className="text-xs text-muted-foreground">正在读取产物…</p> : artifacts.length === 0 ? <p className="text-xs text-muted-foreground">暂无已登记产物</p> : <div className="space-y-2">{artifacts.map((artifact) => <div key={artifact.id} className="rounded-md border border-border/70 p-2"><p className="truncate text-xs font-medium">{artifact.name}</p><p className="mt-1 truncate font-mono text-[10px] text-muted-foreground">{artifact.path}</p></div>)}</div>}
       </>}
     </aside>
+    </div>
   </div>;
 }

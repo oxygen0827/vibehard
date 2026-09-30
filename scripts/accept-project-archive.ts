@@ -13,6 +13,7 @@ import { runtimeLlm } from "@/lib/server/llm-settings";
 import { CodexSession } from "@/runner/codex-stdio";
 import { envelope, type TaskStart, type AgentEvent } from "@/lib/agent/protocol";
 import type { RuntimeLlm } from "@/lib/agent/llm";
+import { DatabaseSync } from "node:sqlite";
 
 const digest = (bytes: Buffer | string) => createHash("sha256").update(bytes).digest("hex");
 function pdf(marker: string) {
@@ -43,7 +44,9 @@ async function main() {
   assert.equal(process.getuid?.(), 0);
   const candidate = process.argv[2] === "candidate";
   assert.ok(candidate || process.argv[2] === "production");
-  assert.equal(new URL(process.env.DATABASE_URL!).pathname, candidate ? "/vibehard_archive_acceptance_20260930" : "/vibehard");
+  const unified = process.env.ALLOW_UNIFIED_RELEASE_ACCEPTANCE === "synthetic-two-accounts";
+  const release = unified ? "20260930-unified-platform-v1" : "20260930-project-archive-v1";
+  assert.equal(new URL(process.env.DATABASE_URL!).pathname, candidate ? (unified ? "/vibehard_unified_acceptance_20260930" : "/vibehard_archive_acceptance_20260930") : "/vibehard");
   const base = candidate ? "http://127.0.0.1:3211/vibehard" : "https://ldcx.tech/vibehard";
   const started = Date.now(); const config = await runtimeLlm("agent"); assert.ok(config);
   const runnerKey = candidate ? "archive-candidate-20260930" : "cloud-runner";
@@ -64,6 +67,27 @@ async function main() {
   const json = (body: unknown) => ({ method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
   const projectResponse = await request("/api/projects", json({ name: "原理图归档真实验收-20260930", workspaceKey: "archive-proof", runnerKey, model: config.model }));
   assert.equal(projectResponse.status, 201); const { project } = await projectResponse.json();
+  let designEvidence: unknown;
+  if (unified) {
+    const response = await request("/api/design", json({ projectId: project.id, requestId: randomUUID(), requirement: "ESP32-S3-Touch-LCD-2.8C USB 供电触摸屏演示，参考原理图，用简短方案列出 BOM、接口与风险，不添加电池。" }));
+    assert.equal(response.status, 202); let { job } = await response.json();
+    for (let i = 0; i < 55 && ["queued", "running"].includes(job.status); i++) {
+      await new Promise(resolve => setTimeout(resolve, 2000)); job = (await (await request(`/api/design/${job.id}`)).json()).job;
+    }
+    assert.equal(job.status, "completed", `Design failed: ${job.diagnostics?.errorCode ?? "unknown"}`);
+    assert.ok(job.diagnostics.totalMs < 90_000); assert.equal(job.result.retrieval.status, "matched");
+    assert.ok(job.result.retrieval.references.length > 0);
+    const index = new DatabaseSync("/opt/vibehard/knowledge/20260926-esp32-s3-v1/knowledge-fts.sqlite", { readOnly: true });
+    try { for (const ref of job.result.retrieval.references) {
+      assert.equal(ref.reviewStatus, "auto-indexed"); const position = /#page=(\d+)&part=(\d+)$/.exec(ref.source); assert.ok(position);
+      const chunk = index.prepare("select text from chunks where source_sha=? and page=? and part=?").get(ref.sha256, Number(position[1]), Number(position[2])) as { text: string };
+      assert.ok(chunk?.text.includes(ref.excerpt));
+    } } finally { index.close(); }
+    assert.equal((await request(`/api/design/${job.id}`, {}, outsider.cookie)).status, 404);
+    assert.equal((await request(`/api/projects/${project.id}/bom`)).status, 200);
+    assert.equal((await request(`/api/projects/${project.id}/bom`, {}, outsider.cookie)).status, 404);
+    designEvidence = { jobId: job.id, elapsedMs: job.diagnostics.totalMs, references: job.result.retrieval.references.length, hashesAndPositionsVerified: true, crossAccountDenied: true };
+  }
   const marker = `ARCHIVE-${randomUUID().slice(0, 8)}`; const bytes = pdf(marker); const requestId = randomUUID();
   function form() { const data = new FormData(); data.set("projectId", project.id); data.set("requestId", requestId); data.set("file", new File([new Uint8Array(bytes)], "synthetic-archive.pdf", { type: "application/pdf" })); return data; }
   assert.equal((await request("/api/schematic", { method: "POST", body: form() }, outsider.cookie)).status, 404);
@@ -129,8 +153,8 @@ async function main() {
     const zip = unzipSync(new Uint8Array(await download.arrayBuffer()));
     assert.ok(Object.entries(zip).some(([name, value]) => name.endsWith(result.archive.path) && digest(Buffer.from(value)) === digest(markdown)), "ZIP must contain exact archived Markdown");
   }
-  const report = { passed: true, mode: candidate ? "candidate" : "production", projectId: project.id, documentId: requestId, turnId: turn.id, sourceSha256: digest(bytes), markdownSha256: digest(markdown), visionMs, elapsedMs: Date.now() - started, actualToolRead: toolRead, sourceDownloadVerified: true, crossAccountDenied: true, sameRequestReplayed: true, manualReview: false };
-  writeFileSync(`/opt/vibehard/releases/20260930-project-archive-v1/evidence/${candidate ? "candidate" : "production"}-acceptance.json`, JSON.stringify(report, null, 2), { mode: 0o600 });
+  const report = { passed: true, mode: candidate ? "candidate" : "production", projectId: project.id, documentId: requestId, turnId: turn.id, sourceSha256: digest(bytes), markdownSha256: digest(markdown), visionMs, elapsedMs: Date.now() - started, actualToolRead: toolRead, sourceDownloadVerified: true, crossAccountDenied: true, sameRequestReplayed: true, manualReview: false, ...(unified ? { design: designEvidence } : {}) };
+  writeFileSync(`/opt/vibehard/releases/${release}/evidence/${candidate ? "candidate" : "production"}-acceptance.json`, JSON.stringify(report, null, 2), { mode: 0o600 });
   console.log(JSON.stringify(report));
 }
 void main().catch(error => { console.error(error instanceof Error ? error.message : "Acceptance failed"); process.exitCode = 1; }).finally(() => closeDb());
