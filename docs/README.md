@@ -1,5 +1,9 @@
 # 文档索引
 
+- [项目资料配套与统一工作入口](project-materials-workflow.md)：本地第一阶段的方案配套检查、项目资料包和真实 Agent 共用页面；尚未上线，含检索范围、设备边界和验收记录。
+
+- [完整运行版本统一发布与保留策略](release-unified-platform-20260930.md)：9/30 六服务统一上线、真实验收、完整回滚集合、历史版本备份清理及恢复边界。
+
 - [统一项目选择与原理图资料归档](project-document-archive.md)：已上线的第一条项目链路、私有 OSS/数据库/Runner 目录及权限/失败边界；[9/30 发布验收与回滚](release-project-archive-20260930.md)。
 
 - [原理图正文校验发布](release-schematic-result-20260929.md)：5952 字符上限、同图正式 DeepSeek 验收、平台发布及回滚。

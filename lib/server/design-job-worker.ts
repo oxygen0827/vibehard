@@ -9,6 +9,7 @@ import { callLlm, designRequestPolicy, LlmRequestError } from "./llm-client";
 import { runtimeLlm } from "./llm-settings";
 import { retrieveDesignKnowledge } from "./design-knowledge";
 import { retrievalEvidence } from "@/lib/agent/retrieval-payload";
+import { checkDesignMaterials } from "@/lib/agent/design-materials";
 
 // The hard deadline includes configuration lookup and DNS, not only the TLS request.
 export async function boundedDesign<T>(work: (signal: AbortSignal) => Promise<T>, timeoutMs = DESIGN_MODEL_MS) {
@@ -61,10 +62,12 @@ export async function processNextDesign(deps = defaults, timeoutMs = DESIGN_MODE
       let raw;
       try { raw = JSON.parse(text.replace(/^```(?:json)?\s*/i, "").replace(/\s*```$/, "")); }
       catch { throw new LlmRequestError("模型返回的方案格式不正确，请手动重试", 502, "FORMAT"); }
-      const parsed = designResultSchema.omit({ retrieval: true }).safeParse(raw);
+      const parsed = designResultSchema.omit({ retrieval: true, materials: true }).safeParse(raw);
       if (!parsed.success) throw new LlmRequestError("模型返回的方案字段不完整，请手动重试", 502, "FORMAT");
       await stage("saving");
-      const saved = await deps.finishDesign(job.id, job.leaseToken!, { result: { ...freezeBomPrices(parsed.data), retrieval: retrievalEvidence(retrieval) }, model: config.model, knowledgeVersion: HARDWARE_DESIGN_KNOWLEDGE.version, diagnostics: structuredClone(diagnostics) }, executionDeadline);
+      const evidence = retrievalEvidence(retrieval);
+      const saved = await deps.finishDesign(job.id, job.leaseToken!, { result: { ...freezeBomPrices(parsed.data), retrieval: evidence,
+        materials: checkDesignMaterials(parsed.data.bom, evidence) }, model: config.model, knowledgeVersion: HARDWARE_DESIGN_KNOWLEDGE.version, diagnostics: structuredClone(diagnostics) }, executionDeadline);
       if (!saved) throw new LlmRequestError("任务保存期限或租约已失效，请手动重试", 409, Date.now() >= executionDeadline ? "TIMEOUT" : "LEASE_EXPIRED");
     }, Math.max(1, executionDeadline - Date.now()));
   } catch (error) {

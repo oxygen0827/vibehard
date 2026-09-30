@@ -1,0 +1,6 @@
+export type ProjectWorkflowMode = "agent" | "debug" | "embedded";
+export const projectWorkflows = {
+  agent: { title: "Agent 项目", action: "分析项目资料", prompt: "请先读取本项目 designs/ 的最新方案及 documents/ 资料，检查资料配套情况和缺项，区分未复核草案与实测事实。未经确认不要修改文件或操作设备。" },
+  debug: { title: "AI 调试", action: "准备外设调试清单", prompt: "请先实际读取本项目 designs/ 的最新方案与配套检查、documents/ 的原理图分析以及现有工程资料。按来源列出外设、接口、引脚、驱动资料及缺项，不得猜测引脚或电气参数。结合用户提供的日志制定逐项调试计划；先报告目标开发板、执行器及连接方式需要确认的信息。本次仅分析，不执行烧录、复位或硬件写入，不宣称设备已连接/已调通；后续设备操作必须走现有审批。" },
+  embedded: { title: "嵌入式开发", action: "准备项目开发计划", prompt: "请先实际读取本项目 designs/ 的最新方案与配套检查、documents/ 的原理图分析以及现有源码。说明精确板型、SDK/工具链、外设驱动资料和未确认项；依据本项目资料提出最小可验证开发步骤。没有源码时不要说项目为空，也不要编造编译结果。本次先分析，待用户明确需求并确认修改边界后才申请写入；烧录、复位或设备写入另行审批，不宣称已有硬件验证。" },
+} as const;

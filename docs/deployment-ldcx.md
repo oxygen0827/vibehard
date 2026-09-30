@@ -1,6 +1,14 @@
 # ldcx.tech deployment
 
-## Project archive release, 2026-09-30 13:30 CST (current)
+## Unified release and retention, 2026-09-30 18:05 CST (current)
+
+The platform, cloud Runner, Gateway, design worker, restricted retrieval and EDA manager all load code from `/opt/vibehard/releases/20260930-unified-platform-v2`. The knowledge CLI is also bundled there. This preserves the complete previous source overlay, PCB/Demo assets, databases, project files, indexes and configuration. Exact release hashes, real-model acceptance and the current rollback command are in [the unified release record](release-unified-platform-20260930.md).
+
+After explicit authorization and a full private local backup with matching remote/local SHA256 and per-file verification, 42 obsolete release directories and 33 archives were removed at 18:04. Root free space rose from about 1.4 to 11.1 GiB (97%→71% used); releases now occupy about 1.75 GiB. The current release and complete previous component rollback set remain on the server. Public PCB/Demo/BOM/auth, retrieval, EDA health, protected hashes, rollback files, fresh Runner heartbeats and two live Gateway connections passed afterward, without restarting any service.
+
+The sections below are historical evidence, not current deployment instructions. Their earlier release paths may have been retired; do not run historical rollback commands without restoring the required directories from the private backup. The backup contains potentially sensitive material, stays outside Git, and its temporary local location is not permanent disaster-recovery storage.
+
+## Project archive release, 2026-09-30 13:30 CST (previous)
 
 Platform, cloud Runner and Gateway now use `/opt/vibehard/releases/20260930-project-archive-v1/` (web under `standalone/`, services under `services/`). Additive migration `0009_project_documents` is applied. PR #32 and default merge `de93e6a` passed CI; release source `0d0c345` has the same tree. The 1156-source manifest preserves the complete previous overlay, including PCB/Demo. Archive SHA256: `c5d3cf56733b661ad6cf39a87664d3304cdc1ef664394ab92d1e63bf5c7e883e`.
 

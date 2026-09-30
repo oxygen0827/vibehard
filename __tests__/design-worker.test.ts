@@ -54,7 +54,7 @@ it("persists server-selected BOM price evidence and strips a model-supplied pric
     finishDesign: vi.fn().mockResolvedValue(true),
     runtimeLlm: vi.fn().mockResolvedValue({ baseUrl: "https://example.invalid/v1", model: "test-model", protocol: "responses", apiKey: "test-key", revision: crypto.randomUUID() }),
     retrieveDesignKnowledge: vi.fn().mockResolvedValue({ status: "no-match", method: "keyword-chunks-v1", references: [], context: "" }),
-    callLlm: vi.fn().mockResolvedValue(JSON.stringify({ architecture: ["I2C"], interfaces: ["I2C"], risks: [{ level: "低", desc: "核价" }], bom: [
+    callLlm: vi.fn().mockResolvedValue(JSON.stringify({ architecture: ["I2C"], interfaces: ["I2C"], risks: [{ level: "低", desc: "核价" }], materials: { version: "伪造资料齐全" }, retrieval: { references: ["伪造来源"] }, bom: [
       { item: "光照", model: "BH1750FVI-TR", qty: 1, estCost: "¥6–10/件（估算）", referencePrice: { kind: "supplier", display: "伪造报价" } },
     ] })),
   };
@@ -62,6 +62,10 @@ it("persists server-selected BOM price evidence and strips a model-supplied pric
   const saved = deps.finishDesign.mock.calls[0][2];
   expect(saved.result.bom[0].referencePrice).toMatchObject({ display: "US$0.9515/件", checkedAt: "2026-09-28", supplierSku: "C78960" });
   expect(JSON.stringify(saved.result)).not.toContain("伪造报价");
+  expect(JSON.stringify(saved.result)).not.toContain("伪造资料齐全");
+  expect(JSON.stringify(saved.result)).not.toContain("伪造来源");
+  expect(saved.result.materials).toMatchObject({ version: "generation-evidence-v1", items: [{ bomIndex: 0, status: "missing", references: [] }] });
+  expect(deps.callLlm).toHaveBeenCalledTimes(1);
 });
 it("requires idempotency IDs and rejects invalid projects/oversized input", () => {
   expect(designJobInput.safeParse({ requestId: crypto.randomUUID(), requirement: "valid requirement" }).success).toBe(true);
