@@ -1,5 +1,7 @@
 # 项目状态
 
+- 2026-10-01 候选完成、正式待发布：用户确认后在独立 `codex/rv1126b-webusb` 打通浏览器设备报告 → 当前项目 JSONB → 固定 `documents/`/下载 → 云端真实模型工具实读；无生产 DDL/板端写入。常规 442、另跑 7 隔离 PG、类型/lint/完整网页与服务构建通过。候选归档 14 ms/真实回合 7412 ms，工具输出和磁盘/下载 SHA 一致，权限/幂等/篡改/旧 Runner 拒绝、PCB/Demo/BOM/PDF 通过。初候选 Origin 误拒绝修复后重跑通过。生产仍为 9/30 版本，待 Git/CI/正式 Gateway/ZIP 验收；Mac 锁屏使本次集成页面真机人工点击未复测，原型真机证据不等同于完整新 UI 验收。见 `docs/browser-device-project-integration.md`；下面 USB“未接归档”等为原型历史。
+
 - 2026-10-01 本地真实只读验证：独立 `codex/rv1126b-webusb`，Chrome 原生 WebUSB/浏览器 ADB 直连 Luckfox Aura RV1126B，初版连续三次 148/168/147 ms，最终代码刷新重连 146 ms；设备树/内存/磁盘/服务状态通过，真实占用/取消授权/主动断开提示正常。无本机 ADB TCP 桥接、模型 Key 或持久 ADB 密钥。7 新测试，完整 437 通过/23 条件跳过，类型/lint/esbuild 通过；首次沙箱 listener EPERM 已在可监听环境完整重跑。仅本地预览，未接项目归档、提交/推送/上线或改板端/生产；部署/刷机/跨平台/物理拔线未验。详见 `docs/rv1126b-webusb-probe.md`。
 
 - 2026-09-30 22:08 正式完成：逐器件补检索/项目资料锁经 PR #38（合并 `1a4c1ce`）上线 `20260930-project-material-lock-v1`，检索→平台→Worker 三服务切换，无迁移/模型/索引/凭据/设备变化。430 常规及 CI 另跑 21 PG、Linux PDF 通过；首次 CI 队列锁争用已串行化修正并重跑。候选/公网真实方案 20.464/16.616 秒、补检索 45 ms、3 引用 SHA/页/片段、13 文件包和实际 Agent 复用/读文件/工程 ZIP/权限通过。生产 60 次双并发 P95 12.54 ms、峰值约 39.20 MiB。三更新服务无重启，其余 PID 保持，心跳新鲜/两连接；三旧 unit/0600 PG 备份、9.95 GiB 空间，候选和测试隧道已关闭。仍非硬件实测或每器件资料齐全。详见 `docs/release-project-material-lock-20260930.md`。

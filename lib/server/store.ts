@@ -214,7 +214,7 @@ export async function createTurn(userId: string, threadId: string, input: string
     if (design) requireDesignRunner(runner);
     const previousDesign = previousStart?.design as { sha256?: string } | undefined;
     const projectFiles = await projectFilesForTurn(userId, owned.project.id, tx);
-    if (projectFiles.files.length) { requireProjectFilesRunner(runner); startMessage.projectFiles = projectFiles; }
+    if (projectFiles.files.length) { requireProjectFilesRunner(runner, projectFiles.files); startMessage.projectFiles = projectFiles; }
     const previousFiles = previousStart?.projectFiles as { revision?: string } | undefined;
     const filesChanged = Boolean(thread.codexThreadId && previousFiles?.revision !== (projectFiles.files.length ? projectFiles.revision : undefined));
     startMessage.knowledge = prepareKnowledge(publishedSnapshot(documents), thread.codexThreadId, previous, runner);

@@ -29,17 +29,17 @@ export function ProjectDocuments({ projectId, onAnalyze, disabled }: { projectId
       <button className="text-primary" disabled={loading} onClick={() => { setLoading(true); setError(""); setReload(n => n + 1); }}>刷新资料</button>
       <Link href={projectModuleHref("schematic", projectId)} className="text-primary">添加原理图资料 →</Link>
     </div></div>
-    <p className="text-xs text-muted-foreground">原图私有存储，正文按统一目录归档。Agent 任务开始前同步读取；不等同于已审核知识库资料。</p>
+    <p className="text-xs text-muted-foreground">原理图与设备报告按统一目录归档，Agent 任务开始前校验同步。浏览器报告仅是历史快照，不代表设备当前在线或已验证；不自动进入公共知识库。</p>
     {loading ? <p className="text-sm text-muted-foreground">正在读取项目资料…</p> : error ? <p role="alert" className="text-sm text-amber-600">{error}</p> : <>
       {!documents.length && <p className="text-sm text-muted-foreground">暂无项目资料。点击“添加原理图资料”，会自动带上当前项目。</p>}
       {documents.map(doc => <div key={doc.id} className="space-y-2 rounded-lg border p-3">
         <div className="flex flex-wrap justify-between gap-2"><p className="text-sm font-medium">{doc.title}</p><span className="text-xs text-muted-foreground">{doc.status === "completed" ? doc.syncedAt ? "已归档 · 已同步到工作区" : "已归档 · 下次 Agent 任务前同步" : doc.status === "failed" ? "识别未完成" : "识别处理中 / 等待结果"}</span></div>
-        <p className="text-xs text-muted-foreground">{doc.fileName} · {new Date(doc.createdAt).toLocaleString("zh-CN")} · 未人工复核</p>
+        <p className="text-xs text-muted-foreground">{doc.kind === "device-report" ? "浏览器上报 · 只读历史快照" : doc.fileName} · {new Date(doc.createdAt).toLocaleString("zh-CN")} · 未人工复核</p>
         {doc.path && <p className="break-all font-mono text-xs text-muted-foreground">{doc.path}</p>}
         {doc.error && <p className="text-xs text-amber-600">{doc.error}</p>}
         {doc.status !== "completed" && <p className="text-xs text-muted-foreground">若识别已中断，可重新选择原文件发起识别；不会自动重试调用模型。</p>}
         <div className="flex flex-wrap gap-3 text-sm">
-          {doc.status === "completed" && <a className="text-primary" href={apiPath(`/api/projects/${projectId}/documents/${doc.id}`)}>下载分析文档</a>}
+          {doc.status === "completed" && <a className="text-primary" href={apiPath(`/api/projects/${projectId}/documents/${doc.id}`)}>{doc.kind === "device-report" ? "下载诊断报告" : "下载分析文档"}</a>}
           {doc.originalStored && <a className="text-primary" href={apiPath(`/api/projects/${projectId}/documents/${doc.id}?format=source`)}>下载原图</a>}
         </div>
       </div>)}

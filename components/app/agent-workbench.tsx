@@ -1,5 +1,6 @@
 "use client";
 import { ProjectDocuments } from "@/components/app/project-documents";
+import { BrowserDevicePanel } from "@/components/app/browser-device-panel";
 import { selectProjectInUrl } from "@/components/app/project-selector";
 import { ModuleHelp } from "@/components/app/module-help";
 
@@ -99,6 +100,8 @@ export function AgentWorkbench({ mode = "agent" }: { mode?: ProjectWorkflowMode 
   const [threadsError, setThreadsError] = useState(false);
   const [openingConversation, setOpeningConversation] = useState(false);
   const [mobilePanel, setMobilePanel] = useState<"projects" | "details" | null>(null);
+  const [deviceBusy, setDeviceBusy] = useState(false);
+  const [documentRevision, setDocumentRevision] = useState(0);
 
   useEffect(() => {
     let active = true;
@@ -372,7 +375,7 @@ export function AgentWorkbench({ mode = "agent" }: { mode?: ProjectWorkflowMode 
     <header className="shrink-0 space-y-2 border-b bg-card/60 px-4 py-3">
       <div className="flex flex-wrap items-center gap-3"><h1 className="font-semibold">{workflow.title}</h1><ModuleHelp module={mode} />
         <select aria-label="当前工作项目" className="min-w-0 max-w-full rounded-md border bg-background p-1.5 text-sm" value={projectId}
-          disabled={sending || openingConversation} onChange={event => {
+          disabled={sending || openingConversation || deviceBusy} onChange={event => {
             const project = projects.find(item => item.id === event.target.value);
             if (project) { selectProjectInUrl(project.id); selectProject(project); }
           }}><option value="" disabled>请选择项目</option>{projects.map(project => <option key={project.id} value={project.id}>{project.name}</option>)}</select>
@@ -392,7 +395,7 @@ export function AgentWorkbench({ mode = "agent" }: { mode?: ProjectWorkflowMode 
       <div className="mb-4 flex items-center justify-between"><div className="flex items-center gap-1"><h2 className="text-sm font-semibold">项目列表</h2></div><Button size="icon" variant="ghost" className="h-7 w-7" title="新建项目" onClick={createProject}><Plus className="h-4 w-4" /></Button></div>
       <div className="mb-2 flex gap-2"><Input value={newProject} onChange={(event) => setNewProject(event.target.value)} onKeyDown={(event) => event.key === "Enter" && void createProject()} placeholder="项目名称" className="h-8 text-xs" /></div>
       <select aria-label="项目执行器" value={newRunnerKey} onChange={(event) => setNewRunnerKey(event.target.value)} className="mb-3 h-8 w-full rounded-md border border-border bg-background px-2 text-xs" disabled={!runners.length}><option value="">暂无可用执行器</option>{runners.map((runner) => <option key={runner.runnerKey} value={runner.runnerKey}>{runner.name}{runner.capabilities.includes("usb-device") ? " · USB 设备" : " · 云端"}</option>)}</select>
-      <div className="space-y-1">{projects.map((project) => <button key={project.id} disabled={sending || openingConversation} onClick={() => { selectProjectInUrl(project.id); selectProject(project); }} className={`flex w-full items-center gap-2 rounded-md px-2.5 py-2 text-left text-sm ${project.id === projectId ? "bg-primary/10 text-primary" : "text-muted-foreground hover:bg-muted"}`}><FolderKanban className="h-4 w-4" /><span className="truncate">{project.name}</span></button>)}</div>
+      <div className="space-y-1">{projects.map((project) => <button key={project.id} disabled={sending || openingConversation || deviceBusy} onClick={() => { selectProjectInUrl(project.id); selectProject(project); }} className={`flex w-full items-center gap-2 rounded-md px-2.5 py-2 text-left text-sm ${project.id === projectId ? "bg-primary/10 text-primary" : "text-muted-foreground hover:bg-muted"}`}><FolderKanban className="h-4 w-4" /><span className="truncate">{project.name}</span></button>)}</div>
       {projectId && <Link href={`/app/agent/${projectId}/knowledge`} className="mt-3 block rounded-md border p-2 text-center text-sm text-primary">项目知识库 · 审核与版本</Link>}
       {projectId && <Link href={`/app/agent/${projectId}/designs`} className="mt-2 block rounded-md border p-2 text-center text-sm text-primary">方案记录 · 进度与下载</Link>}
       {projects.length === 0 && <p className="text-xs text-muted-foreground">还没有项目</p>}
@@ -411,8 +414,12 @@ export function AgentWorkbench({ mode = "agent" }: { mode?: ProjectWorkflowMode 
           }}>{workflow.action}</Button>
           <p className="text-xs text-muted-foreground">只预填任务，不自动调用模型。打开会话检查后发送；设备绑定与实际读写须单独确认。</p>
         </section>
-        <ProjectDocuments key={projectId} projectId={projectId} disabled={threadsLoading || threadsError || openingConversation} onAnalyze={() => {
-          setInput("请先读取本项目 documents/ 下归档的原理图分析文档，列出已识别的外设、接口与引脚、来源位置和待确认项，再给出开发调试建议。区分 AI 识别草案与实测事实，不要把缺少源码说成没有项目资料；未经我确认不要修改文件或操作设备。");
+        <BrowserDevicePanel key={`usb-${projectId}`} projectId={projectId} onBusy={setDeviceBusy} onSaved={() => setDocumentRevision(value => value + 1)} onArchived={path => {
+          setInput(`请实际使用只读工具读取本项目 ${path}，按报告路径与采集时间说明板型、系统、内存、磁盘和已有服务状态，并结合项目资料给出下一步调试建议。报告是浏览器上报的历史快照，可被伪造，不能代表当前 USB 在线或设备操作授权。此次只分析，不修改文件、部署、复位或烧录。`);
+          void openProjectConversation();
+        }} />
+        <ProjectDocuments key={`${projectId}-${documentRevision}`} projectId={projectId} disabled={threadsLoading || threadsError || openingConversation || deviceBusy} onAnalyze={() => {
+          setInput("请先读取本项目 documents/ 下归档的原理图分析与设备报告，列出外设、接口与引脚、采集时间、来源位置和待确认项，再给出开发调试建议。区分 AI 识别草案与浏览器上报快照，两者不等同于硬件验证。未经我确认不要修改文件或操作设备。");
           void openProjectConversation();
         }} />
         {threadsError && <p role="alert" className="rounded-lg border border-amber-500/40 bg-amber-500/5 p-3 text-sm text-amber-600">会话列表加载失败，请刷新页面重试。</p>}

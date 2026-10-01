@@ -5,6 +5,7 @@ import type { DesignDiagnostics } from "@/lib/agent/design-diagnostics";
 import type { ModuleManifest } from "@/lib/eda/module-package";
 import type { ModuleDefinition } from "@/lib/eda/modules";
 import type { SchematicResult } from "@/lib/agent/schematic";
+import type { ArchivedDeviceReport } from "@/lib/device/device-report";
 import {
   boolean,
   integer,
@@ -95,7 +96,7 @@ export const projectDocuments = pgTable("project_documents", {
   objectKey: text("object_key").notNull(),
   originalStored: boolean("original_stored").notNull().default(false),
   status: text("status").$type<"processing" | "completed" | "failed">().notNull().default("processing"),
-  result: jsonb("result").$type<SchematicResult>(),
+  result: jsonb("result").$type<SchematicResult | ArchivedDeviceReport>(),
   error: text("error"),
   syncedAt: timestamp("synced_at", { withTimezone: true }),
   ...timestamps,

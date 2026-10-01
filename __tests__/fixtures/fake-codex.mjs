@@ -5,6 +5,17 @@ const send = (message) => process.stdout.write(`${JSON.stringify(message)}\n`);
 const mode = process.env.FAKE_CODEX_MODE ?? "complete";
 lines.on("line", (line) => {
   const message = JSON.parse(line);
+  if (mode === "device-report" && ["thread/start", "thread/resume"].includes(message.method) && !message.params.developerInstructions?.includes("不是服务端可信设备身份")) {
+    send({ id: message.id, error: { message: "Device report boundary missing" } }); return;
+  }
+  if (mode === "device-report" && message.method === "turn/start") {
+    const reference = message.params.input.find(item => item.text?.includes("本回合私有项目资料已校验"));
+    const files = reference?.text.split("\n").slice(1) ?? [];
+    if (!files.length || files.some(file => !readFileSync(file, "utf8").includes("浏览器上报"))) {
+      send({ id: message.id, error: { message: "Device report not actually readable in child workspace" } }); return;
+    }
+    send({ method: "item/completed", params: { item: { type: "commandExecution", id: "device-report-read", command: "read archived device report", status: "completed", exitCode: 0 } } });
+  }
   if (mode === "materials" && message.method === "turn/start") {
     const reference = message.params.input.find(item => item.text?.includes("本回合项目方案已保存到工作区"));
     const file = reference?.text.match(/工作区：(designs\/[^。]+)。/)?.[1];
