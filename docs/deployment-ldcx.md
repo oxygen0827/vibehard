@@ -1,6 +1,10 @@
 # ldcx.tech deployment
 
-## Project materials release, 2026-09-30 19:18 CST (current)
+## Per-component material locks, 2026-09-30 22:08 CST (current)
+
+Restricted retrieval, platform/API and design worker now use `/opt/vibehard/releases/20260930-project-material-lock-v1`. Runner/Gateway/EDA/knowledge CLI still need `20260930-unified-platform-v2`; retain it and the previous platform/worker `20260930-project-materials-v1`. PR #38/default CI, actual candidate/public model and Agent file reads, bound source hashes, package ownership and production private load gates passed. No migration, model/index/config/credential write or hardware operation. Three saved units/readable 0600 PG backup support code-only rollback. Source `e2dbc12` and merged `1a4c1ce` differ only in the CI serial-test fix, not runtime code. See [exact release evidence and guarded three-service rollback](release-project-material-lock-20260930.md).
+
+## Project materials release, 2026-09-30 19:18 CST (previous)
 
 Only platform/API and design worker now use `/opt/vibehard/releases/20260930-project-materials-v1`; Runner, Gateway, restricted retrieval, EDA manager and knowledge CLI remain on `20260930-unified-platform-v2`. Retain both. PR #36 and merged default CI passed, as did isolated and public real-model generation, package hashes/ownership, actual Agent file reads and project ZIP contents. No production migration, index/configuration/credential changes or device operation. Two prior units and a readable database backup are retained; candidate 3211 is stopped. See [release evidence and the two-service rollback command](release-project-materials-20260930.md).
 

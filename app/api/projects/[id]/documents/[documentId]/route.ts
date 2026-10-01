@@ -17,7 +17,7 @@ export async function GET(request: NextRequest, context: { params: Promise<{ id:
     if (format === "source" ? !doc.originalStored : !doc.result) return NextResponse.json({ error: "这份资料尚未保存完成" }, { status: 409 });
     const source = format === "source";
     const bytes = source ? await getProjectOriginal(doc.objectKey, doc.fileSha256, doc.byteSize) : Buffer.from(archivedFile(doc).markdown);
-    const name = source ? doc.fileName : `schematic-${doc.id}.md`;
+    const name = source ? doc.fileName : `${archivedFile(doc).kind}-${doc.id}.md`;
     return new Response(new Uint8Array(bytes), { headers: {
       "Content-Type": "application/octet-stream", "Content-Disposition": `attachment; filename="document"; filename*=UTF-8''${encodeURIComponent(name)}`,
       "Cache-Control": "private, no-store", "X-Content-Type-Options": "nosniff", "Content-Security-Policy": "sandbox",

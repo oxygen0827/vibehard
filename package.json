@@ -26,6 +26,8 @@
     "@base-ui/react": "^1.7.0",
     "@napi-rs/canvas": "1.0.9",
     "@novnc/novnc": "1.7.0",
+    "@yume-chan/adb": "2.6.4",
+    "@yume-chan/adb-daemon-webusb": "2.3.2",
     "ali-oss": "^6.23.0",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",

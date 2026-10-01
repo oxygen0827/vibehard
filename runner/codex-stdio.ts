@@ -8,7 +8,7 @@ import { KNOWLEDGE_BOUNDARY, knowledgeInput, retrievalInput } from "./project-kn
 import { DESIGN_FILE_BOUNDARY } from "@/lib/agent/design-artifact";
 import { materializeDesign } from "./design-files";
 import { materializeProjectFiles } from "./project-files";
-import { PROJECT_FILES_BOUNDARY, projectFilesManifest } from "@/lib/agent/project-document";
+import { DEVICE_REPORT_BOUNDARY, PROJECT_FILES_BOUNDARY, projectFilesManifest } from "@/lib/agent/project-document";
 import { knowledgeManifest, type KnowledgeSnapshot } from "@/lib/agent/knowledge";
 import type { AgentEvent, TaskStart } from "@/lib/agent/protocol";
 import type { RuntimeLlm } from "@/lib/agent/llm";
@@ -246,7 +246,7 @@ export class CodexSession {
     this.knowledge = task.knowledge;
     this.workflow = process.env.RUNNER_ENGINEERING_WORKFLOW === "true" ? new ProjectWorkflow() : undefined;
     // Explicitly clear an older workflow override when the rollout flag is disabled on resume.
-    const developerInstructions = [this.workflow?.instructions, task.knowledge || task.retrieval ? KNOWLEDGE_BOUNDARY : undefined, task.design ? DESIGN_FILE_BOUNDARY : undefined, task.projectFiles?.files.length ? PROJECT_FILES_BOUNDARY : undefined].filter(Boolean).join("\n\n");
+    const developerInstructions = [this.workflow?.instructions, task.knowledge || task.retrieval ? KNOWLEDGE_BOUNDARY : undefined, task.design ? DESIGN_FILE_BOUNDARY : undefined, task.projectFiles?.files.length ? PROJECT_FILES_BOUNDARY : undefined, task.projectFiles?.files.some(file => file.kind === "device-report") ? DEVICE_REPORT_BOUNDARY : undefined].filter(Boolean).join("\n\n");
     const parsedArgs = process.env.CODEX_APP_SERVER_ARGS ? JSON.parse(process.env.CODEX_APP_SERVER_ARGS) as unknown : ["app-server", "--listen", "stdio://"];
     if (!Array.isArray(parsedArgs) || !parsedArgs.every((item) => typeof item === "string")) throw new Error("CODEX_APP_SERVER_ARGS must be a JSON string array");
     const command = codexCommand(process.env.CODEX_BIN ?? "codex", parsedArgs, this.workspaceRoot, task.workspaceKey);
