@@ -1,6 +1,6 @@
 # 文档索引
 
-- [浏览器 USB → 项目报告 → Agent](browser-device-project-integration.md)：免安装只读采集、同项目归档/下载/云端实读、兼容与发布边界（候选验收中）。[真实 USB 原型验证](rv1126b-webusb-probe.md)。
+- [浏览器 USB → 项目报告 → Agent](browser-device-project-integration.md)：已上线的同项目只读报告归档/下载/实读，含兼容与设备边界；[生产真实验收与回滚](release-browser-device-report-20261001.md)，[真实 USB 原型验证](rv1126b-webusb-probe.md)。
 
 - [逐器件补检索与项目资料版本锁](project-material-lock.md)：已上线的最终 BOM 补检索、版本/来源哈希锁、Agent 复用及停用/更新失效规则；[真实验收、性能与回滚](release-project-material-lock-20260930.md)。
 
