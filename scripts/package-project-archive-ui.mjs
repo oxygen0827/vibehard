@@ -6,7 +6,7 @@ import { copyFileSync, cpSync, existsSync, mkdirSync, readFileSync, writeFileSyn
 import path from 'node:path';
 import { assertPortableStandalone } from './standalone-links.mjs';
 const output=process.argv[2]; assert.match(output??'',/^\/private\/tmp\/vibehard-project-archive-ui\.[A-Za-z0-9]+$/);
-const name='20261001-project-archive-ui-v2', previousName='20261001-browser-device-report-v1';
+const name='20261001-project-archive-ui-v3', previousName='20261001-browser-device-report-v1';
 const release=path.join(output,name); assert.ok(!existsSync(release));
 const run=(c,a)=>execFileSync(c,a,{encoding:'utf8'}).trim();
 const hash=p=>createHash('sha256').update(readFileSync(p)).digest('hex');

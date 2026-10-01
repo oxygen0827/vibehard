@@ -4,7 +4,7 @@ import { createHash } from 'node:crypto';
 import { spawnSync } from 'node:child_process';
 import { chmodSync, copyFileSync, existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { assertPortableStandalone } from './standalone-links.mjs';
-const release='/opt/vibehard/releases/20261001-project-archive-ui-v2';
+const release='/opt/vibehard/releases/20261001-project-archive-ui-v3';
 const previous='/opt/vibehard/releases/20261001-browser-device-report-v1';
 const node='/opt/vibehard/runtime/node-v22.23.1';
 const candidate='vibehard-project-archive-ui-candidate.service', port=3217;
