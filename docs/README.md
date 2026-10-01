@@ -1,5 +1,9 @@
 # 文档索引
 
+- [简洁调试/开发工作模块](device-workspace-ui.md)：本地恢复双栏操作页，项目/归档/真实执行共用，默认折叠次要操作；未发布。
+
+- [Agent 项目与设备操作入口分离](release-project-archive-ui-20261001.md)：10/1 18:19 已上线，真实登录点击、CI、工件验证、仅平台回滚；不包含待验收的新开发结果归档。
+
 - [浏览器 USB → 项目报告 → Agent](browser-device-project-integration.md)：已上线的同项目只读报告归档/下载/实读，含兼容与设备边界；[生产真实验收与回滚](release-browser-device-report-20261001.md)，[真实 USB 原型验证](rv1126b-webusb-probe.md)。
 
 - [逐器件补检索与项目资料版本锁](project-material-lock.md)：已上线的最终 BOM 补检索、版本/来源哈希锁、Agent 复用及停用/更新失效规则；[真实验收、性能与回滚](release-project-material-lock-20260930.md)。

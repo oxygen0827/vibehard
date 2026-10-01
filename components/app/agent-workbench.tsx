@@ -1,6 +1,7 @@
 "use client";
 import { ProjectDocuments } from "@/components/app/project-documents";
 import { BrowserDevicePanel } from "@/components/app/browser-device-panel";
+import { DeviceWorkspace, deviceTaskExamples } from "@/components/app/device-workspace";
 import { selectProjectInUrl } from "@/components/app/project-selector";
 import { ModuleHelp } from "@/components/app/module-help";
 
@@ -297,15 +298,15 @@ export function AgentWorkbench({ mode = "agent" }: { mode?: ProjectWorkflowMode 
     } finally { setOpeningConversation(false); }
   };
 
-  const send = async () => {
+  const submitTask = async (targetThreadId: string, taskInput: string) => {
     const profile = models.find((item) => item.id === modelProfileId);
-    if (sending || taskState === "运行中" || !threadId || !input.trim() || !profile) return;
+    if (sending || taskState === "运行中" || !targetThreadId || !taskInput.trim() || !profile) return;
     setSending(true);
     setError("");
     try {
-      await json(`/api/threads/${threadId}/turns`, {
+      await json(`/api/threads/${targetThreadId}/turns`, {
         method: "POST",
-        body: JSON.stringify({ input, model: profile.model, providerId: profile.providerId }),
+        body: JSON.stringify({ input: taskInput, model: profile.model, providerId: profile.providerId }),
       });
       if (activeProject.current === projectId) setInput("");
     } catch (reason) {
@@ -313,6 +314,22 @@ export function AgentWorkbench({ mode = "agent" }: { mode?: ProjectWorkflowMode 
     } finally {
       setSending(false);
     }
+  };
+
+  const send = () => submitTask(threadId, input);
+  // A single explicit user click may open a conversation and submit the module task.
+  // Preparing a checklist, changing projects or opening history never invokes a model.
+  const sendModuleTask = async () => {
+    if (!projectId || !input.trim() || sending || openingConversation || deviceBusy || threadsLoading || threadsError || taskState === "运行中" || !modelProfileId) return;
+    const selectedProjectId = projectId;
+    const taskInput = input === workflow.prompt ? input : `${workflow.prompt}\n\n用户需求或日志：\n${input}`;
+    setOpeningConversation(true);
+    try {
+      const targetThreadId = threadId || (await createThread())?.id;
+      if (!targetThreadId || activeProject.current !== selectedProjectId) return;
+      setView("conversation");
+      await submitTask(targetThreadId, taskInput);
+    } finally { setOpeningConversation(false); }
   };
 
   const refreshModels = async () => {
@@ -368,8 +385,37 @@ export function AgentWorkbench({ mode = "agent" }: { mode?: ProjectWorkflowMode 
 
   if (loading) return <div className="p-8 text-sm text-muted-foreground">正在连接 Agent 平台...</div>;
 
-  const connectionLabel = connection === "connected" ? "事件已连接" : connection === "reconnecting" ? "正在重连" : connection === "connecting" ? "正在连接" : "未连接";
-  const connectionColor = connection === "connected" ? "bg-emerald-500" : connection === "idle" ? "bg-muted-foreground" : "bg-amber-500";
+  const connectionLabel = view !== "conversation" ? "尚未打开会话" : connection === "connected" ? "事件已连接" : connection === "reconnecting" ? "正在重连" : connection === "connecting" ? "正在连接" : "未连接";
+  const connectionColor = view !== "conversation" ? "bg-muted-foreground" : connection === "connected" ? "bg-emerald-500" : connection === "idle" ? "bg-muted-foreground" : "bg-amber-500";
+
+  const activity = <AgentConversationViewport key={threadId} revision={events.at(-1)?.eventId ?? "empty"}>
+    {messages.length === 0 && <div className="flex flex-col items-center justify-center py-10 text-center text-sm text-muted-foreground"><Terminal className="mb-3 h-8 w-8 text-primary/60" /><p>{mode === "agent" ? "选择项目并发送第一个 Agent 任务" : "发送任务后，这里显示真实执行日志与结果"}</p></div>}
+    {events.filter(event => event.type === "knowledge.retrieved" && ["platform", "project-material-lock"].includes(String(event.data.origin))).map(event => {
+      const parsed = retrievalEvidenceSchema.safeParse(event.data.retrieval);
+      return parsed.success ? <details key={event.eventId}><summary className="text-xs">本回合检索 · {event.data.origin === "project-material-lock" ? "复用已核验项目资料锁 · " : ""}{new Date(event.timestamp).toLocaleString()}</summary>
+        {event.data.materialLockState && !["active", "absent"].includes(String(event.data.materialLockState)) ? <p className="mt-2 text-xs text-amber-600">项目资料锁不可复用，已改用本回合检索；历史文件不能作为当前有效证据。</p> : null}
+        <RetrievalEvidence value={parsed.data} /></details> : null;
+    })}
+    {messages.map(event => event.type === "reasoning" ? <AgentReasoning key={event.eventId} text={eventText(event)} /> : <div key={event.eventId} className={`rounded-md border p-3 text-sm ${event.type === "command.output" ? "border-border/60 bg-muted/40 font-mono text-xs" : "border-border/70 bg-card"}`}><div className="mb-1 flex items-center gap-2 text-[11px] text-muted-foreground"><Wrench className="h-3 w-3" />{event.type}</div><p className="whitespace-pre-wrap break-words leading-6">{eventText(event)}</p><WorkflowEvidence data={event.data} /></div>)}
+  </AgentConversationViewport>;
+
+  const approvalCards = approvals.map(approval => {
+    const details = approval.details ?? {};
+    const pending = deciding.includes(approval.id);
+    return <div key={approval.id} className="rounded-md border border-amber-500/30 bg-amber-500/5 p-3"><div className="flex items-start gap-2"><AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-amber-500" /><div className="min-w-0"><p className="text-xs font-semibold text-foreground">{approval.risk === "write" ? "写入工作区" : "执行命令"}</p><p className="mt-1 break-words text-xs leading-5 text-muted-foreground">{approval.description}</p>{details.command !== undefined && <p className="mt-2 break-all rounded bg-muted p-2 font-mono text-[10px]">{String(details.command)}</p>}{details.cwd !== undefined && <p className="mt-2 break-all font-mono text-[10px] text-muted-foreground">目录: {String(details.cwd)}</p>}{details.targetPath !== undefined && <p className="mt-1 break-all font-mono text-[10px] text-muted-foreground">路径: {String(details.targetPath)}</p>}</div></div><div className="mt-3 flex gap-2"><Button size="sm" className="h-7 flex-1 gap-1 text-xs" onClick={() => void decide(approval.id, "approve")} disabled={pending}>{pending ? <Loader2 className="h-3 w-3 animate-spin" /> : <Check className="h-3 w-3" />}允许</Button><Button size="sm" variant="outline" className="h-7 flex-1 gap-1 text-xs" onClick={() => void decide(approval.id, "reject")} disabled={pending}><CircleStop className="h-3 w-3" />拒绝</Button></div></div>;
+  });
+
+  if (mode !== "agent") return <DeviceWorkspace mode={mode}
+    projectSelector={<><div className="flex min-w-0 flex-wrap items-center gap-3"><label htmlFor="module-project" className="text-sm font-medium">工作项目</label><select id="module-project" aria-label="当前工作项目" value={projectId} disabled={sending || openingConversation || deviceBusy} className="min-w-0 max-w-full rounded-md border bg-background p-2 text-sm" onChange={event => { const project = projects.find(item => item.id === event.target.value); if (project) { selectProjectInUrl(project.id); selectProject(project); } }}><option value="" disabled>请选择项目</option>{projects.map(project => <option key={project.id} value={project.id}>{project.name}</option>)}</select></div><div className="flex flex-wrap gap-3 text-sm"><Link className="text-primary" href={projectId ? `/app/agent?project=${projectId}` : "/app/agent"}>Agent 项目</Link>{projectId && <Link className="text-primary" href={`/app/${mode === "debug" ? "embedded" : "debug"}?project=${projectId}`}>{mode === "debug" ? "嵌入式开发" : "AI 调试"}</Link>}</div></>}
+    error={error && <p role="alert" className="rounded-lg border border-destructive/30 bg-destructive/5 p-3 text-sm text-destructive">{error}</p>}
+    device={projectId ? <BrowserDevicePanel compact key={`usb-${projectId}`} projectId={projectId} onBusy={setDeviceBusy} onSaved={() => setDocumentRevision(value => value + 1)} onArchived={path => { setInput(`请读取本项目 ${path}，结合采集时间与项目资料分析设备状态，给出下一步建议；此次仅分析，不操作设备。`); void openProjectConversation(); }} /> : <p className="rounded-xl border bg-card p-4 text-sm text-muted-foreground">先选择项目，再连接设备或提交任务；没有项目时可到 Agent 项目创建。</p>}
+    task={<><div className="mb-3 flex flex-wrap items-center justify-between gap-2"><label htmlFor="module-task" className="text-sm font-semibold">{mode === "debug" ? "调试目标与日志" : "开发需求"}</label><button className="text-xs text-primary hover:underline" disabled={!projectId || threadsLoading || threadsError || openingConversation || sending || taskState === "运行中"} onClick={() => { setInput(deviceTaskExamples[mode]); void openProjectConversation(); }}>{workflow.action}</button></div><Textarea id="module-task" value={input} onChange={event => setInput(event.target.value)} onKeyDown={event => { if ((event.metaKey || event.ctrlKey) && event.key === "Enter") { event.preventDefault(); void sendModuleTask(); } }} placeholder="描述要交给 Agent 的任务..." className="min-h-[160px] resize-y" /><p className="mt-3 text-xs leading-5 text-muted-foreground">先读取本项目资料，再处理你的需求。事件连接不代表 USB 已连接。</p><div className="mt-4 flex flex-wrap items-center gap-2"><Button className="gap-2" onClick={() => void sendModuleTask()} disabled={!projectId || !input.trim() || !modelProfileId || sending || openingConversation || deviceBusy || threadsLoading || threadsError || taskState === "运行中"}>{sending || openingConversation ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}{sending || openingConversation ? "提交中…" : "发送任务"}</Button><Button variant="outline" onClick={() => void interrupt()} disabled={!threadId || taskState !== "运行中"}>停止任务</Button></div><p className="mt-3 text-xs text-muted-foreground">{threadsError ? "会话加载失败，请刷新后重试。" : !modelProfileId ? "请管理员配置可用模型。" : "发送后才调用模型；资料准备、查看历史不会自动计费。"}</p></>}
+    status={<div className="flex items-center gap-2 text-xs text-muted-foreground"><span className={`h-2 w-2 rounded-full ${connectionColor}`} />{connectionLabel}<span>· {taskState}</span></div>}
+    activity={activity}
+    approvals={approvals.length > 0 && <section aria-label="待确认操作" className="space-y-3 rounded-xl border border-amber-500/30 bg-card p-4"><h2 className="text-sm font-semibold">待确认操作 · {approvals.length}</h2>{approvalCards}</section>}
+    settings={<><p className="text-xs text-muted-foreground">Agent 执行器：{runners.find(runner => runner.runnerKey === projects.find(project => project.id === projectId)?.runnerKey)?.name ?? "未指定"}。不是板卡绑定，云端会话连接不等于 USB 连接。</p><label className="block text-xs">模型<select aria-label="任务模型" className="mt-1 w-full rounded-md border bg-background p-2 text-sm" value={modelProfileId} onChange={event => setModelProfileId(event.target.value)} disabled={!models.length || sending}>{models.map(model => <option key={model.id} value={model.id}>{model.displayName}</option>)}</select></label><button onClick={() => void refreshModels()} className="text-xs text-primary">刷新模型列表</button><label className="block text-xs">历史会话<select aria-label="历史会话" className="mt-1 w-full rounded-md border bg-background p-2 text-sm" value={threadId} disabled={threadsLoading || sending || openingConversation || !threads.length} onChange={event => { selectThread(event.target.value); setInput(""); setView("conversation"); }}><option value="">选择会话</option>{threads.map(thread => <option key={thread.id} value={thread.id}>{thread.title}</option>)}</select></label><Button variant="outline" size="sm" disabled={!projectId || threadsLoading || threadsError || sending || openingConversation} onClick={() => void openProjectConversation()}>Agent 会话</Button><Button variant="ghost" size="sm" disabled={!projectId || sending || openingConversation || threadsLoading} onClick={async () => { if (await createThread()) { setInput(""); setView("conversation"); } }}>新建会话</Button></>}
+    resources={projectId && <><ProjectDocuments key={`${projectId}-${documentRevision}`} projectId={projectId} disabled={threadsLoading || threadsError || openingConversation || deviceBusy || sending} onAnalyze={() => { setInput(deviceTaskExamples[mode]); void openProjectConversation(); }} /><Link className="block text-sm text-primary" href={`/app/agent/${projectId}/designs`}>方案记录 · 进度与下载</Link><section aria-label="项目文件" className="space-y-2"><div className="flex flex-wrap items-center justify-between gap-2"><h3 className="text-sm font-semibold">项目文件</h3><Button variant="outline" size="sm" disabled={downloading} onClick={() => void downloadProject()}>{downloading ? "打包中…" : "下载工程 ZIP"}</Button></div>{artifactsError ? <p role="alert" className="text-xs text-amber-600">{artifactsError}</p> : artifactsLoading ? <p className="text-xs text-muted-foreground">正在读取产物…</p> : artifacts.length ? artifacts.map(artifact => <div key={artifact.id} className="rounded border p-2 text-xs"><p>{artifact.name}</p><p className="break-all text-muted-foreground">{artifact.path}</p></div>) : <p className="text-xs text-muted-foreground">暂无已登记产物；历史资料保存在当前项目。</p>}</section></>}
+  />;
 
   return <div aria-label="Agent 项目工作区" className="flex h-full min-h-0 min-w-0 flex-col overflow-hidden">
     <header className="shrink-0 space-y-2 border-b bg-card/60 px-4 py-3">
@@ -414,10 +460,6 @@ export function AgentWorkbench({ mode = "agent" }: { mode?: ProjectWorkflowMode 
           }}>{workflow.action}</Button>
           <p className="text-xs text-muted-foreground">{mode === "agent" ? "打开会话后检查任务内容并发送，Agent 会读取本项目已归档的资料。" : "只预填任务，不自动调用模型。打开会话检查后发送；设备绑定与实际读写须单独确认。"}</p>
         </section>
-        {mode !== "agent" && <BrowserDevicePanel key={`usb-${projectId}`} projectId={projectId} onBusy={setDeviceBusy} onSaved={() => setDocumentRevision(value => value + 1)} onArchived={path => {
-          setInput(`请实际使用只读工具读取本项目 ${path}，按报告路径与采集时间说明板型、系统、内存、磁盘和已有服务状态，并结合项目资料给出下一步调试建议。报告是浏览器上报的历史快照，可被伪造，不能代表当前 USB 在线或设备操作授权。此次只分析，不修改文件、部署、复位或烧录。`);
-          void openProjectConversation();
-        }} />}
         <ProjectDocuments key={`${projectId}-${documentRevision}`} projectId={projectId} disabled={threadsLoading || threadsError || openingConversation || deviceBusy} onAnalyze={() => {
           setInput("请先读取本项目 documents/ 下归档的原理图分析与设备报告，列出外设、接口与引脚、采集时间、来源位置和待确认项，再给出开发调试建议。区分 AI 识别草案与浏览器上报快照，两者不等同于硬件验证。未经我确认不要修改文件或操作设备。");
           void openProjectConversation();
@@ -444,18 +486,7 @@ export function AgentWorkbench({ mode = "agent" }: { mode?: ProjectWorkflowMode 
         <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground"><span className={`h-2 w-2 rounded-full ${connectionColor}`} /><span>{connectionLabel}</span><span className="border-l border-border pl-2">{taskState}</span><Button size="icon" variant="ghost" className="h-7 w-7" title="中断当前任务" onClick={interrupt} disabled={!threadId}><CircleStop className="h-4 w-4" /></Button><select value={modelProfileId} onChange={(event) => setModelProfileId(event.target.value)} className="max-w-48 rounded-md border border-border bg-background px-2 py-1 text-xs" disabled={!models.length}>{models.map((item) => <option key={item.id} value={item.id}>{item.displayName}</option>)}</select></div>
       </div>
       <div className="flex shrink-0 justify-end border-b border-border/40 px-5 py-1"><button onClick={() => void refreshModels()} className="text-xs text-primary hover:underline">刷新模型列表</button></div>
-      <AgentConversationViewport key={threadId} revision={events.at(-1)?.eventId ?? "empty"}>
-        {messages.length === 0 && <div className="flex flex-col items-center justify-center py-10 text-center text-sm text-muted-foreground"><Terminal className="mb-3 h-8 w-8 text-primary/60" /><p>选择项目并发送第一个 Agent 任务</p></div>}
-        {events.filter(event => event.type === "knowledge.retrieved" && ["platform", "project-material-lock"].includes(String(event.data.origin))).map(event => {
-          const parsed = retrievalEvidenceSchema.safeParse(event.data.retrieval);
-          return parsed.success ? <details key={event.eventId}><summary className="text-xs">本回合检索 · {event.data.origin === "project-material-lock" ? "复用已核验项目资料锁 · " : ""}{new Date(event.timestamp).toLocaleString()}</summary>
-            {event.data.materialLockState && !["active", "absent"].includes(String(event.data.materialLockState)) ? <p className="mt-2 text-xs text-amber-600">项目资料锁不可复用，已改用本回合检索；历史文件不能作为当前有效证据。</p> : null}
-            <RetrievalEvidence value={parsed.data} /></details> : null;
-        })}
-        {messages.map((event) => event.type === "reasoning"
-          ? <AgentReasoning key={event.eventId} text={eventText(event)} />
-          : <div key={event.eventId} className={`rounded-md border p-3 text-sm ${event.type === "command.output" ? "border-border/60 bg-muted/40 font-mono text-xs" : "border-border/70 bg-card"}`}><div className="mb-1 flex items-center gap-2 text-[11px] text-muted-foreground"><Wrench className="h-3 w-3" />{event.type}</div><p className="whitespace-pre-wrap break-words leading-6">{eventText(event)}</p><WorkflowEvidence data={event.data} /></div>)}
-      </AgentConversationViewport>
+      {activity}
       <div aria-label="任务输入区" className="shrink-0 border-t border-border/70 bg-background/95 p-3 sm:p-4"><div className="mx-auto w-full max-w-4xl"><Textarea value={input} onChange={(event) => setInput(event.target.value)} onKeyDown={(event) => { if ((event.metaKey || event.ctrlKey) && event.key === "Enter") void send(); }} placeholder="描述要交给 Agent 的任务..." className="h-20 min-h-20 resize-none overflow-y-auto sm:h-[90px] sm:min-h-[90px]" /><div className="mt-2 flex items-center justify-between gap-3"><p className="text-xs text-muted-foreground">{!threadId ? "请先新建或选择会话。" : !modelProfileId ? "请先在管理台配置可用模型。" : !input.trim() ? "先描述你希望 Agent 完成的工作，再发送任务。" : "检查任务内容后点击发送；打开会话本身不会调用模型。"}</p><Button onClick={send} disabled={sending || taskState === "运行中" || !threadId || !input.trim() || !modelProfileId} className="shrink-0 gap-2">{sending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}{sending ? "提交中" : "发送任务"}</Button></div></div></div>
       </> : null}
     </section>
@@ -464,11 +495,7 @@ export function AgentWorkbench({ mode = "agent" }: { mode?: ProjectWorkflowMode 
       {error && <div className="mb-3 flex gap-2 rounded-md border border-red-500/20 bg-red-500/10 p-2 text-xs text-red-500"><AlertTriangle className="h-4 w-4 shrink-0" />{error}<button className="ml-auto" onClick={() => setError("")} title="关闭"><X className="h-3 w-3" /></button></div>}
       {!projectId ? <div className="space-y-3 text-sm"><h3 className="font-semibold">项目与会话</h3><p className="text-muted-foreground">项目用于保存方案、工作区和产物；会话用于围绕该项目持续交给 Agent 任务。创建项目本身不会调用模型。</p></div> : view === "overview" ? <div className="space-y-4 text-sm"><h3 className="font-semibold">下一步怎么做</h3><ol className="list-inside list-decimal space-y-3 text-muted-foreground"><li>在方案生成、原理图识别、AI 调试或嵌入式开发中选择本项目，将工作结果归档到这里。</li><li>点击“让 Agent 分析项目资料”或“基于最新方案继续”，打开会话并预填任务。</li><li>{mode === "agent" ? "需要连接板卡时，前往 AI 调试、嵌入式开发或设备开发；本页集中查看资料与结果。" : "检查任务后自行发送；需要写文件或操作设备时，再核对审批内容。"}</li></ol><p className="rounded-lg border p-3 text-xs text-muted-foreground">私有资料在下次 Agent 任务前同步到工作区；原图从项目资料单独下载。工程 ZIP 包含已同步正文，不重复打包 OSS 原图。</p></div> : <>
       <div className="mb-4 flex items-center justify-between"><span className="text-xs font-semibold uppercase text-muted-foreground">审批队列</span>{approvals.length > 0 && <span className="rounded-full bg-amber-500/10 px-2 py-0.5 text-[11px] font-medium text-amber-500">{approvals.length}</span>}</div>
-      {approvals.length === 0 ? <p className="text-xs leading-5 text-muted-foreground">当前没有待审批操作</p> : <div className="space-y-3">{approvals.map((approval) => {
-        const details = approval.details ?? {};
-        const pending = deciding.includes(approval.id);
-        return <div key={approval.id} className="rounded-md border border-amber-500/30 bg-amber-500/5 p-3"><div className="flex items-start gap-2"><AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-amber-500" /><div className="min-w-0"><p className="text-xs font-semibold text-foreground">{approval.risk === "write" ? "写入工作区" : "执行命令"}</p><p className="mt-1 break-words text-xs leading-5 text-muted-foreground">{approval.description}</p>{details.command !== undefined && <p className="mt-2 break-all rounded bg-muted p-2 font-mono text-[10px]">{String(details.command)}</p>}{details.cwd !== undefined && <p className="mt-2 break-all font-mono text-[10px] text-muted-foreground">目录: {String(details.cwd)}</p>}{details.targetPath !== undefined && <p className="mt-1 break-all font-mono text-[10px] text-muted-foreground">路径: {String(details.targetPath)}</p>}</div></div><div className="mt-3 flex gap-2"><Button size="sm" className="h-7 flex-1 gap-1 text-xs" onClick={() => void decide(approval.id, "approve")} disabled={pending}>{pending ? <Loader2 className="h-3 w-3 animate-spin" /> : <Check className="h-3 w-3" />}允许</Button><Button size="sm" variant="outline" className="h-7 flex-1 gap-1 text-xs" onClick={() => void decide(approval.id, "reject")} disabled={pending}><CircleStop className="h-3 w-3" />拒绝</Button></div></div>;
-      })}</div>}
+      {approvals.length === 0 ? <p className="text-xs leading-5 text-muted-foreground">当前没有待审批操作</p> : <div className="space-y-3">{approvalCards}</div>}
       <div className="my-5 border-t border-border/70" /><div className="mb-3 flex items-center justify-between gap-2"><p className="text-xs font-semibold uppercase text-muted-foreground">产物</p><Button variant="outline" size="sm" disabled={downloading} onClick={() => void downloadProject()}>{downloading ? "打包中…" : "下载工程"}</Button></div>{artifactsError ? <p role="alert" className="text-xs text-amber-600">{artifactsError}</p> : artifactsLoading ? <p className="text-xs text-muted-foreground">正在读取产物…</p> : artifacts.length === 0 ? <p className="text-xs text-muted-foreground">暂无已登记产物</p> : <div className="space-y-2">{artifacts.map((artifact) => <div key={artifact.id} className="rounded-md border border-border/70 p-2"><p className="truncate text-xs font-medium">{artifact.name}</p><p className="mt-1 truncate font-mono text-[10px] text-muted-foreground">{artifact.path}</p></div>)}</div>}
       </>}
     </aside>

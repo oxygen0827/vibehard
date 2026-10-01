@@ -1,6 +1,10 @@
 # ldcx.tech deployment
 
-## Browser device reports, 2026-10-01 12:11 CST (current platform/Runner/Gateway)
+## Project archive UI, 2026-10-01 18:19 CST (current platform)
+
+Only platform uses `/opt/vibehard/releases/20261001-project-archive-ui-v4/standalone`. Runner/Gateway remain on `20261001-browser-device-report-v1`, Worker/retrieval on `20260930-project-material-lock-v1`, EDA/knowledge CLI on `20260930-unified-platform-v2`; retain all dependencies and the previous platform. PR #42/default CI, actual standalone Linux PDF, protected PCB/Demo/BOM/anonymous boundaries and existing logged-in Chrome cross-module clicks passed. Only platform restarted; other service PIDs/configuration unchanged. No production DDL or new model/device task. The separate development archive/0010 feature is not shipped. See [release, backup and code-only rollback](release-project-archive-ui-20261001.md).
+
+## Browser device reports, 2026-10-01 12:11 CST (current Runner/Gateway, previous platform)
 
 Platform, cloud Runner and Gateway use `/opt/vibehard/releases/20261001-browser-device-report-v1`. Worker/retrieval still require `20260930-project-material-lock-v1`; EDA/knowledge CLI still require `20260930-unified-platform-v2`. PR #40/default CI passed; actual isolated and public model/tool reads, exact report/ZIP hashes, ownership/idempotency and protected PCB/Demo/BOM gates passed. No production DDL or board write. Public origin is explicitly `https://ldcx.tech` in the platform unit; credentials/environment files/model/index remain unchanged. New-UI physical USB clicking was blocked by the locked Mac, not silently counted as passed. Two task-local candidates were cleaned after saving evidence; old formal releases and the 0600 PG backup remain. **Existing new reports prevent old-parser rollback; keep the compatible backend and forward-fix rather than delete records or restore the database.** See [production evidence and rollback guard](release-browser-device-report-20261001.md).
 

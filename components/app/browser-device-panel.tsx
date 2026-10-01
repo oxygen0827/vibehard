@@ -6,9 +6,10 @@ import { deviceReportSchema, type DeviceReport } from "@/lib/device/device-repor
 import { connectBrowserProbe, probeErrorMessage } from "@/lib/device/webusb-probe";
 
 const subscribe = () => () => {};
-export function BrowserDevicePanel({ projectId, onArchived, onSaved, onBusy, connect = connectBrowserProbe }: {
+export function BrowserDevicePanel({ projectId, onArchived, onSaved, onBusy, compact = false, connect = connectBrowserProbe }: {
   projectId: string; onArchived: (path: string) => void; onBusy?: (busy: boolean) => void;
   onSaved?: () => void;
+  compact?: boolean;
   connect?: typeof connectBrowserProbe;
 }) {
   const supported = useSyncExternalStore(subscribe, () => !!globalThis.isSecureContext && "usb" in navigator, () => false);
@@ -71,19 +72,25 @@ export function BrowserDevicePanel({ projectId, onArchived, onSaved, onBusy, con
     finally { markBusy(false); }
   }
   function disconnect() { session.current?.close(); session.current = null; setConnected(false); setMessage("已主动断开 USB；报告归档不代表设备当前在线。"); }
-  return <section aria-label="浏览器 USB 设备" className="space-y-3 rounded-xl border bg-card p-4">
-    <h3 className="font-semibold">USB 设备 · RV1126B</h3>
-    <p className="text-sm text-muted-foreground">使用本机桌面 Chrome/Edge＋USB，无需安装连接器或本地 Agent。只读采集设备树、系统、容量与已有服务状态，随后保存到当前项目。</p>
-    {!supported && <p className="text-sm text-amber-600">当前环境不支持 WebUSB，请使用桌面 Chrome/Edge，通过 HTTPS 或 localhost 打开。</p>}
+  const controls = (
     <div className="flex flex-wrap gap-2">
       <Button disabled={!supported || !projectId || busy} onClick={() => void capture()}>{busy ? "读取 / 归档中…" : connected ? "再次读取并归档" : "USB 连接并归档只读报告"}</Button>
       <Button variant="outline" disabled={!connected || busy} onClick={disconnect}>断开 USB</Button>
       {report && !savedPath && <Button variant="outline" disabled={busy} onClick={async () => { markBusy(true); setError(""); try { await archive(report); } finally { markBusy(false); } }}>重试归档</Button>}
     </div>
+  );
+  return <section aria-label="浏览器 USB 设备" className="space-y-3 rounded-xl border bg-card p-4">
+    <div className={compact ? "flex flex-wrap items-center justify-between gap-3" : "space-y-3"}>
+      <div className="min-w-0 space-y-1.5"><h3 className="font-semibold">{compact ? "连接设备 · USB 只读体检" : "USB 设备 · RV1126B"}</h3>
+        <p className="text-sm text-muted-foreground">{compact ? "目前支持 RV1126B；其他板卡可先基于资料分析。报告自动归档到当前项目。" : "使用本机桌面 Chrome/Edge＋USB，无需安装连接器或本地 Agent。只读采集设备树、系统、容量与已有服务状态，随后保存到当前项目。"}</p>
+      </div>
+      {controls}
+    </div>
+    {!supported && <p className="text-sm text-amber-600">当前环境不支持 WebUSB，请使用桌面 Chrome/Edge，通过 HTTPS 或 localhost 打开。</p>}
     <p role="status" className="text-sm">{message}</p>
     {error && <p role="alert" className="text-sm text-destructive">{error}</p>}
     {report && <p className="text-xs text-muted-foreground">{report.probe.model} · {report.probe.os} · 可用内存 {(report.probe.memoryAvailableKiB / 1024).toFixed(1)} MiB · 采集于 {new Date(report.capturedAt).toLocaleString("zh-CN")}</p>}
     {savedPath && <div className="space-y-2"><p className="break-all font-mono text-xs text-muted-foreground">{savedPath}</p><Button variant="outline" onClick={() => onArchived(savedPath)}>让 Agent 分析这份设备报告</Button></div>}
-    <p className="text-xs text-muted-foreground">浏览器上报可被伪造，不是可信身份凭据；仅是历史状态参考。不会烧录、部署、复位、安装密钥或自动停止本机 ADB。Agent 分析需打开会话后手动发送。</p>
+    {compact ? <details className="text-xs text-muted-foreground"><summary className="cursor-pointer">连接要求与操作边界</summary><p className="mt-2 leading-5">桌面 Chrome/Edge＋HTTPS 或 localhost。无需安装连接器或本地 Agent。浏览器上报可被伪造，仅是历史状态参考，不是操作授权；不会烧录、部署、复位、安装密钥或自动停止本机 ADB。Agent 分析仍需手动发送。</p></details> : <p className="text-xs text-muted-foreground">浏览器上报可被伪造，不是可信身份凭据；仅是历史状态参考。不会烧录、部署、复位、安装密钥或自动停止本机 ADB。Agent 分析需打开会话后手动发送。</p>}
   </section>;
 }
