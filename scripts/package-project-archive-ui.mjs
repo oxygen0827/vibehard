@@ -4,8 +4,9 @@ import { createHash } from 'node:crypto';
 import { execFileSync } from 'node:child_process';
 import { copyFileSync, cpSync, existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
+import { assertPortableStandalone } from './standalone-links.mjs';
 const output=process.argv[2]; assert.match(output??'',/^\/private\/tmp\/vibehard-project-archive-ui\.[A-Za-z0-9]+$/);
-const name='20261001-project-archive-ui-v1', previousName='20261001-browser-device-report-v1';
+const name='20261001-project-archive-ui-v2', previousName='20261001-browser-device-report-v1';
 const release=path.join(output,name); assert.ok(!existsSync(release));
 const run=(c,a)=>execFileSync(c,a,{encoding:'utf8'}).trim();
 const hash=p=>createHash('sha256').update(readFileSync(p)).digest('hex');
@@ -22,12 +23,14 @@ for(const p of new Set([...Object.keys(previous.sourceSha256),...files])) {
 }
 assert.deepEqual(differences.sort(),allowed.sort());
 assert.ok(readFileSync('.next/standalone/server.js','utf8').includes('basePath":"/vibehard"'));
+assertPortableStandalone('.next/standalone');
 mkdirSync(release); cpSync('.next/standalone',`${release}/standalone`,{recursive:true,verbatimSymlinks:true});
 cpSync('.next/static',`${release}/standalone/.next/static`,{recursive:true});cpSync('public',`${release}/standalone/public`,{recursive:true});
 const native='/private/tmp/vibehard-device-report-release.FjHWDJiB/napi-rs-canvas-linux-x64-gnu-1.0.9.tgz';
 assert.equal(createHash('sha512').update(readFileSync(native)).digest('base64'),'6kaz3w0QMy77PDWk6rJ1ksIihdad3qzEyX2o2oGT8GwCaypfT5mhjr8buOO5hstyLxcWXDScuz56RsINLtBPIQ==');
 mkdirSync(`${release}/standalone/node_modules/@napi-rs/canvas-linux-x64-gnu`,{recursive:true});
 run('tar',['-xzf',native,'--strip-components=1','-C',`${release}/standalone/node_modules/@napi-rs/canvas-linux-x64-gnu`]);
+assertPortableStandalone(`${release}/standalone`);
 for(const p of files){mkdirSync(path.dirname(`${release}/source/${p}`),{recursive:true});copyFileSync(p,`${release}/source/${p}`);}
 writeFileSync(`${release}/RELEASE.json`,JSON.stringify({release:name,gitCommit:run('git',['rev-parse','HEAD']),previousPlatform:previousName,sourceSha256,runtimeChanges:differences,migration:null,frontendOnly:true},null,2));
 const archive=`${output}/${name}.tar.gz`;

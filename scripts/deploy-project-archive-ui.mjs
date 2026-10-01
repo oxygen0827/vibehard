@@ -3,7 +3,8 @@ import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
 import { spawnSync } from 'node:child_process';
 import { chmodSync, copyFileSync, existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
-const release='/opt/vibehard/releases/20261001-project-archive-ui-v1';
+import { assertPortableStandalone } from './standalone-links.mjs';
+const release='/opt/vibehard/releases/20261001-project-archive-ui-v2';
 const previous='/opt/vibehard/releases/20261001-browser-device-report-v1';
 const node='/opt/vibehard/runtime/node-v22.23.1';
 const candidate='vibehard-project-archive-ui-candidate.service', port=3217;
@@ -29,6 +30,7 @@ function validate(){
  const component=readFileSync(`${release}/source/components/app/agent-workbench.tsx`,'utf8');
  assert.ok(component.includes('{mode !== "agent" && <BrowserDevicePanel'));assert.ok(!component.includes('ProjectDevelopment'));
  assert.ok(readFileSync(`${release}/standalone/server.js`,'utf8').includes('basePath":"/vibehard"'));
+ assertPortableStandalone(`${release}/standalone`);
 }
 async function ready(p){for(let i=0;i<35;i++){try{if((await fetch(`http://127.0.0.1:${p}/vibehard/login`,{signal:AbortSignal.timeout(1500)})).status===200)return;}catch{}await new Promise(r=>setTimeout(r,1000));}throw Error('Platform readiness timeout');}
 function verify(origin){
