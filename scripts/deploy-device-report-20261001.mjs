@@ -55,7 +55,8 @@ if(mode==='prepare'){
 }
 if(mode==='candidate'){
  assert.notEqual(prop(candidate,'ActiveState'),'active');assert.ok(existsSync('/etc/vibehard/project-archive.env'));mkdirSync(`${root}/evidence`,{recursive:true,mode:0o700});
- run('systemd-run',[`--unit=${candidate}`,`--property=WorkingDirectory=${root}/standalone`,`--property=EnvironmentFile=${state}/candidate.env`,'--property=EnvironmentFile=/etc/vibehard/project-archive.env','--property=EnvironmentFile=/etc/vibehard/eda-platform.env','--property=MemoryMax=768M','--property=CPUQuota=100%','--setenv=HOSTNAME=127.0.0.1','--setenv=PORT=3211','--setenv=NODE_ENV=production','--setenv=VIBEHARD_PUBLIC_ORIGIN=http://127.0.0.1:3211','--setenv=VIBEHARD_RETRIEVAL_SOCKET=/run/vibehard-knowledge/search.sock',node,'server.js']);
+ if(prop(candidate,'ActiveState')==='failed')run('systemctl',['reset-failed',candidate]);
+ run('systemd-run',['--collect',`--unit=${candidate}`,`--property=WorkingDirectory=${root}/standalone`,`--property=EnvironmentFile=${state}/candidate.env`,'--property=EnvironmentFile=/etc/vibehard/project-archive.env','--property=EnvironmentFile=/etc/vibehard/eda-platform.env','--property=MemoryMax=768M','--property=CPUQuota=100%','--setenv=HOSTNAME=127.0.0.1','--setenv=PORT=3211','--setenv=NODE_ENV=production','--setenv=VIBEHARD_PUBLIC_ORIGIN=http://127.0.0.1:3211','--setenv=VIBEHARD_RETRIEVAL_SOCKET=/run/vibehard-knowledge/search.sock',node,'server.js']);
  await ready(3211);verify('http://127.0.0.1:3211');console.log(run(node,[`${root}/source/scripts/verify-pdf-standalone.mjs`,`${root}/standalone`]));console.log(JSON.stringify({candidateReady:true}));
 }
 if(mode==='cleanup')cleanup();
