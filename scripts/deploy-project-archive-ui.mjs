@@ -4,7 +4,7 @@ import { createHash } from 'node:crypto';
 import { spawnSync } from 'node:child_process';
 import { chmodSync, copyFileSync, existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { assertPortableStandalone } from './standalone-links.mjs';
-const release='/opt/vibehard/releases/20261001-project-archive-ui-v3';
+const release='/opt/vibehard/releases/20261001-project-archive-ui-v4';
 const previous='/opt/vibehard/releases/20261001-browser-device-report-v1';
 const node='/opt/vibehard/runtime/node-v22.23.1';
 const candidate='vibehard-project-archive-ui-candidate.service', port=3217;
@@ -30,7 +30,7 @@ function validate(){
  const component=readFileSync(`${release}/source/components/app/agent-workbench.tsx`,'utf8');
  assert.ok(component.includes('{mode !== "agent" && <BrowserDevicePanel'));assert.ok(!component.includes('ProjectDevelopment'));
  assert.ok(readFileSync(`${release}/standalone/server.js`,'utf8').includes('basePath":"/vibehard"'));
- assertPortableStandalone(`${release}/standalone`);
+ assertPortableStandalone(`${release}/standalone`,{requirePdf:true});
 }
 async function ready(p){for(let i=0;i<35;i++){try{if((await fetch(`http://127.0.0.1:${p}/vibehard/login`,{signal:AbortSignal.timeout(1500)})).status===200)return;}catch{}await new Promise(r=>setTimeout(r,1000));}throw Error('Platform readiness timeout');}
 function verify(origin){
@@ -48,7 +48,7 @@ if(mode==='cleanup')cleanup();
 if(mode==='preflight'){
  validate();assert.equal(prop('vibehard.service','WorkingDirectory'),`${previous}/standalone`);assert.notEqual(prop(candidate,'ActiveState'),'active');
  run('systemd-run',['--collect',`--unit=${candidate.replace(/\.service$/,'')}`,`--property=WorkingDirectory=${release}/standalone`,'--property=EnvironmentFile=/etc/vibehard/platform.env','--property=EnvironmentFile=/etc/vibehard/eda-platform.env','--property=MemoryMax=768M','--property=CPUQuota=100%','/usr/bin/env','HOSTNAME=127.0.0.1',`PORT=${port}`,'NODE_ENV=production','VIBEHARD_RETRIEVAL_SOCKET=/run/vibehard-knowledge/search.sock',node,'server.js']);
- try{await ready(port);verify(`http://127.0.0.1:${port}`);mkdirSync(evidence,{mode:0o700});writeFileSync(`${evidence}/preflight.json`,JSON.stringify({passed:true,at:new Date().toISOString(),live:live()}),{mode:0o600});console.log('Frontend candidate passed');}catch(e){cleanup();throw e;}
+ try{await ready(port);verify(`http://127.0.0.1:${port}`);console.log(run(node,[`${release}/source/scripts/verify-pdf-standalone.mjs`,`${release}/standalone`]));mkdirSync(evidence,{mode:0o700});writeFileSync(`${evidence}/preflight.json`,JSON.stringify({passed:true,pdfPixelsVerified:true,at:new Date().toISOString(),live:live()}),{mode:0o600});console.log('Frontend candidate passed');}catch(e){cleanup();throw e;}
 }
 if(mode==='activate'){
  validate();assert.equal(prop('vibehard.service','WorkingDirectory'),`${previous}/standalone`);idle();assert.ok(JSON.parse(readFileSync(`${evidence}/preflight.json`)).passed);verify(`http://127.0.0.1:${port}`);assert.ok(!existsSync(backup));

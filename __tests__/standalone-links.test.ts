@@ -9,6 +9,14 @@ afterEach(() => { for (const root of roots.splice(0)) rmSync(root, { recursive: 
 it("accepts only self-contained relative runtime links", () => {
   const root = create(); symlinkSync("next", join(root, "node_modules/alias")); expect(() => assertPortableStandalone(root)).not.toThrow();
 });
+it("rejects a shadowing PDF directory containing only the traced worker", () => {
+  const root = create(); mkdirSync(join(root, "node_modules/pdfjs-dist/legacy/build"), { recursive: true });
+  writeFileSync(join(root, "node_modules/pdfjs-dist/legacy/build/pdf.worker.mjs"), "export {};");
+  expect(() => assertPortableStandalone(root, { requirePdf: true })).toThrow(/Missing standalone PDF runtime/);
+  writeFileSync(join(root, "node_modules/pdfjs-dist/legacy/build/pdf.mjs"), "export {};");
+  writeFileSync(join(root, "node_modules/pdfjs-dist/package.json"), '{"name":"pdfjs-dist","version":"6.3.289"}');
+  expect(() => assertPortableStandalone(root, { requirePdf: true })).not.toThrow();
+});
 it("rejects an absolute shared dependency directory before packaging", () => {
   const root = mkdtempSync(join(tmpdir(), "standalone-link-test-")); roots.push(root);
   const outside = create(); symlinkSync(join(outside, "node_modules"), join(root, "node_modules"));
