@@ -1,5 +1,7 @@
 # 项目状态
 
+- 2026-10-01 12:11 已发布：PR #40 合并 `0c22fd8`，与发布源 `5991194` 树一致，PR/默认 CI 442 常规＋28 PG 全绿。平台/Runner/Gateway `20261001-browser-device-report-v1` 打通浏览器设备报告 → 项目 JSONB → `documents/` → 云端真实工具实读/工程 ZIP；正式归档 14 ms、回合 6235 ms、全链 6708 ms，哈希/权限/幂等通过。无生产 DDL/板端写入，Worker/检索/EDA/VibeBoard/nginx/凭据保持；云端新能力/新鲜心跳/两连接，旧现场 Runner 不接受新报告。备份与旧正式集合保留，清理本轮两个临时候选、释放 3211/3214/测试隧道，约 9.4 GB 可用。Mac 锁屏使新 UI 真机点击未复测，合成报告不是实机，部署/烧录未完成；新报告存在后不能回退旧解析器或删用户数据，见 `docs/release-browser-device-report-20261001.md`。下方候选/原型状态为历史。
+
 - 2026-10-01 候选完成、正式待发布：用户确认后在独立 `codex/rv1126b-webusb` 打通浏览器设备报告 → 当前项目 JSONB → 固定 `documents/`/下载 → 云端真实模型工具实读；无生产 DDL/板端写入。常规 442、另跑 7 隔离 PG、类型/lint/完整网页与服务构建通过。候选归档 14 ms/真实回合 7412 ms，工具输出和磁盘/下载 SHA 一致，权限/幂等/篡改/旧 Runner 拒绝、PCB/Demo/BOM/PDF 通过。初候选 Origin 误拒绝修复后重跑通过。生产仍为 9/30 版本，待 Git/CI/正式 Gateway/ZIP 验收；Mac 锁屏使本次集成页面真机人工点击未复测，原型真机证据不等同于完整新 UI 验收。见 `docs/browser-device-project-integration.md`；下面 USB“未接归档”等为原型历史。
 
 - 2026-10-01 本地真实只读验证：独立 `codex/rv1126b-webusb`，Chrome 原生 WebUSB/浏览器 ADB 直连 Luckfox Aura RV1126B，初版连续三次 148/168/147 ms，最终代码刷新重连 146 ms；设备树/内存/磁盘/服务状态通过，真实占用/取消授权/主动断开提示正常。无本机 ADB TCP 桥接、模型 Key 或持久 ADB 密钥。7 新测试，完整 437 通过/23 条件跳过，类型/lint/esbuild 通过；首次沙箱 listener EPERM 已在可监听环境完整重跑。仅本地预览，未接项目归档、提交/推送/上线或改板端/生产；部署/刷机/跨平台/物理拔线未验。详见 `docs/rv1126b-webusb-probe.md`。

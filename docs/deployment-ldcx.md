@@ -1,6 +1,10 @@
 # ldcx.tech deployment
 
-## Per-component material locks, 2026-09-30 22:08 CST (current)
+## Browser device reports, 2026-10-01 12:11 CST (current platform/Runner/Gateway)
+
+Platform, cloud Runner and Gateway use `/opt/vibehard/releases/20261001-browser-device-report-v1`. Worker/retrieval still require `20260930-project-material-lock-v1`; EDA/knowledge CLI still require `20260930-unified-platform-v2`. PR #40/default CI passed; actual isolated and public model/tool reads, exact report/ZIP hashes, ownership/idempotency and protected PCB/Demo/BOM gates passed. No production DDL or board write. Public origin is explicitly `https://ldcx.tech` in the platform unit; credentials/environment files/model/index remain unchanged. New-UI physical USB clicking was blocked by the locked Mac, not silently counted as passed. Two task-local candidates were cleaned after saving evidence; old formal releases and the 0600 PG backup remain. **Existing new reports prevent old-parser rollback; keep the compatible backend and forward-fix rather than delete records or restore the database.** See [production evidence and rollback guard](release-browser-device-report-20261001.md).
+
+## Per-component material locks, 2026-09-30 22:08 CST (current worker/retrieval, previous platform)
 
 Restricted retrieval, platform/API and design worker now use `/opt/vibehard/releases/20260930-project-material-lock-v1`. Runner/Gateway/EDA/knowledge CLI still need `20260930-unified-platform-v2`; retain it and the previous platform/worker `20260930-project-materials-v1`. PR #38/default CI, actual candidate/public model and Agent file reads, bound source hashes, package ownership and production private load gates passed. No migration, model/index/config/credential write or hardware operation. Three saved units/readable 0600 PG backup support code-only rollback. Source `e2dbc12` and merged `1a4c1ce` differ only in the CI serial-test fix, not runtime code. See [exact release evidence and guarded three-service rollback](release-project-material-lock-20260930.md).
 
