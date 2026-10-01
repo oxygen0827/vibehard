@@ -1,6 +1,12 @@
 # ldcx.tech deployment
 
-## Project archive UI, 2026-10-01 18:19 CST (current platform)
+## Device workspace UI, 2026-10-01 21:38 CST (current platform)
+
+Only platform uses `/opt/vibehard/releases/20261001-device-workspace-ui-v1/standalone` (PID 1106614, NRestarts=0). PR #43/default CI passed: 457 ordinary and 28 separately isolated PostgreSQL tests, production build and real Linux PDF pixels. Release source `db3e1c1` and merged `f6b8a7c` have identical complete trees. Archive SHA256 `55c6242c099c1f2f09be889e384f395bf1a8f980b3983a97fea3673bd92206cc`; 1219 source files, exactly four UI runtime changes. Candidate/local/public PCB/Demo/BOM/auth and existing authenticated Chrome project/history/layout checks passed; no new model/device task or production migration.
+
+Runner/Gateway, worker/retrieval, EDA/VibeBoard/nginx PIDs, configuration, credentials, model and index are unchanged from the previous release. Keep the previous platform plus all current backend releases. Candidate 3217 is stopped, backup/ is 0700 with readable 0600 PostgreSQL dump; root disk approximately 7.1GB free. After confirming idle tasks, run the new release's `source/scripts/deploy-device-workspace-ui.mjs rollback` with the existing protected platform environment and bundled Node; it restores only the old platform unit, not the DB or user files. Full record: [focused workspace UI](device-workspace-ui.md). The separate development archive/0010 is not shipped.
+
+## Project archive UI, 2026-10-01 18:19 CST (previous platform)
 
 Only platform uses `/opt/vibehard/releases/20261001-project-archive-ui-v4/standalone`. Runner/Gateway remain on `20261001-browser-device-report-v1`, Worker/retrieval on `20260930-project-material-lock-v1`, EDA/knowledge CLI on `20260930-unified-platform-v2`; retain all dependencies and the previous platform. PR #42/default CI, actual standalone Linux PDF, protected PCB/Demo/BOM/anonymous boundaries and existing logged-in Chrome cross-module clicks passed. Only platform restarted; other service PIDs/configuration unchanged. No production DDL or new model/device task. The separate development archive/0010 feature is not shipped. See [release, backup and code-only rollback](release-project-archive-ui-20261001.md).
 
