@@ -1,5 +1,7 @@
 # 文档索引
 
+- [RV1126B 浏览器免安装 USB 验证](rv1126b-webusb-probe.md)：Mac/Chrome 真实只读直连、占用/取消/重连、软件测试和边界；尚未上线或接项目归档。
+
 - [逐器件补检索与项目资料版本锁](project-material-lock.md)：已上线的最终 BOM 补检索、版本/来源哈希锁、Agent 复用及停用/更新失效规则；[真实验收、性能与回滚](release-project-material-lock-20260930.md)。
 
 - [项目资料配套与统一工作入口](project-materials-workflow.md)：已上线的方案配套检查、项目资料包和真实 Agent 共用页面；含检索范围、设备边界，[发布验收与回滚](release-project-materials-20260930.md)。
