@@ -28,6 +28,7 @@ it.each(["debug", "embedded"] as const)("%s uses the selected real project, requ
   expect(selector).toHaveValue(other);
   expect(screen.getByRole("link", { name: "Agent 项目" })).toHaveAttribute("href", `/app/agent?project=${other}`);
   expect(screen.getByText(/事件连接不代表 USB 已连接/)).toBeInTheDocument();
+  expect(screen.getByRole("region", { name: "浏览器 USB 设备" })).toBeInTheDocument();
   const prepare = screen.getByRole("button", { name: projectWorkflows[mode].action });
   await waitFor(() => expect(prepare).toBeEnabled()); fireEvent.click(prepare);
   const send = await screen.findByRole("button", { name: "发送任务" });
@@ -37,6 +38,19 @@ it.each(["debug", "embedded"] as const)("%s uses the selected real project, requ
   await waitFor(() => expect(fetcher.mock.calls.filter(([url]) => url.endsWith("/turns"))).toHaveLength(1));
   const creation = fetcher.mock.calls.find(([url, init]) => url.endsWith("/threads") && init?.method === "POST");
   expect(creation?.[0]).toContain(`/projects/${other}/threads`);
+});
+it("keeps the Agent project independent of board connection controls", async () => {
+  window.history.replaceState(null, "", `/?project=${other}`);
+  const fetcher = setup(); render(<AgentWorkbench />);
+  await screen.findByRole("region", { name: "项目执行准备" });
+  expect(screen.getByRole("combobox", { name: "当前工作项目" })).toHaveValue(other);
+  expect(screen.queryByRole("region", { name: "浏览器 USB 设备" })).not.toBeInTheDocument();
+  expect(screen.queryByRole("button", { name: "USB 连接并归档只读报告" })).not.toBeInTheDocument();
+  expect(screen.getByText(/项目不限定板型/)).toBeInTheDocument();
+  expect(screen.getByRole("link", { name: "AI 调试" })).toHaveAttribute("href", `/app/debug?project=${other}`);
+  expect(screen.getByRole("link", { name: "嵌入式开发" })).toHaveAttribute("href", `/app/embedded?project=${other}`);
+  await screen.findByText(/暂无项目资料/);
+  expect(fetcher.mock.calls.filter(([url]) => url.includes("device-reports"))).toHaveLength(0);
 });
 it("does not silently switch an inaccessible URL to another project", async () => {
   window.history.replaceState(null, "", "/?project=not-my-project"); const fetcher = setup();

@@ -2,7 +2,7 @@
 import assert from "node:assert/strict";
 
 const origin = process.argv[2];
-assert.match(origin ?? "", /^(?:http:\/\/127\.0\.0\.1:321[01]|https:\/\/ldcx\.tech)$/);
+assert.match(origin ?? "", /^(?:http:\/\/127\.0\.0\.1:321[017]|https:\/\/ldcx\.tech)$/);
 const base = `${origin}/vibehard`;
 const get = path => fetch(`${base}${path}`, { redirect: "manual", signal: AbortSignal.timeout(20_000) });
 assert.equal((await get("/login")).status, 200);

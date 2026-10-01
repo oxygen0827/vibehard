@@ -404,20 +404,20 @@ export function AgentWorkbench({ mode = "agent" }: { mode?: ProjectWorkflowMode 
     <section className={`${mobilePanel ? "hidden" : "flex"} min-h-0 min-w-0 flex-col overflow-hidden lg:flex`}>
       {projectId && <nav aria-label="项目视图" className="flex shrink-0 gap-2 border-b border-border/70 px-5 py-3"><Button size="sm" variant={view === "overview" ? "default" : "ghost"} onClick={() => setView("overview")}>项目概览</Button><Button size="sm" variant={view === "conversation" ? "default" : "ghost"} onClick={() => void openProjectConversation()} disabled={threadsLoading || threadsError || openingConversation}>Agent 会话</Button></nav>}
       {view === "overview" && projectId ? <div className="min-h-0 flex-1 space-y-5 overflow-y-auto overscroll-contain p-5">
-        <div><h2 className="text-lg font-semibold">{projects.find(project => project.id === projectId)?.name} · 项目概览</h2><p className="mt-1 text-sm text-muted-foreground">这里保存方案、原理图资料、会话与项目产物；资料是工程分析起点，不代表固件已经生成。</p></div>
+        <div><h2 className="text-lg font-semibold">{projects.find(project => project.id === projectId)?.name} · 项目概览</h2><p className="mt-1 text-sm text-muted-foreground">统一查看本项目的方案、原理图资料、调试报告、开发结果与会话记录。各模块选择同一项目后，已归档的工作结果集中保存在这里。</p></div>
         <section aria-label="项目执行准备" className="space-y-3 rounded-xl border bg-card p-4">
           <h3 className="font-semibold">{mode === "agent" ? "资料与下一步" : `${workflow.title}准备`}</h3>
-          <p className="text-sm text-muted-foreground">项目绑定执行器：{runners.find(runner => runner.runnerKey === projects.find(project => project.id === projectId)?.runnerKey)?.name ?? projects.find(project => project.id === projectId)?.runnerKey ?? "未指定"}。绑定关系不代表节点当前可执行；提交任务时由服务端核验。云端项目不能仅因电脑插上 USB 就操作本地设备。</p>
+          <p className="text-sm text-muted-foreground">Agent 执行器：{runners.find(runner => runner.runnerKey === projects.find(project => project.id === projectId)?.runnerKey)?.name ?? projects.find(project => project.id === projectId)?.runnerKey ?? "未指定"}。{mode === "agent" ? "用于分析项目资料和处理工程任务。项目不限定板型；需要连接硬件时，进入 AI 调试、嵌入式开发或设备开发。" : "提交任务时由服务端核验节点是否可执行；设备连接在本模块单独完成。"}</p>
           <Button disabled={threadsLoading || threadsError || openingConversation} onClick={() => {
             setInput(workflow.prompt);
             void openProjectConversation();
           }}>{workflow.action}</Button>
-          <p className="text-xs text-muted-foreground">只预填任务，不自动调用模型。打开会话检查后发送；设备绑定与实际读写须单独确认。</p>
+          <p className="text-xs text-muted-foreground">{mode === "agent" ? "打开会话后检查任务内容并发送，Agent 会读取本项目已归档的资料。" : "只预填任务，不自动调用模型。打开会话检查后发送；设备绑定与实际读写须单独确认。"}</p>
         </section>
-        <BrowserDevicePanel key={`usb-${projectId}`} projectId={projectId} onBusy={setDeviceBusy} onSaved={() => setDocumentRevision(value => value + 1)} onArchived={path => {
+        {mode !== "agent" && <BrowserDevicePanel key={`usb-${projectId}`} projectId={projectId} onBusy={setDeviceBusy} onSaved={() => setDocumentRevision(value => value + 1)} onArchived={path => {
           setInput(`请实际使用只读工具读取本项目 ${path}，按报告路径与采集时间说明板型、系统、内存、磁盘和已有服务状态，并结合项目资料给出下一步调试建议。报告是浏览器上报的历史快照，可被伪造，不能代表当前 USB 在线或设备操作授权。此次只分析，不修改文件、部署、复位或烧录。`);
           void openProjectConversation();
-        }} />
+        }} />}
         <ProjectDocuments key={`${projectId}-${documentRevision}`} projectId={projectId} disabled={threadsLoading || threadsError || openingConversation || deviceBusy} onAnalyze={() => {
           setInput("请先读取本项目 documents/ 下归档的原理图分析与设备报告，列出外设、接口与引脚、采集时间、来源位置和待确认项，再给出开发调试建议。区分 AI 识别草案与浏览器上报快照，两者不等同于硬件验证。未经我确认不要修改文件或操作设备。");
           void openProjectConversation();
@@ -462,7 +462,7 @@ export function AgentWorkbench({ mode = "agent" }: { mode?: ProjectWorkflowMode 
 
     <aside id="agent-project-details" aria-label="审批与产物" className={`${mobilePanel === "details" ? "block" : "hidden"} min-h-0 min-w-0 overflow-y-auto overscroll-contain border-l border-border/70 bg-card/30 p-4 lg:block`}>
       {error && <div className="mb-3 flex gap-2 rounded-md border border-red-500/20 bg-red-500/10 p-2 text-xs text-red-500"><AlertTriangle className="h-4 w-4 shrink-0" />{error}<button className="ml-auto" onClick={() => setError("")} title="关闭"><X className="h-3 w-3" /></button></div>}
-      {!projectId ? <div className="space-y-3 text-sm"><h3 className="font-semibold">项目与会话</h3><p className="text-muted-foreground">项目用于保存方案、工作区和产物；会话用于围绕该项目持续交给 Agent 任务。创建项目本身不会调用模型。</p></div> : view === "overview" ? <div className="space-y-4 text-sm"><h3 className="font-semibold">下一步怎么做</h3><ol className="list-inside list-decimal space-y-3 text-muted-foreground"><li>已有图纸？点击“添加原理图资料”，选定本项目后识别并自动归档。</li><li>点击“让 Agent 分析项目资料”或“基于最新方案继续”，打开会话并预填任务。</li><li>检查任务后自行发送；需要写文件或操作设备时，再核对审批内容。</li></ol><p className="rounded-lg border p-3 text-xs text-muted-foreground">私有资料在下次 Agent 任务前同步到工作区；原图从项目资料单独下载。工程 ZIP 包含已同步正文，不重复打包 OSS 原图。</p></div> : <>
+      {!projectId ? <div className="space-y-3 text-sm"><h3 className="font-semibold">项目与会话</h3><p className="text-muted-foreground">项目用于保存方案、工作区和产物；会话用于围绕该项目持续交给 Agent 任务。创建项目本身不会调用模型。</p></div> : view === "overview" ? <div className="space-y-4 text-sm"><h3 className="font-semibold">下一步怎么做</h3><ol className="list-inside list-decimal space-y-3 text-muted-foreground"><li>在方案生成、原理图识别、AI 调试或嵌入式开发中选择本项目，将工作结果归档到这里。</li><li>点击“让 Agent 分析项目资料”或“基于最新方案继续”，打开会话并预填任务。</li><li>{mode === "agent" ? "需要连接板卡时，前往 AI 调试、嵌入式开发或设备开发；本页集中查看资料与结果。" : "检查任务后自行发送；需要写文件或操作设备时，再核对审批内容。"}</li></ol><p className="rounded-lg border p-3 text-xs text-muted-foreground">私有资料在下次 Agent 任务前同步到工作区；原图从项目资料单独下载。工程 ZIP 包含已同步正文，不重复打包 OSS 原图。</p></div> : <>
       <div className="mb-4 flex items-center justify-between"><span className="text-xs font-semibold uppercase text-muted-foreground">审批队列</span>{approvals.length > 0 && <span className="rounded-full bg-amber-500/10 px-2 py-0.5 text-[11px] font-medium text-amber-500">{approvals.length}</span>}</div>
       {approvals.length === 0 ? <p className="text-xs leading-5 text-muted-foreground">当前没有待审批操作</p> : <div className="space-y-3">{approvals.map((approval) => {
         const details = approval.details ?? {};
