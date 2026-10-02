@@ -1,6 +1,12 @@
 # ldcx.tech deployment
 
-## Device workspace UI, 2026-10-01 21:38 CST (current platform)
+## Schematic workspace UI, 2026-10-02 13:21 CST (current platform)
+
+Only platform uses `/opt/vibehard/releases/20261002-schematic-workspace-ui-v1/standalone` (PID1129747, NRestarts=0). PR #44/default CI passed, source f4c54a0 and merged9b1eee4 have identical full trees; 463 ordinary and 28 isolated PostgreSQL tests, production/service builds and actual Linux PDF pixels passed. Archive SHA256 `312b75ac3456e20159e900f39b1f35ae7e369f500cdf460b9a91dbbc91743098`,1224 source files, exactly three runtime UI changes. Candidate/local/public PCB/Demo/BOM/auth, schematic document bundle and anonymous POST passed. No new authenticated manual UI/model/board acceptance; no migration or model/index/config change.
+
+All backend/nginx PIDs and protected hashes remain unchanged; fresh cloud/device heartbeats1/7s and two Gateway connections after activation. Candidate stopped; readable0600 PG dump/old unit retained, approximately6.5GB free. Keep previous platform and all active backend release dependencies. After confirming idle tasks, use bundled Node and protected platform environment to run new release's `source/scripts/deploy-schematic-workspace-ui.mjs rollback`: platform-only, never DB/user-data/backend restore. Full record: [schematic workspace UI](schematic-workspace-ui.md).
+
+## Device workspace UI, 2026-10-01 21:38 CST (previous platform)
 
 Only platform uses `/opt/vibehard/releases/20261001-device-workspace-ui-v1/standalone` (PID 1106614, NRestarts=0). PR #43/default CI passed: 457 ordinary and 28 separately isolated PostgreSQL tests, production build and real Linux PDF pixels. Release source `db3e1c1` and merged `f6b8a7c` have identical complete trees. Archive SHA256 `55c6242c099c1f2f09be889e384f395bf1a8f980b3983a97fea3673bd92206cc`; 1219 source files, exactly four UI runtime changes. Candidate/local/public PCB/Demo/BOM/auth and existing authenticated Chrome project/history/layout checks passed; no new model/device task or production migration.
 
