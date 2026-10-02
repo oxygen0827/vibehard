@@ -60,7 +60,11 @@ export interface ZutilsCategory {
   tools: ZutilsTool[];
 }
 
-const toolSrc = (slug: string) => `/zutils/tools/${slug}/index.html`;
+// Static exports need the deployment prefix too; unlike Next Link, iframe/a do not add it.
+// A versioned URL also avoids old cached HTML carrying the former anti-framing policy.
+const zutilsSrc = (path: string) =>
+  `${process.env.NEXT_PUBLIC_BASE_PATH ?? ""}/zutils/${path}?v=embed-v1`;
+const toolSrc = (slug: string) => zutilsSrc(`tools/${slug}/index.html`);
 
 export const zutilsCategories: ZutilsCategory[] = [
   {
@@ -172,21 +176,21 @@ export const zutilsCategories: ZutilsCategory[] = [
         name: "示波器仿真实验台",
         desc: "在练习电路板上实操触发、时基、探头补偿等示波器技能",
         icon: FlaskConical,
-        src: "/zutils/labs/oscilloscope-learning-lab.html",
+        src: zutilsSrc("labs/oscilloscope-learning-lab.html"),
       },
       {
         slug: "lab-multimeter",
         name: "万用表测量实验台",
         desc: "配合练习电路板，实操电压、电流、电阻与通断测量",
         icon: GraduationCap,
-        src: "/zutils/labs/multimeter-learning-lab.html",
+        src: zutilsSrc("labs/multimeter-learning-lab.html"),
       },
       {
         slug: "lab-waveform",
         name: "任意波形发生器实验台",
         desc: "学习任意波形编辑与输出，可配合示波器实验台联调",
         icon: Waves,
-        src: "/zutils/labs/arbitrary-waveform-generator-lab.html",
+        src: zutilsSrc("labs/arbitrary-waveform-generator-lab.html"),
       },
     ],
   },

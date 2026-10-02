@@ -738,3 +738,7 @@
 - PR #42/default CI 通过，源 2a6cd18 与合并 f5c05d6 完整树一致。448 常规通过/30 条件跳过，独立 PG CI、类型/lint/构建、实际 Linux PDF 与 PCB/Demo/BOM/鉴权通过。
 - 仅平台发布 project-archive-ui-v4，真实 Chrome 既有登录态点击两个项目以及 AI 调试/嵌入式返回，USB 仅在工作模块挂载、同项目链接/旧报告保留。其他服务 PID、配置/模型/索引不变，无生产 DDL/付费模型请求/设备操作。
 - diagnose 复现 dependency shadowing，失败回归后物化现有 pinned pdfjs；守卫便携链接及精确候选端口3217。本轮未激活的 UI v1/v2/v3 目录/包已清理；正式/用户/旧独立验收资料保留。备份0600可读、候选停止、云端7.6GB。新的开发结果归档/0010 尚未发布。详见 docs/release-project-archive-ui-20261001.md。
+
+## 2026-10-02 实用工具嵌入修复
+
+用户授权修复并上线；以当前正式 `20261002-schematic-workspace-ui-v1` / `f4c54a0` 的 1224 文件哈希为基线隔离修复。仅 `next.config.ts` 与 `lib/zutils-tools.ts` 两项运行时变更：工具 CSP 同站点嵌入与 42 个入口部署前缀/缓存版本。3 项新增定向回归、类型/Next 构建与 ESLint 通过；全量 466 通过/30 跳过（7 项因沙箱无法监听初败，4 个相关文件提权重跑全部通过）。候选发布与线上验收待完成，无迁移/模型或 Runner 配置修改。
