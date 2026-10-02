@@ -16,7 +16,7 @@ const pages = (await readdir(path.join(standalone, 'public/zutils/tools'), { wit
 pages.push(...(await readdir(path.join(standalone, 'public/zutils/labs'))).filter(p => p.endsWith('.html')).map(p => `zutils/labs/${p}`));
 for (const relative of pages) {
   const expected = await readFile(path.join(standalone, 'public', relative));
-  const url = new URL(`${relative}?v=embed-v1`, base);
+  const url = new URL(`${relative}?v=nav-v1`, base);
   const response = await request(url);
   assert.equal(response.status, 200, relative);
   assert.match(response.headers.get('content-type'), /text\/html/);
@@ -25,6 +25,7 @@ for (const relative of pages) {
   assert.notEqual(response.headers.get('x-frame-options')?.toUpperCase(), 'DENY');
   const bytes = Buffer.from(await response.arrayBuffer());
   assert.equal(digest(bytes), digest(expected), relative);
+  if (relative.startsWith("zutils/tools/")) assert.ok(bytes.toString().includes('src="../../platform-navigation.js?v=nav-v1"'), `Missing navigation bridge: ${relative}`);
   for (const match of bytes.toString().matchAll(/(?:src|href)="([^\"]+\.(?:js|css)(?:\?[^\"]*)?)"/g)) {
     const asset = new URL(match[1].replaceAll('&amp;', '&'), url);
     assert.equal(asset.origin, base.origin, 'Tool asset must be local'); assets.add(asset.href);

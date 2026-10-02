@@ -1,6 +1,7 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { Suspense, useMemo, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { Search, Wrench, Cable, ArrowRight } from "lucide-react";
 import { PageHeader } from "@/components/app/page-header";
@@ -9,7 +10,27 @@ import { cn } from "@/lib/utils";
 import { zutilsCategories, allZutilsTools } from "@/lib/zutils-tools";
 
 export default function ToolsPage() {
-  const [category, setCategory] = useState("all");
+  return (
+    <Suspense fallback={<div className="p-6 lg:p-8" role="status">正在加载工具箱…</div>}>
+      <ToolsDirectory />
+    </Suspense>
+  );
+}
+
+function ToolsDirectory() {
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const requestedCategory = searchParams.get("category");
+  const category = zutilsCategories.some((item) => item.id === requestedCategory)
+    ? requestedCategory!
+    : "all";
+  const setCategory = (id: string) => {
+    const params = new URLSearchParams(searchParams.toString());
+    if (id === "all") params.delete("category");
+    else params.set("category", id);
+    const query = params.toString();
+    router.replace(`/app/tools${query ? `?${query}` : ""}`, { scroll: false });
+  };
   const [search, setSearch] = useState("");
 
   const searching = search.trim().length > 0;

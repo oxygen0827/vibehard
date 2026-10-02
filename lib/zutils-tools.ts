@@ -63,7 +63,7 @@ export interface ZutilsCategory {
 // Static exports need the deployment prefix too; unlike Next Link, iframe/a do not add it.
 // A versioned URL also avoids old cached HTML carrying the former anti-framing policy.
 const zutilsSrc = (path: string) =>
-  `${process.env.NEXT_PUBLIC_BASE_PATH ?? ""}/zutils/${path}?v=embed-v1`;
+  `${process.env.NEXT_PUBLIC_BASE_PATH ?? ""}/zutils/${path}?v=nav-v1`;
 const toolSrc = (slug: string) => zutilsSrc(`tools/${slug}/index.html`);
 
 export const zutilsCategories: ZutilsCategory[] = [

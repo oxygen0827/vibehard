@@ -22,7 +22,7 @@ it.each(["", "/vibehard"])("serves every exported tool under deployment prefix %
   expect(allZutilsTools).toHaveLength(42);
   for (const tool of allZutilsTools) {
     expect(tool.src.startsWith(`${prefix}/zutils/`)).toBe(true);
-    expect(tool.src.endsWith("?v=embed-v1")).toBe(true);
+    expect(tool.src.endsWith("?v=nav-v1")).toBe(true);
     const pathname = new URL(tool.src, "http://localhost").pathname.slice(prefix.length);
     expect(existsSync(`public${pathname}`)).toBe(true);
   }
