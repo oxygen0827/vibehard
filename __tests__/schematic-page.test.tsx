@@ -16,9 +16,69 @@ async function analyze() {
   expect(screen.getByRole("button", { name: "开始识别" })).toBeDisabled();
   await screen.findByRole("option", { name: "泰山派" });
   fireEvent.change(screen.getByLabelText("当前项目"), { target: { value: projectId } });
+  // Processing consent must be confirmed for the newly selected destination.
+  expect(screen.getByRole("checkbox")).not.toBeChecked();
+  fireEvent.click(screen.getByRole("checkbox"));
   fireEvent.click(screen.getByRole("button", { name: "开始识别" }));
 }
 describe("schematic candidate UI", () => {
+  it("shows focused upload and document panels without creating a model request", async () => {
+    const fetcher = vi.fn(async () => json({ projects: [{ id: projectId, name: "泰山派" }] }));
+    vi.stubGlobal("fetch", fetcher);
+    render(<SchematicPage />);
+    await screen.findByRole("option", { name: "泰山派" });
+    expect(screen.getByRole("region", { name: "图纸上传" })).toBeInTheDocument();
+    expect(screen.getByRole("region", { name: "识别结果" })).toHaveTextContent("选择项目并上传图纸后");
+    expect(screen.getByText("图纸要求与处理说明").closest("details")).not.toHaveAttribute("open");
+    expect(screen.queryByRole("button", { name: "申请加入知识库备选" })).toBeNull();
+    expect(fetcher).toHaveBeenCalledTimes(1);
+  });
+  it("supports a single dragged file and removing it clears consent and disables recognition", async () => {
+    const fetcher = vi.fn(async () => json({ projects: [{ id: projectId, name: "泰山派" }] }));
+    vi.stubGlobal("fetch", fetcher);
+    render(<SchematicPage />);
+    await screen.findByRole("option", { name: "泰山派" });
+    fireEvent.change(screen.getByLabelText("当前项目"), { target: { value: projectId } });
+    const dropZone = screen.getByRole("button", { name: /点击选择文件/ }).parentElement!;
+    fireEvent.drop(dropZone, { dataTransfer: { files: [new File(["fixture"], "board.pdf", { type: "application/pdf" })] } });
+    expect(screen.getByText("board.pdf")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("checkbox"));
+    expect(screen.getByRole("button", { name: "开始识别" })).toBeEnabled();
+    fireEvent.click(screen.getByRole("button", { name: "移除图纸" }));
+    expect(screen.getByRole("checkbox")).not.toBeChecked();
+    expect(screen.getByRole("button", { name: "开始识别" })).toBeDisabled();
+    fireEvent.drop(dropZone, { dataTransfer: { files: [new File(["a"], "a.pdf"), new File(["b"], "b.pdf")] } });
+    expect(screen.getByRole("alert")).toHaveTextContent("请每次上传一份图纸");
+    expect(fetcher).toHaveBeenCalledTimes(1);
+  });
+  it("shows safe structured document text and retains the untouched Markdown view", async () => {
+    const content = "## 接口与引脚\n| 器件 | 管脚 |\n| --- | --- |\n| U1 | `GPIO3` |\n- **待确认**：电平\n<img src=x onerror=alert(1)>\n[伪造链接](javascript:alert(1))";
+    vi.stubGlobal("fetch", vi.fn(async (url: string) => url.endsWith("/api/projects") ? json({ projects: [{ id: projectId, name: "泰山派" }] }) : stream({ type: "result", result: { ...result, draft: { ...result.draft, content } } })));
+    const { container } = render(<SchematicPage />);
+    await analyze();
+    await screen.findByRole("button", { name: "Markdown 原文" });
+    expect(screen.getByRole("heading", { name: "接口与引脚" })).toBeInTheDocument();
+    expect(screen.getByRole("table")).toHaveTextContent("GPIO3");
+    expect(container.querySelector("img,script")).toBeNull();
+    expect(screen.queryByRole("link", { name: "伪造链接" })).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "Markdown 原文" }));
+    expect(screen.getByLabelText("识别文档阅读区域").textContent).toBe(content);
+    expect(screen.getByRole("button", { name: "Markdown 原文" })).toHaveAttribute("aria-pressed", "true");
+  });
+  it("locks project/file controls while identifying and cancellation creates no candidate", async () => {
+    const fetcher = vi.fn((url: string, init?: RequestInit) => url.endsWith("/api/projects") ? Promise.resolve(json({ projects: [{ id: projectId, name: "泰山派" }] })) : new Promise((_resolve, reject) => init!.signal!.addEventListener("abort", () => reject(new DOMException("Aborted", "AbortError")), { once: true })));
+    vi.stubGlobal("fetch", fetcher);
+    render(<SchematicPage />); await analyze();
+    await screen.findByRole("button", { name: "取消识别" });
+    expect(screen.getByLabelText("当前项目")).toBeDisabled();
+    expect(screen.getByLabelText("上传原理图")).toBeDisabled();
+    expect(screen.getByRole("checkbox")).toBeDisabled();
+    expect(screen.getByRole("region", { name: "识别结果" })).toHaveAttribute("aria-busy", "true");
+    fireEvent.click(screen.getByRole("button", { name: "取消识别" }));
+    expect(await screen.findByRole("alert")).toHaveTextContent("已取消识别");
+    expect(screen.queryByRole("button", { name: "申请加入知识库备选" })).toBeNull();
+    expect(fetcher).toHaveBeenCalledTimes(2);
+  });
   it("requires target selection, submits only a draft, retries safely and links to that review document", async () => {
     let attempts = 0;
     const fetcher = vi.fn(async (url: string, init?: RequestInit) => {
