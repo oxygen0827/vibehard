@@ -1,5 +1,14 @@
 # 项目状态
 
+## 2026-10-02 13:43 实用工具嵌入修复上线
+
+- 正式平台切换为 `/opt/vibehard/releases/20261002-tools-embedding-v1/standalone`，基线为实际上一正式版 `20261002-schematic-workspace-ui-v1` / `f4c54a0`。1224 个旧源码文件完整哈希核对，发布包保留全部源码，运行时只改 `next.config.ts` 与 `lib/zutils-tools.ts`。Git 修复提交 `89bb215`，本地独立分支 `codex/tools-iframe-fix`；GitHub 推送/PR 被自动审批拒绝，需要明确源码外发授权，未绕过。
+- 原因：全局 `frame-ancestors 'none'` 阻止 iframe。仅 `/zutils/:path*` 改为 `frame-ancestors 'self'`；所有 42 个入口（39 工具 + 3 实验台）补齐 `/vibehard` 部署前缀与缓存版本 `?v=embed-v1`，其余安全指令/权限保持不变。
+- 466 项测试通过、30 项因独立 DB 等条件跳过；7 项沙箱监听限制初败，4 个相关文件提权重跑全部通过。类型/ESLint/Next 构建、候选与正式 42 页面/56 脚本样式状态及哈希核对、PDF 像素渲染通过；切换前当前实际发布、候选、正式回环和公网 PCB 详细 renderer 与 Demo 18 资源/5 GIF 回归通过。本机 Chromium 42 个 iframe 可见，LED 输入 5V→12V 结果 150Ω→500Ω；公网 Chromium 同样验证 42 个 iframe 可见及 LED 150Ω→500Ω 实际交互。
+- 仅重启 `vibehard.service`，PID `1130713`，复查 active、NRestarts=0。Runner/Gateway/设计 worker/知识检索/EDA manager/VibeBoard/nginx PID 与环境/模型/配置哈希保持一致，无 DB 迁移/数据写入/模型调用/设备操作。切换后 cloud/device 心跳年龄 2/8 秒，Gateway established 连接 2；候选已停止、3217 空闲。
+- 发布归档 SHA256 `0e25b4e6f11e30bd0f4a355bddbf15b1a4f2de0437188e7661aff2dbaefe5e73`。旧平台单元保存在新 release 的 `backup/vibehard.service`；空闲时可用 `source/scripts/deploy-tools-embedding.mjs rollback` 恢复前版，只切平台，不恢复 DB。原静态导出 timestamp/web-serial 在 Chromium 有可恢复 hydration 提示；本轮未更改工具导出或验证真实设备连接。
+
+
 - 2026-10-02 原理图识别 UI 本地完成、未提交/上线：独立 `codex/schematic-workspace-ui`，顶部选项目、左上传/右可滚动文档、说明折叠、原文切换、可选知识申请分区；切换项目重新确认授权。沿用实际归档/API/模型与审核，不改识别精度或后端。461 常规通过/30 条件跳过，7 页面测试、类型/lint/生产构建通过；回环合成预览项目选择/上传/阅读及390/320px无横向溢出通过，未生产/模型/设备验收。主目录及另一个归档工作树保持；见 `docs/schematic-workspace-ui.md`。
 
 - 2026-10-01 21:38 简洁工作模块已上线：PR #43/default CI全绿，源db3e1c1/合并f6b8a7c完整树一致；仅平台device-workspace-ui-v1（PID1106614，无重启），四个UI运行时文件调整。457常规＋28隔离PG、构建/类型/Linux PDF、候选/公网保护通过。真实Chrome登录核对双模块/同项目跳转/三份历史报告/既有会话SSE与固定结果区，未新发模型任务/连接USB。其他后端/PID/模型配置/索引不变，无DDL。旧unit/可读0600 PG备份保留，候选停止、云端约7.1GB；独立新开发归档/0010未发布。详见docs/device-workspace-ui.md。以下未发布表述为历史。
