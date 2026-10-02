@@ -36,7 +36,17 @@ const nextConfig: NextConfig = {
     return config;
   },
   async headers() {
-    return [{ source: "/:path*", headers: securityHeaders }];
+    return [
+      { source: "/:path*", headers: securityHeaders },
+      // The local tool exports are embedded by our own toolbox, including in subpath deployments.
+      // Keep the default anti-framing policy for every other platform page.
+      {
+        source: "/zutils/:path*",
+        headers: securityHeaders.map((header) => header.key === "Content-Security-Policy"
+          ? { ...header, value: header.value.replace("frame-ancestors 'none'", "frame-ancestors 'self'") }
+          : header),
+      },
+    ];
   },
   ...(basePath ? { basePath } : {}),
 };

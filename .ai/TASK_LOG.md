@@ -738,3 +738,35 @@
 - PR #42/default CI 通过，源 2a6cd18 与合并 f5c05d6 完整树一致。448 常规通过/30 条件跳过，独立 PG CI、类型/lint/构建、实际 Linux PDF 与 PCB/Demo/BOM/鉴权通过。
 - 仅平台发布 project-archive-ui-v4，真实 Chrome 既有登录态点击两个项目以及 AI 调试/嵌入式返回，USB 仅在工作模块挂载、同项目链接/旧报告保留。其他服务 PID、配置/模型/索引不变，无生产 DDL/付费模型请求/设备操作。
 - diagnose 复现 dependency shadowing，失败回归后物化现有 pinned pdfjs；守卫便携链接及精确候选端口3217。本轮未激活的 UI v1/v2/v3 目录/包已清理；正式/用户/旧独立验收资料保留。备份0600可读、候选停止、云端7.6GB。新的开发结果归档/0010 尚未发布。详见 docs/release-project-archive-ui-20261001.md。
+
+## 2026-10-02 实用工具嵌入修复
+
+用户授权修复并上线；以当前正式 `20261002-schematic-workspace-ui-v1` / `f4c54a0` 的 1224 文件哈希为基线隔离修复。仅 `next.config.ts` 与 `lib/zutils-tools.ts` 两项运行时变更：工具 CSP 同站点嵌入与 42 个入口部署前缀/缓存版本。3 项新增定向回归、类型/Next 构建与 ESLint 通过；全量 466 通过/30 跳过（7 项因沙箱无法监听初败，4 个相关文件提权重跑全部通过）。候选发布与线上验收待完成，无迁移/模型或 Runner 配置修改。
+
+## 2026-10-02 13:43 实用工具嵌入修复上线
+
+- 正式平台切换为 `/opt/vibehard/releases/20261002-tools-embedding-v1/standalone`，基线为实际上一正式版 `20261002-schematic-workspace-ui-v1` / `f4c54a0`。1224 个旧源码文件完整哈希核对，发布包保留全部源码，运行时只改 `next.config.ts` 与 `lib/zutils-tools.ts`。Git 修复提交 `89bb215`，本地独立分支 `codex/tools-iframe-fix`；首次 GitHub 推送/PR 被自动审批拒绝；随后用户明确授权，已推送并创建 [PR #45](https://github.com/oxygen0827/vibehard/pull/45)，未合并。
+- 原因：全局 `frame-ancestors 'none'` 阻止 iframe。仅 `/zutils/:path*` 改为 `frame-ancestors 'self'`；所有 42 个入口（39 工具 + 3 实验台）补齐 `/vibehard` 部署前缀与缓存版本 `?v=embed-v1`，其余安全指令/权限保持不变。
+- 466 项测试通过、30 项因独立 DB 等条件跳过；7 项沙箱监听限制初败，4 个相关文件提权重跑全部通过。类型/ESLint/Next 构建、候选与正式 42 页面/56 脚本样式状态及哈希核对、PDF 像素渲染通过；切换前当前实际发布、候选、正式回环和公网 PCB 详细 renderer 与 Demo 18 资源/5 GIF 回归通过。本机 Chromium 42 个 iframe 可见，LED 输入 5V→12V 结果 150Ω→500Ω；公网 Chromium 同样验证 42 个 iframe 可见及 LED 150Ω→500Ω 实际交互。
+- 仅重启 `vibehard.service`，PID `1130713`，复查 active、NRestarts=0。Runner/Gateway/设计 worker/知识检索/EDA manager/VibeBoard/nginx PID 与环境/模型/配置哈希保持一致，无 DB 迁移/数据写入/模型调用/设备操作。切换后 cloud/device 心跳年龄 2/8 秒，Gateway established 连接 2；候选已停止、3217 空闲。
+- 发布归档 SHA256 `0e25b4e6f11e30bd0f4a355bddbf15b1a4f2de0437188e7661aff2dbaefe5e73`。旧平台单元保存在新 release 的 `backup/vibehard.service`；空闲时可用 `source/scripts/deploy-tools-embedding.mjs rollback` 恢复前版，只切平台，不恢复 DB。原静态导出 timestamp/web-serial 在 Chromium 有可恢复 hydration 提示；本轮未更改工具导出或验证真实设备连接。
+
+## 2026-10-02 GitHub 修复交付
+
+用户明确授权推送工具箱修复并创建 PR。独立分支 `codex/tools-iframe-fix` 已推送至已配置的 `github` 仓库，创建 [PR #45](https://github.com/oxygen0827/vibehard/pull/45)，附公网浏览器验证与发布/回滚证据。未合并或重新部署。
+
+## 2026-10-02 17:29 工具左侧分类导航修复已上线
+
+- 正式平台为 `/opt/vibehard/releases/20261002-tools-navigation-v2/standalone`，PID `1138751`，active、NRestarts=0。基于实际最新 `20261002-kev-agent-v1` 的全部 1236 源码文件叠加导航；完整发布清单 1244 文件，42 项运行时变更，保留 Kev、PCB/Demo 与现用后端。旧基线 v1 被版本门禁拒绝、从未激活。
+- 原工具侧栏指向无目标的 `#category` / `/#category`。39 个静态工具加本地链接桥接，分类跳转顶层平台目录、URL 筛选支持刷新和返回；AI 助手接现有 Agent。缓存版本改为 `nav-v1`，工具算法不变。交付仍在 [PR #45](https://github.com/oxygen0827/vibehard/pull/45)，运行源码 overlay `4be21fb`，代码 CI 已通过、未合并。
+- 最新 Kev 基线构建/类型通过，488 项回归通过、30 条件跳过；其中端口测试初遇本轮浏览器本地服务占用3217，停止本轮服务后单项重跑通过。本机 Chromium 原生点击全部10入口、分类数量/刷新/返回、独立窗口和 LED 12V→500Ω 通过；公网原生点击全部10入口及独立窗口正确请求顶层分类/Agent路径，匿名用户按现有规则转登录。未使用生产账号验证分类内容。
+- 切换前针对实际 Kev 正式包、候选、正式回环/公网 PCB 详细 renderer、Demo 18脚本样式/5GIF、BOM/认证边界、42工具页/57资源哈希通过，Linux PDF 实际像素渲染通过。仅平台重启，Runner/Gateway/worker/检索/EDA/VibeBoard/nginx PID与配置哈希保持；切换后 cloud/device 心跳12/14秒，Gateway连接2，候选停止。
+- 发布包 SHA256 `70be6bb07e5c79e9d66d508ec788ad36e54c7081d01f75adce5957b67854fad0`；旧平台 unit 在新release的 `backup/vibehard.service`。确认无活动任务后，用新release的 `source/scripts/deploy-tools-navigation.mjs rollback`（现用平台env与bundled Node）仅恢复 Kev 平台单元，不回滚DB或Runner。没有迁移、生产数据写入、模型调用或设备操作。细节见 [工具分类导航修复](../docs/tools-navigation-fix.md)。
+
+## 2026-10-02 19:44 三个仪表内层404修复已上线
+
+- 示波器、万用表、波形发生器的外壳原本200，但内层iframe及客户端写死 `/labs/...`，公网返回nginx404。初始HTML/内嵌Flight与客户端3处路径改为 `../../labs/...`，正确解析到 `/vibehard/zutils/labs/...`；三个仪表缓存改 `instrument-v1`，专用入口使用新内容哈希文件名 `page-6293045f032a15ac.js`，其余36工具仍用原入口。回归确认客户端反向还原路径后与原文件逐字相同，计算代码未改。
+- 正式平台现为 `/opt/vibehard/releases/20261002-tools-instruments-v1/standalone`，PID `1144177`、active、NRestarts=0。完整保留上一正式导航版1244文件，新清单1252文件，6项运行时变更。基线/候选/正式回环与公网 PCB详细renderer、Demo18资源/5GIF、BOM/认证、42工具页及3内层仪表/60资源哈希通过；Linux PDF实际像素通过。
+- 新增3项回归先失败后修复；定向19项、最新正式源码全量491项通过/30条件跳过，lint、类型、Next构建通过，修复提交 `564719e` 的GitHub CI通过。本机静态夹具、实际候选、正式公网Chromium均验证三个仪表：原生Run/Stop（运行→停止）、HOLD（false→true）、发生器电源（on→off）；嵌入/独立窗口、图片加载、全屏hydration与刷新通过。嵌入使用匿名同源双层iframe夹具，未使用生产用户凭据或验收实体设备。
+- 仅切平台服务，Runner/Gateway/worker/检索/EDA/VibeBoard/nginx PID与环境/模型/配置哈希保持；cloud/device心跳15/10秒，Gateway连接2；候选3217停止，验收隧道关闭。无DB迁移/生产数据写入/模型调用/设备操作。当前Runner仍为Kev版本，原分类导航保持。
+- 发布归档SHA256 `457c424fb5f242f3803cdaad57f2fbf6219104269d847dd5a7651e427535b6ad`，旧平台unit保存在新release的 `backup/vibehard.service`；确认任务空闲，用现有平台env和bundled Node运行新release的 `source/scripts/deploy-tools-instruments.mjs rollback`，仅回到导航v2，不还原DB/Runner。运行源overlay `564719e`，后续记录提交不改变产物。修复已更新 [PR #45](https://github.com/oxygen0827/vibehard/pull/45)，未合并；详见 [仪表修复记录](../docs/tools-instruments-fix.md)。

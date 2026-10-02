@@ -42,6 +42,8 @@ jobs:
         run: pnpm build:services
       - name: Build platform
         run: pnpm build
+      - name: Complete standalone PDF runtime
+        run: node scripts/materialize-standalone-pdf.mjs
       - name: Verify standalone PDF rendering
         run: node scripts/verify-pdf-standalone.mjs
       - name: Create disposable databases
